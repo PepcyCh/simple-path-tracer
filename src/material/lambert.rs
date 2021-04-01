@@ -29,6 +29,10 @@ impl Material for Lambert {
         self.albedo / std::f32::consts::PI
     }
 
+    fn pdf(&self, _wo: Vector3<f32>, wi: Vector3<f32>) -> f32 {
+        wi.z / std::f32::consts::PI
+    }
+
     fn is_delta(&self) -> bool {
         false
     }

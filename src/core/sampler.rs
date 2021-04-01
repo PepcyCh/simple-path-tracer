@@ -5,7 +5,7 @@ pub trait Sampler {
         (self.uniform_1d(), self.uniform_1d())
     }
 
-    fn pixel_samples(&mut self, spp: u8) -> Vec<(f32, f32)> {
+    fn pixel_samples(&mut self, spp: u32) -> Vec<(f32, f32)> {
         let mut samples = Vec::with_capacity(spp as usize);
         for _ in 0..spp {
             samples.push(self.uniform_2d());

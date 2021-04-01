@@ -17,7 +17,11 @@ impl DirLight {
 }
 
 impl Light for DirLight {
-    fn sample_light(&self, _position: Point3<f32>) -> (Vector3<f32>, f32, Color, f32) {
+    fn sample(&self, _position: Point3<f32>) -> (Vector3<f32>, f32, Color, f32) {
         (-self.direction, 1.0, self.strength, f32::MAX)
+    }
+
+    fn is_delta(&self) -> bool {
+        true
     }
 }

@@ -6,5 +6,7 @@ pub trait Material {
 
     fn bsdf(&self, wo: cgmath::Vector3<f32>, wi: cgmath::Vector3<f32>) -> Color;
 
+    fn pdf(&self, wo: cgmath::Vector3<f32>, wi: cgmath::Vector3<f32>) -> f32;
+
     fn is_delta(&self) -> bool;
 }

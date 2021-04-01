@@ -15,7 +15,7 @@ pub struct PathTracer {
     camera: Box<dyn Camera>,
     objects: Box<dyn Aggregate>,
     lights: Vec<Box<dyn Light>>,
-    spp: u8,
+    spp: u32,
     sampler: Box<dyn Sampler>,
     max_depth: u32,
     filter: Box<dyn Filter>,
@@ -26,7 +26,7 @@ impl PathTracer {
         camera: Box<dyn Camera>,
         objects: Box<dyn Aggregate>,
         lights: Vec<Box<dyn Light>>,
-        spp: u8,
+        spp: u32,
         sampler: Box<dyn Sampler>,
         max_depth: u32,
         filter: Box<dyn Filter>,
@@ -81,15 +81,26 @@ impl PathTracer {
         let mut li = Color::BLACK;
 
         for light in &self.lights {
-            let (light_dir, pdf, light_strength, dist) = light.sample_light(p);
+            let (light_dir, pdf, light_strength, dist) = light.sample(p);
             let wi = world_to_normal * light_dir;
             if wi.z < 0.0 {
                 continue;
             }
             let bsdf = mat.bsdf(wo, wi);
+            let mat_pdf = mat.pdf(wo, wi);
             let shadow_ray = Ray::new(p, light_dir);
             if !self.objects.intersect_test(&shadow_ray, dist) {
-                li += light_strength * bsdf * wi.z / pdf;
+                if light.is_delta() {
+                    li += light_strength * bsdf * wi.z / pdf;
+                } else {
+                    let weight = power_heuristic(1, pdf, 1, mat_pdf);
+                    li += light_strength * bsdf * wi.z * weight / pdf;
+                }
+            }
+
+            if !light.is_delta() {
+                let (wi, pdf, bsdf) = mat.sample(wo);
+                // TODO - MIS - bsdf sampling
             }
         }
 
@@ -118,4 +129,10 @@ fn normal_to_world(normal: cgmath::Vector3<f32>) -> cgmath::Matrix3<f32> {
     let tangent = bitangent.cross(normal);
     let bitangent = normal.cross(tangent);
     cgmath::Matrix3::from_cols(tangent, bitangent, normal)
+}
+
+fn power_heuristic(n0: u32, p0: f32, n1: u32, p1: f32) -> f32 {
+    let prod0 = n0 * p0;
+    let prod1 = n1 * p1;
+    prod0 * prod0 / (prod0 * prod0 + prod1 * prod1)
 }

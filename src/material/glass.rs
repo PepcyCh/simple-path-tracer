@@ -78,6 +78,23 @@ impl Material for Glass {
         Color::BLACK
     }
 
+    fn pdf(&self, wo: Vector3<f32>, wi: Vector3<f32>) -> f32 {
+        let fresnel = crate::material::util::schlick_fresnel(self.ior, wo.z);
+        if wo.z * wi.z >= 0.0 {
+            let reflect = crate::material::util::reflect(wo);
+            if reflect.dot(wi) >= 0.99 {
+                return fresnel;
+            }
+        } else {
+            if let Some(refract) = crate::material::util::refract(wo, self.ior) {
+                if refract.dot(wi) >= 0.99 {
+                    return 1.0 - fresnel;
+                }
+            }
+        }
+        0.0
+    }
+
     fn is_delta(&self) -> bool {
         true
     }

@@ -47,7 +47,7 @@ impl RectangleLight {
 }
 
 impl Light for RectangleLight {
-    fn sample_light(&self, position: Point3<f32>) -> (Vector3<f32>, f32, Color, f32) {
+    fn sample(&self, position: Point3<f32>) -> (Vector3<f32>, f32, Color, f32) {
         let (offset_x, offset_y) = self.sampler.borrow_mut().uniform_2d();
         let sample_pos = self.center
             + (offset_x - 0.5) * self.width * self.right
@@ -55,7 +55,7 @@ impl Light for RectangleLight {
         let sample = sample_pos - position;
         let dist_sqr = sample.magnitude2();
         let dist = dist_sqr.sqrt();
-        let sample = sample.normalize();
+        let sample = sample / dist;
         let cos = -sample.dot(self.direction);
         let strength = if cos > 0.0 {
             self.strength * cos / dist_sqr
@@ -63,5 +63,9 @@ impl Light for RectangleLight {
             Color::BLACK
         };
         (sample, self.area_inv, strength, dist)
+    }
+
+    fn is_delta(&self) -> bool {
+        false
     }
 }

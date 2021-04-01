@@ -55,23 +55,17 @@ impl InputLoader {
             spp = if let Some(spp_value) = pixel_sampler_json.get("spp") {
                 spp_value
                     .as_u64()
-                    .context("pixel_sampler: 'spp' should be an int")? as u8
+                    .context("pixel_sampler: 'spp' should be an int")? as u32
             } else {
-                1_u8
+                1_u32
             };
             sampler = get_sampler_field(pixel_sampler_json)?;
         } else {
-            spp = 1_u8;
+            spp = 1_u32;
             sampler = Box::new(RandomSampler::new()) as Box<dyn Sampler>;
         }
 
-        let max_depth = if let Some(max_depth_value) = json_value.get("max_depth") {
-            max_depth_value
-                .as_u64()
-                .context("max_depth: 'max_depth' should be an int")? as u32
-        } else {
-            1_u32
-        };
+        let max_depth = get_int_field_option(&json_value, "top", "max_depth")?;
 
         let filter = if let Some(filter_value) = json_value.get("filter") {
             self.load_filter(filter_value)?
@@ -424,6 +418,16 @@ fn get_float_field(value: &serde_json::Value, env: &str, field: &str) -> Result<
         .context(format!("{}: '{}' should be a float", env, field))
 }
 
+fn get_int_field_option(value: &serde_json::Value, env: &str, field: &str) -> Result<u32> {
+    if let Some(field_value) = value.get(field) {
+        field_value
+            .as_u64()
+            .map(|f| f as u32)
+            .context(format!("{}: '{}' should be an int", env, field))
+    } else {
+        Ok(1_u32)
+    }
+}
 fn get_int_field(value: &serde_json::Value, env: &str, field: &str) -> Result<u32> {
     let field_value = value
         .get(field)
