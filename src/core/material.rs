@@ -1,0 +1,10 @@
+use crate::core::color::Color;
+
+pub trait Material {
+    /// return (sampled direction, pdf, bsdf)
+    fn sample(&self, wo: cgmath::Vector3<f32>) -> (cgmath::Vector3<f32>, f32, Color);
+
+    fn bsdf(&self, wo: cgmath::Vector3<f32>, wi: cgmath::Vector3<f32>) -> Color;
+
+    fn is_delta(&self) -> bool;
+}

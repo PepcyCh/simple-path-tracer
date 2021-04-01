@@ -1,0 +1,51 @@
+pub trait Sampler {
+    fn uniform_1d(&mut self) -> f32;
+
+    fn uniform_2d(&mut self) -> (f32, f32) {
+        (self.uniform_1d(), self.uniform_1d())
+    }
+
+    fn pixel_samples(&mut self, spp: u8) -> Vec<(f32, f32)> {
+        let mut samples = Vec::with_capacity(spp as usize);
+        for _ in 0..spp {
+            samples.push(self.uniform_2d());
+        }
+        samples
+    }
+
+    fn uniform_in_disk(&mut self) -> (f32, f32) {
+        loop {
+            let (rand_x, rand_y) = self.uniform_2d();
+            let x = rand_x * 2.0 - 1.0;
+            let y = rand_y * 2.0 - 1.0;
+            if x * x + y * y <= 1.0 {
+                return (x, y);
+            }
+        }
+    }
+
+    fn uniform_on_sphere(&mut self) -> cgmath::Vector3<f32> {
+        let (rand_x, rand_y) = self.uniform_2d();
+        let phi = rand_x * 2.0 * std::f32::consts::PI;
+        let (sin_phi, cos_phi) = phi.sin_cos();
+        let cos_theta = 1.0 - 2.0 * rand_y;
+        let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
+        cgmath::Vector3::new(sin_theta * cos_phi, sin_theta * sin_phi, cos_theta)
+    }
+
+    fn uniform_on_hemisphere(&mut self) -> cgmath::Vector3<f32> {
+        let mut sample = self.uniform_on_sphere();
+        sample.z = sample.z.abs();
+        sample
+    }
+
+    fn cosine_weighted_on_hemisphere(&mut self) -> cgmath::Vector3<f32> {
+        let (rand_x, rand_y) = self.uniform_2d();
+        let phi = rand_x * 2.0 * std::f32::consts::PI;
+        let (sin_phi, cos_phi) = phi.sin_cos();
+        let sin_theta_sqr = rand_y;
+        let sin_theta = sin_theta_sqr.sqrt();
+        let cos_theta = (1.0 - sin_theta_sqr).sqrt();
+        cgmath::Vector3::new(sin_theta * cos_phi, sin_theta * sin_phi, cos_theta)
+    }
+}

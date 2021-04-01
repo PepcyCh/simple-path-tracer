@@ -1,0 +1,47 @@
+{
+  "camera": {
+    "type": "perspective",
+    "eye": [0.0, 0.0, 5.0],
+    "forward": [0.0, 0.0, -1.0],
+    "up": [0.0, 1.0, 0.0],
+    "fov": 45.0
+  },
+  "aggregate": {
+    "type": "group"
+  },
+  "pixel_sampler": {
+    "type": "random",
+    "spp": 1
+  },
+  "max_depth": 2,
+  "filter": {
+    "type": "box",
+    "radius": 0.5
+  },
+  "output": {
+    "file": "images/test_scene_00.jpg",
+    "width": 200,
+    "height": 200
+  },
+  "materials": [
+    {
+      "type": "lambert",
+      "albedo": [0.5, 0.7, 1.0]
+    }
+  ],
+  "objects": [
+    {
+      "type": "sphere",
+      "material": 0,
+      "center": [0.5, 0.0, 0.0],
+      "radius": 1.0
+    }
+  ],
+  "lights": [
+    {
+      "type": "directional",
+      "direction": [-1.0, -1.0, -1.0],
+      "strength": [5.0, 5.0, 5.0]
+    }
+  ]
+}
