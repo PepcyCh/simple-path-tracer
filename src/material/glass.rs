@@ -98,4 +98,8 @@ impl Material for Glass {
     fn is_delta(&self) -> bool {
         true
     }
+
+    fn emissive(&self) -> Color {
+        Color::BLACK
+    }
 }

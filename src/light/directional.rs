@@ -21,6 +21,14 @@ impl Light for DirLight {
         (-self.direction, 1.0, self.strength, f32::MAX)
     }
 
+    fn strength_dist_pdf(&self, _position: Point3<f32>, wi: Vector3<f32>) -> (Color, f32, f32) {
+        if wi.dot(self.direction) <= -0.99 {
+            (self.strength, f32::MAX, 1.0)
+        } else {
+            (Color::BLACK, f32::MAX, 0.0)
+        }
+    }
+
     fn is_delta(&self) -> bool {
         true
     }

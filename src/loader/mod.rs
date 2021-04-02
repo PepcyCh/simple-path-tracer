@@ -148,8 +148,11 @@ impl InputLoader {
             let mat = match ty {
                 "lambert" => {
                     let albedo = get_float_array3_field(mat_json, "material-lambert", "albedo")?;
+                    let emissive =
+                        get_float_array3_field_option(mat_json, "meterial-lambert", "emissive")?;
                     let sampler = get_sampler_field_option(mat_json)?;
-                    Rc::new(Lambert::new(albedo.into(), sampler)) as Rc<dyn Material>
+                    Rc::new(Lambert::new(albedo.into(), emissive.into(), sampler))
+                        as Rc<dyn Material>
                 }
                 "glass" => {
                     let reflectance =
@@ -436,6 +439,18 @@ fn get_int_field(value: &serde_json::Value, env: &str, field: &str) -> Result<u3
         .as_u64()
         .map(|f| f as u32)
         .context(format!("{}: '{}' should be an int", env, field))
+}
+
+fn get_float_array3_field_option(
+    value: &serde_json::Value,
+    env: &str,
+    field: &str,
+) -> Result<[f32; 3]> {
+    if let Some(_) = value.get(field) {
+        get_float_array3_field(value, env, field)
+    } else {
+        Ok([0.0, 0.0, 0.0])
+    }
 }
 
 fn get_float_array3_field(value: &serde_json::Value, env: &str, field: &str) -> Result<[f32; 3]> {

@@ -26,6 +26,10 @@ impl Color {
     pub fn luminance(&self) -> f32 {
         0.299 * self.r + 0.587 * self.g + 0.114 * self.b
     }
+
+    pub fn is_finite(&self) -> bool {
+        self.r.is_finite() && self.g.is_finite() && self.b.is_finite()
+    }
 }
 
 impl Add for Color {

@@ -6,12 +6,17 @@ use std::cell::RefCell;
 
 pub struct Lambert {
     albedo: Color,
+    emissive: Color,
     sampler: Box<RefCell<dyn Sampler>>,
 }
 
 impl Lambert {
-    pub fn new(albedo: Color, sampler: Box<RefCell<dyn Sampler>>) -> Self {
-        Self { albedo, sampler }
+    pub fn new(albedo: Color, emissive: Color, sampler: Box<RefCell<dyn Sampler>>) -> Self {
+        Self {
+            albedo,
+            emissive,
+            sampler,
+        }
     }
 }
 
@@ -35,5 +40,9 @@ impl Material for Lambert {
 
     fn is_delta(&self) -> bool {
         false
+    }
+
+    fn emissive(&self) -> Color {
+        self.emissive
     }
 }

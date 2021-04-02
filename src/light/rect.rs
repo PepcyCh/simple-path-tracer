@@ -57,12 +57,32 @@ impl Light for RectangleLight {
         let dist = dist_sqr.sqrt();
         let sample = sample / dist;
         let cos = -sample.dot(self.direction);
-        let strength = if cos > 0.0 {
-            self.strength * cos / dist_sqr
+        let (pdf, strength) = if cos > 0.0 {
+            (self.area_inv * dist_sqr / cos, self.strength)
         } else {
-            Color::BLACK
+            (0.0, Color::BLACK)
         };
-        (sample, self.area_inv, strength, dist)
+        (sample, pdf, strength, dist)
+    }
+
+    fn strength_dist_pdf(&self, position: Point3<f32>, wi: Vector3<f32>) -> (Color, f32, f32) {
+        let cos = self.direction.dot(wi);
+        if cos < 0.0 {
+            let t = (self.center - position).dot(self.direction) / cos;
+            if t > 0.0 && t.is_finite() {
+                let intersect = position + wi * t;
+                let offset = intersect - self.center;
+                let x = offset.dot(self.right);
+                let y = offset.dot(self.up);
+                if x.abs() <= 0.5 * self.width && y.abs() <= 0.5 * self.height {
+                    let dist = t;
+                    let dist_sqr = dist * dist;
+                    let pdf = self.area_inv * dist_sqr / -cos;
+                    return (self.strength, dist, pdf);
+                }
+            }
+        }
+        (Color::BLACK, f32::MAX, 0.0)
     }
 
     fn is_delta(&self) -> bool {

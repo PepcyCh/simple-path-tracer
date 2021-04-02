@@ -7,7 +7,7 @@ use crate::core::light::Light;
 use crate::core::primitive::Aggregate;
 use crate::core::ray::Ray;
 use crate::core::sampler::Sampler;
-use cgmath::Matrix;
+use cgmath::{InnerSpace, Matrix};
 use image::RgbImage;
 use rand::Rng;
 
@@ -22,6 +22,8 @@ pub struct PathTracer {
 }
 
 impl PathTracer {
+    const CUTOFF_LUMINANCE: f32 = 0.005;
+
     pub fn new(
         camera: Box<dyn Camera>,
         objects: Box<dyn Aggregate>,
@@ -78,7 +80,11 @@ impl PathTracer {
         let world_to_normal = normal_to_world.transpose();
         let wo = world_to_normal * -ray.direction;
 
-        let mut li = Color::BLACK;
+        let mut li = if depth == 0 {
+            mat.emissive()
+        } else {
+            Color::BLACK
+        };
 
         for light in &self.lights {
             let (light_dir, pdf, light_strength, dist) = light.sample(p);
@@ -89,7 +95,10 @@ impl PathTracer {
             let bsdf = mat.bsdf(wo, wi);
             let mat_pdf = mat.pdf(wo, wi);
             let shadow_ray = Ray::new(p, light_dir);
-            if !self.objects.intersect_test(&shadow_ray, dist) {
+            if pdf != 0.0 && light_strength.luminance() > Self::CUTOFF_LUMINANCE
+                && bsdf.luminance() > Self::CUTOFF_LUMINANCE
+                && !self.objects.intersect_test(&shadow_ray, dist - 0.001)
+            {
                 if light.is_delta() {
                     li += light_strength * bsdf * wi.z / pdf;
                 } else {
@@ -100,21 +109,36 @@ impl PathTracer {
 
             if !light.is_delta() {
                 let (wi, pdf, bsdf) = mat.sample(wo);
-                // TODO - MIS - bsdf sampling
+                let light_dir = normal_to_world * wi;
+                let (light_strength, dist, light_pdf) = light.strength_dist_pdf(p, light_dir);
+                let shadow_ray = Ray::new(p, light_dir);
+                if pdf != 0.0 && light_strength.luminance() > Self::CUTOFF_LUMINANCE
+                    && bsdf.luminance() > Self::CUTOFF_LUMINANCE
+                    && !self.objects.intersect_test(&shadow_ray, dist - 0.001)
+                {
+                    if mat.is_delta() {
+                        li += light_strength * bsdf * wi.z / pdf;
+                    } else {
+                        let weight = power_heuristic(1, pdf, 1, light_pdf);
+                        li += light_strength * bsdf * wi.z * weight / pdf;
+                    }
+                }
             }
         }
 
         let rr_rand: f32 = rr_rng.gen();
-        // let rr_prop = li.luminance().min(1.0);
-        let rr_prop = 0.8;
+        let rr_prop = li.luminance().clamp(0.2, 1.0);
+        // let rr_prop = 0.8;
         if rr_rand > rr_prop {
             return li;
         }
 
         let (wi, pdf, bsdf) = mat.sample(wo);
-        let next_ray = Ray::new(p, normal_to_world * wi);
-        let li_next = self.trace_ray(next_ray, depth + 1, rr_rng);
-        li += li_next * bsdf * wi.z.abs() / pdf / rr_prop;
+        if bsdf.luminance() > Self::CUTOFF_LUMINANCE {
+            let next_ray = Ray::new(p, normal_to_world * wi);
+            let li_next = self.trace_ray(next_ray, depth + 1, rr_rng);
+            li += li_next * bsdf * wi.z.abs() / pdf / rr_prop;
+        }
 
         li
     }
@@ -126,13 +150,13 @@ fn normal_to_world(normal: cgmath::Vector3<f32>) -> cgmath::Matrix3<f32> {
     } else {
         cgmath::Vector3::unit_x()
     };
-    let tangent = bitangent.cross(normal);
+    let tangent = (bitangent.cross(normal)).normalize();
     let bitangent = normal.cross(tangent);
     cgmath::Matrix3::from_cols(tangent, bitangent, normal)
 }
 
 fn power_heuristic(n0: u32, p0: f32, n1: u32, p1: f32) -> f32 {
-    let prod0 = n0 * p0;
-    let prod1 = n1 * p1;
+    let prod0 = n0 as f32 * p0;
+    let prod1 = n1 as f32 * p1;
     prod0 * prod0 / (prod0 * prod0 + prod1 * prod1)
 }

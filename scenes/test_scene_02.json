@@ -13,8 +13,8 @@
   },
   "pixel_sampler": {
     "type": "jittered",
-    "division": 9,
-    "spp": 9
+    "division": 256,
+    "spp": 256
   },
   "max_depth": 16,
   "filter": {
@@ -23,8 +23,8 @@
   },
   "output": {
     "file": "images/test_scene_02.jpg",
-    "width": 200,
-    "height": 200
+    "width": 400,
+    "height": 400
   },
   "materials": [
     {
