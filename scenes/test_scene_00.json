@@ -29,6 +29,7 @@
       "albedo": [0.5, 0.7, 1.0]
     }
   ],
+  "mediums": [],
   "objects": [
     {
       "type": "sphere",

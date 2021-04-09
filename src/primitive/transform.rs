@@ -1,6 +1,7 @@
 use crate::core::bbox::Bbox;
 use crate::core::intersection::Intersection;
 use crate::core::material::Material;
+use crate::core::medium::Medium;
 use crate::core::primitive::Primitive;
 use crate::core::ray::Ray;
 use cgmath::{InnerSpace, Matrix, SquareMatrix};
@@ -51,5 +52,9 @@ impl Primitive for Transform {
 
     fn material(&self) -> Option<&dyn Material> {
         self.primitive.material()
+    }
+
+    fn inside_medium(&self) -> Option<&dyn Medium> {
+        self.primitive.inside_medium()
     }
 }

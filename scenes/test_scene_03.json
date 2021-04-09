@@ -47,6 +47,7 @@
       "albedo": [1.0, 0.5, 0.7]
     }
   ],
+  "mediums": [],
   "objects": [
     {
       "type": "sphere",
@@ -83,7 +84,7 @@
       "type": "transform",
       "transform": {
         "scale": [0.9, 1.0, 0.9],
-        "rotate": [0.0, 0.0, 90.0],
+        "rotate": [0.0, 0.0, -90.0],
         "translate": [-1.5, 0.0, 0.0]
       },
       "primitive": {

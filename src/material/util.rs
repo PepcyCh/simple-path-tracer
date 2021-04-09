@@ -1,3 +1,5 @@
+use crate::core::color::Color;
+
 pub fn reflect(i: cgmath::Vector3<f32>) -> cgmath::Vector3<f32> {
     cgmath::Vector3::new(-i.x, -i.y, i.z)
 }
@@ -28,6 +30,20 @@ pub fn fresnel_r0(ior: f32) -> f32 {
 pub fn schlick_fresnel(ior: f32, cos: f32) -> f32 {
     let r0 = fresnel_r0(ior);
     r0 + (1.0 - r0) * pow5(1.0 - cos)
+}
+
+pub fn schlick_fresnel_with_r0(r0: Color, cos: f32) -> Color {
+    r0 + (Color::WHITE - r0) * pow5(1.0 - cos)
+}
+
+pub fn ggx_ndf(ndoth: f32, a2: f32) -> f32 {
+    a2 / (std::f32::consts::PI * pow2(ndoth * ndoth * (a2 - 1.0) + 1.0))
+}
+
+pub fn smith_separable_visible(ndotv: f32, ndotl: f32, a2: f32) -> f32 {
+    let v = ndotv.abs() + ((1.0 - a2) * ndotv * ndotv + a2).sqrt();
+    let l = ndotl.abs() + ((1.0 - a2) * ndotl * ndotl + a2).sqrt();
+    1.0 / (v * l)
 }
 
 fn pow2(x: f32) -> f32 {

@@ -3,12 +3,14 @@ use crate::core::camera::Camera;
 use crate::core::filter::Filter;
 use crate::core::light::Light;
 use crate::core::material::Material;
+use crate::core::medium::Medium;
 use crate::core::path_tracer::PathTracer;
 use crate::core::primitive::{Aggregate, Primitive};
 use crate::core::sampler::Sampler;
 use crate::filter::BoxFilter;
 use crate::light::{DirLight, PointLight, RectangleLight};
-use crate::material::{Glass, Lambert};
+use crate::material::{Glass, Lambert, Microfacet, PseudoMaterial};
+use crate::medium::Homogeneous;
 use crate::primitive::{BvhAccel, Group, MeshVertex, Sphere, Transform, TriangleMesh};
 use crate::sampler::{JitteredSampler, RandomSampler};
 use anyhow::*;
@@ -25,20 +27,26 @@ pub struct OutputConfig {
 
 struct InputLoader {
     path: PathBuf,
+    materials: Vec<Rc<dyn Material>>,
+    mediums: Vec<Rc<dyn Medium>>,
 }
 
 pub fn load<P: AsRef<Path>>(path: P) -> Result<(PathTracer, OutputConfig)> {
-    let loader = InputLoader::new(path);
+    let mut loader = InputLoader::new(path);
     loader.load()
 }
 
 impl InputLoader {
     fn new<P: AsRef<Path>>(path: P) -> Self {
         let path = path.as_ref().to_path_buf();
-        Self { path }
+        Self {
+            path,
+            materials: vec![],
+            mediums: vec![],
+        }
     }
 
-    fn load(&self) -> Result<(PathTracer, OutputConfig)> {
+    fn load(&mut self) -> Result<(PathTracer, OutputConfig)> {
         let json_file = std::fs::File::open(&self.path)?;
         let json_reader = std::io::BufReader::new(json_file);
         let json_value: serde_json::Value = serde_json::from_reader(json_reader)?;
@@ -65,7 +73,9 @@ impl InputLoader {
             sampler = Box::new(RandomSampler::new()) as Box<dyn Sampler>;
         }
 
-        let max_depth = get_int_field_option(&json_value, "top", "max_depth")?;
+        let max_depth = get_int_field_option(&json_value, "top", "max_depth")?
+            .or(Some(1))
+            .unwrap();
 
         let filter = if let Some(filter_value) = json_value.get("filter") {
             self.load_filter(filter_value)?
@@ -76,12 +86,17 @@ impl InputLoader {
         let materials_json = json_value
             .get("materials")
             .context("top: no 'materials' field")?;
-        let materials = self.load_materials(materials_json)?;
+        self.materials = self.load_materials(materials_json)?;
+
+        let mediums_json = json_value
+            .get("mediums")
+            .context("top: no 'mediums' field")?;
+        self.mediums = self.load_mediums(mediums_json)?;
 
         let objects_json = json_value
             .get("objects")
             .context("top: no 'objects' field")?;
-        let objects = self.load_objects(objects_json, &materials)?;
+        let objects = self.load_objects(objects_json)?;
 
         let aggregate_json = json_value
             .get("aggregate")
@@ -141,15 +156,16 @@ impl InputLoader {
     fn load_materials(&self, value: &serde_json::Value) -> Result<Vec<Rc<dyn Material>>> {
         let arr = value
             .as_array()
-            .context("top: 'material' should be an array")?;
+            .context("top: 'materials' should be an array")?;
         let mut materials = Vec::with_capacity(arr.len());
         for mat_json in arr {
             let ty = get_str_field(mat_json, "material", "type")?;
             let mat = match ty {
+                "pseudo" => Rc::new(PseudoMaterial::new()) as Rc<dyn Material>,
                 "lambert" => {
                     let albedo = get_float_array3_field(mat_json, "material-lambert", "albedo")?;
                     let emissive =
-                        get_float_array3_field_option(mat_json, "meterial-lambert", "emissive")?;
+                        get_float_array3_field_option(mat_json, "material-lambert", "emissive")?;
                     let sampler = get_sampler_field_option(mat_json)?;
                     Rc::new(Lambert::new(albedo.into(), emissive.into(), sampler))
                         as Rc<dyn Material>
@@ -168,6 +184,21 @@ impl InputLoader {
                         sampler,
                     )) as Rc<dyn Material>
                 }
+                "microfacet" => {
+                    let albedo = get_float_array3_field(mat_json, "material-microfacet", "albedo")?;
+                    let emissive =
+                        get_float_array3_field(mat_json, "material-microfacet", "emissive")?;
+                    let roughness = get_float_field(mat_json, "material-microfacet", "roughness")?;
+                    let metallic = get_float_field(mat_json, "material-microfacet", "metallic")?;
+                    let sampler = get_sampler_field_option(mat_json)?;
+                    Rc::new(Microfacet::new(
+                        albedo.into(),
+                        emissive.into(),
+                        roughness * roughness,
+                        metallic,
+                        sampler,
+                    )) as Rc<dyn Material>
+                }
                 _ => Err(LoadError::new(format!("material: unknown type '{}'", ty)))?,
             };
             materials.push(mat);
@@ -175,37 +206,56 @@ impl InputLoader {
         Ok(materials)
     }
 
-    fn load_objects(
-        &self,
-        value: &serde_json::Value,
-        materials: &Vec<Rc<dyn Material>>,
-    ) -> Result<Vec<Box<dyn Primitive>>> {
+    fn load_mediums(&self, value: &serde_json::Value) -> Result<Vec<Rc<dyn Medium>>> {
+        let arr = value
+            .as_array()
+            .context("top: 'mediums' should be an array")?;
+        let mut mediums = Vec::with_capacity(arr.len());
+        for med_json in arr {
+            let ty = get_str_field(med_json, "medium", "type")?;
+            let med = match ty {
+                "homogeneous" => {
+                    let sigma_t =
+                        get_float_array3_field(med_json, "medium-homogeneous", "sigma_t")?;
+                    let sigma_s =
+                        get_float_array3_field(med_json, "medium-homogeneous", "sigma_s")?;
+                    let sampler = get_sampler_field_option(med_json)?;
+                    Rc::new(Homogeneous::new(sigma_t.into(), sigma_s.into(), sampler))
+                        as Rc<dyn Medium>
+                }
+                _ => Err(LoadError::new(format!("medium: unknown type '{}'", ty)))?,
+            };
+            mediums.push(med);
+        }
+        Ok(mediums)
+    }
+
+    fn load_objects(&self, value: &serde_json::Value) -> Result<Vec<Box<dyn Primitive>>> {
         let arr = value
             .as_array()
             .context("top: 'objects' should be an array")?;
         let mut objects = vec![];
         for obj_json in arr {
-            let mut primitives = self.load_object(obj_json, materials)?;
+            let mut primitives = self.load_object(obj_json)?;
             objects.append(&mut primitives);
         }
         Ok(objects)
     }
 
-    fn load_object(
-        &self,
-        value: &serde_json::Value,
-        materials: &Vec<Rc<dyn Material>>,
-    ) -> Result<Vec<Box<dyn Primitive>>> {
+    fn load_object(&self, value: &serde_json::Value) -> Result<Vec<Box<dyn Primitive>>> {
         let ty = get_str_field(value, "object", "type")?;
         match ty {
             "sphere" => {
                 let center = get_float_array3_field(value, "object-sphere", "center")?;
                 let radius = get_float_field(value, "object-sphere", "radius")?;
                 let material = get_int_field(value, "object-sphere", "material")? as usize;
+                let medium = get_int_field_option(value, "object-sphere", "medium")?
+                    .map(|ind| self.mediums[ind as usize].clone());
                 Ok(vec![Box::new(Sphere::new(
                     center.into(),
                     radius,
-                    materials[material].clone(),
+                    self.materials[material].clone(),
+                    medium,
                 )) as Box<dyn Primitive>])
             }
             "transform" => {
@@ -213,7 +263,7 @@ impl InputLoader {
                 let prim_json = value
                     .get("primitive")
                     .context("object-transform: no 'primitive' field")?;
-                let primitive = self.load_object(prim_json, materials)?;
+                let primitive = self.load_object(prim_json)?;
                 Ok(primitive
                     .into_iter()
                     .map(|prim| Box::new(Transform::new(prim, trans)) as Box<dyn Primitive>)
@@ -221,6 +271,8 @@ impl InputLoader {
             }
             "obj_mesh" => {
                 let material = get_int_field(value, "object-obj_mesh", "material")? as usize;
+                let medium = get_int_field_option(value, "object-sphere", "medium")?
+                    .map(|ind| self.mediums[ind as usize].clone());
                 let file = get_str_field(value, "object-obj_mesh", "file")?;
                 let (models, _) = tobj::load_obj(self.path.with_file_name(file), true)?;
                 let mut triangles = vec![];
@@ -253,7 +305,12 @@ impl InputLoader {
                             );
                         }
                     }
-                    let mesh = TriangleMesh::new(vertices, indices, materials[material].clone());
+                    let mesh = TriangleMesh::new(
+                        vertices,
+                        indices,
+                        self.materials[material].clone(),
+                        medium.clone(),
+                    );
                     let mut primitives = mesh.into_triangles();
                     triangles.append(&mut primitives);
                 }
@@ -421,14 +478,15 @@ fn get_float_field(value: &serde_json::Value, env: &str, field: &str) -> Result<
         .context(format!("{}: '{}' should be a float", env, field))
 }
 
-fn get_int_field_option(value: &serde_json::Value, env: &str, field: &str) -> Result<u32> {
+fn get_int_field_option(value: &serde_json::Value, env: &str, field: &str) -> Result<Option<u32>> {
     if let Some(field_value) = value.get(field) {
         field_value
             .as_u64()
-            .map(|f| f as u32)
+            .map(|i| i as u32)
             .context(format!("{}: '{}' should be an int", env, field))
+            .map(|i| Some(i))
     } else {
-        Ok(1_u32)
+        Ok(None)
     }
 }
 fn get_int_field(value: &serde_json::Value, env: &str, field: &str) -> Result<u32> {

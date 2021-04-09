@@ -29,7 +29,7 @@ impl Glass {
 
 impl Material for Glass {
     fn sample(&self, wo: Vector3<f32>) -> (Vector3<f32>, f32, Color) {
-        let fresnel = crate::material::util::schlick_fresnel(self.ior, wo.z);
+        let fresnel = crate::material::util::schlick_fresnel(self.ior, wo.z.abs());
         let rand = self.sampler.borrow_mut().uniform_1d();
         if rand <= fresnel {
             let reflect = crate::material::util::reflect(wo);
@@ -57,7 +57,7 @@ impl Material for Glass {
     }
 
     fn bsdf(&self, wo: Vector3<f32>, wi: Vector3<f32>) -> Color {
-        let fresnel = crate::material::util::schlick_fresnel(self.ior, wo.z);
+        let fresnel = crate::material::util::schlick_fresnel(self.ior, wo.z.abs());
         if wo.z * wi.z >= 0.0 {
             let reflect = crate::material::util::reflect(wo);
             if reflect.dot(wi) >= 0.99 {

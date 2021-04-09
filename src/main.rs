@@ -6,6 +6,7 @@ mod filter;
 mod light;
 mod loader;
 mod material;
+mod medium;
 mod primitive;
 mod sampler;
 

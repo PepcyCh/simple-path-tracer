@@ -1,6 +1,6 @@
 use cgmath::Transform;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Ray {
     pub origin: cgmath::Point3<f32>,
     pub direction: cgmath::Vector3<f32>,
@@ -8,7 +8,7 @@ pub struct Ray {
 }
 
 impl Ray {
-    const T_MIN_EPS: f32 = 0.0001;
+    pub const T_MIN_EPS: f32 = 0.0001;
 
     pub fn new(origin: cgmath::Point3<f32>, direction: cgmath::Vector3<f32>) -> Self {
         Self {

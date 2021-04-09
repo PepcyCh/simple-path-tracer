@@ -30,6 +30,10 @@ impl Color {
     pub fn is_finite(&self) -> bool {
         self.r.is_finite() && self.g.is_finite() && self.b.is_finite()
     }
+
+    pub fn exp(&self) -> Color {
+        Color::new(self.r.exp(), self.g.exp(), self.b.exp())
+    }
 }
 
 impl Add for Color {

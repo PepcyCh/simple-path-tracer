@@ -22,7 +22,7 @@
     "radius": 0.5
   },
   "output": {
-    "file": "images/test_scene_04.jpg",
+    "file": "images/test_scene_06.jpg",
     "width": 400,
     "height": 400
   },
@@ -37,23 +37,45 @@
       "albedo": [0.5, 0.7, 1.0]
     },
     {
-      "type": "glass",
-      "reflectance": [0.9, 0.3, 0.3],
-      "transmittance": [0.8, 0.2, 0.2],
-      "ior": 12
-    },
-    {
       "type": "lambert",
       "albedo": [0.5, 1.0, 0.7]
+    },
+    {
+      "type": "microfacet",
+      "albedo": [0.7, 0.6, 0.3],
+      "emissive": [0.0, 0.0, 0.0],
+      "roughness": 0.2,
+      "metallic": 0.8
+    },
+    {
+      "type": "pseudo"
     }
   ],
-  "mediums": [],
+  "mediums": [
+    {
+      "type": "homogeneous",
+      "sigma_t": [0.8, 0.8, 0.8],
+      "sigma_s": [0.1, 0.1, 0.1]
+    }
+  ],
   "objects": [
     {
       "type": "sphere",
-      "material": 2,
-      "center": [0.0, 0.3, 0.0],
+      "material": 3,
+      "center": [1.2, 0.3, 0.0],
       "radius": 1.0
+    },
+    {
+      "type": "transform",
+      "transform": {
+        "translate": [-1.2, 0.3, 0.0]
+      },
+      "primitive": {
+        "type": "obj_mesh",
+        "file": "cube.obj",
+        "material": 4,
+        "medium": 0
+      }
     },
     {
       "type": "transform",
@@ -64,7 +86,7 @@
       "primitive": {
         "type": "obj_mesh",
         "file": "plane.obj",
-        "material": 1
+        "material": 2
       }
     },
     {
@@ -77,7 +99,7 @@
       "primitive": {
         "type": "obj_mesh",
         "file": "plane.obj",
-        "material": 3
+        "material": 1
       }
     },
     {
@@ -90,7 +112,7 @@
       "primitive": {
         "type": "obj_mesh",
         "file": "plane.obj",
-        "material": 3
+        "material": 1
       }
     },
     {
@@ -103,7 +125,7 @@
       "primitive": {
         "type": "obj_mesh",
         "file": "plane.obj",
-        "material": 3
+        "material": 1
       }
     },
     {
@@ -116,7 +138,7 @@
       "primitive": {
         "type": "obj_mesh",
         "file": "plane.obj",
-        "material": 3
+        "material": 1
       }
     },
     {

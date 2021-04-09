@@ -1,6 +1,7 @@
 use crate::core::bbox::Bbox;
 use crate::core::intersection::Intersection;
 use crate::core::material::Material;
+use crate::core::medium::Medium;
 use crate::core::primitive::Primitive;
 use crate::core::ray::Ray;
 use cgmath::InnerSpace;
@@ -10,17 +11,24 @@ pub struct Sphere {
     center: cgmath::Point3<f32>,
     radius: f32,
     material: Rc<dyn Material>,
+    inside_medium: Option<Rc<dyn Medium>>,
     bbox: Bbox,
 }
 
 impl Sphere {
-    pub fn new(center: cgmath::Point3<f32>, radius: f32, material: Rc<dyn Material>) -> Self {
+    pub fn new(
+        center: cgmath::Point3<f32>,
+        radius: f32,
+        material: Rc<dyn Material>,
+        inside_medium: Option<Rc<dyn Medium>>,
+    ) -> Self {
         let delta = cgmath::Vector3::new(radius, radius, radius);
         let bbox = Bbox::new(center - delta, center + delta);
         Self {
             center,
             radius,
             material,
+            inside_medium,
             bbox,
         }
     }
@@ -58,9 +66,6 @@ impl Primitive for Sphere {
                 inter.t = t;
                 let norm = (ray.point_at(t) - self.center) / self.radius;
                 inter.normal = norm;
-                if inter.normal.dot(ray.direction) > 0.0 {
-                    inter.normal = -inter.normal;
-                }
                 inter.texcoords = sphere_normal_to_texcoords(norm);
                 inter.primitive = Some(self);
                 return true;
@@ -75,6 +80,10 @@ impl Primitive for Sphere {
 
     fn material(&self) -> Option<&dyn Material> {
         Some(&*self.material)
+    }
+
+    fn inside_medium(&self) -> Option<&dyn Medium> {
+        self.inside_medium.as_ref().map(|rc| rc.as_ref())
     }
 }
 

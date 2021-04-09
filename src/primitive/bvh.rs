@@ -1,6 +1,7 @@
 use crate::core::bbox::Bbox;
 use crate::core::intersection::Intersection;
 use crate::core::material::Material;
+use crate::core::medium::Medium;
 use crate::core::primitive::{Aggregate, Primitive};
 use crate::core::ray::Ray;
 use std::collections::HashSet;
@@ -294,6 +295,10 @@ impl Primitive for BvhAccel {
     }
 
     fn material(&self) -> Option<&dyn Material> {
+        None
+    }
+
+    fn inside_medium(&self) -> Option<&dyn Medium> {
         None
     }
 }

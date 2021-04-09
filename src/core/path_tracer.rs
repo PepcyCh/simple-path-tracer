@@ -4,6 +4,7 @@ use crate::core::film::Film;
 use crate::core::filter::Filter;
 use crate::core::intersection::Intersection;
 use crate::core::light::Light;
+use crate::core::medium::Medium;
 use crate::core::primitive::Aggregate;
 use crate::core::ray::Ray;
 use crate::core::sampler::Sampler;
@@ -47,7 +48,6 @@ impl PathTracer {
     pub fn render(&mut self, width: u32, height: u32) -> RgbImage {
         let mut film = Film::new(width, height);
         let aspect = width as f32 / height as f32;
-        let mut rr_rng = rand::thread_rng();
         for j in 0..height {
             for i in 0..width {
                 let samples = self.sampler.pixel_samples(self.spp);
@@ -55,7 +55,7 @@ impl PathTracer {
                     let x = (i as f32 + offset_x) / width as f32 * aspect - 0.5;
                     let y = ((height - j - 1) as f32 + offset_y) / height as f32 - 0.5;
                     let ray = self.camera.generate_ray((x, y));
-                    let color = self.trace_ray(ray, 0, &mut rr_rng);
+                    let color = self.trace_ray(ray);
                     film.add_sample(i, j, (x, y), color);
                 }
             }
@@ -63,84 +63,109 @@ impl PathTracer {
         film.filter_to_image(self.filter.as_ref())
     }
 
-    fn trace_ray(&self, ray: Ray, depth: u32, rr_rng: &mut rand::rngs::ThreadRng) -> Color {
-        if depth >= self.max_depth {
-            return Color::BLACK;
-        }
+    fn trace_ray(&self, mut ray: Ray) -> Color {
+        let mut final_color = Color::BLACK;
+        let mut color_coe = Color::WHITE;
+        let mut curr_depth = 0;
+        let mut rr_rng = rand::thread_rng();
+        let mut curr_medium: Option<&dyn Medium> = None;
 
-        let mut inter = Intersection::default();
-        if !self.objects.intersect(&ray, &mut inter) {
-            return Color::BLACK;
-        }
+        while curr_depth < self.max_depth {
+            let mut inter = Intersection::default();
+            let does_hit = self.objects.intersect(&ray, &mut inter);
 
-        let p = ray.point_at(inter.t);
-        let mat = inter.primitive.unwrap().material().unwrap();
-
-        let normal_to_world = normal_to_world(inter.normal);
-        let world_to_normal = normal_to_world.transpose();
-        let wo = world_to_normal * -ray.direction;
-
-        let mut li = if depth == 0 {
-            mat.emissive()
-        } else {
-            Color::BLACK
-        };
-
-        for light in &self.lights {
-            let (light_dir, pdf, light_strength, dist) = light.sample(p);
-            let wi = world_to_normal * light_dir;
-            if wi.z < 0.0 {
-                continue;
-            }
-            let bsdf = mat.bsdf(wo, wi);
-            let mat_pdf = mat.pdf(wo, wi);
-            let shadow_ray = Ray::new(p, light_dir);
-            if pdf != 0.0 && light_strength.luminance() > Self::CUTOFF_LUMINANCE
-                && bsdf.luminance() > Self::CUTOFF_LUMINANCE
-                && !self.objects.intersect_test(&shadow_ray, dist - 0.001)
-            {
-                if light.is_delta() {
-                    li += light_strength * bsdf * wi.z / pdf;
-                } else {
-                    let weight = power_heuristic(1, pdf, 1, mat_pdf);
-                    li += light_strength * bsdf * wi.z * weight / pdf;
+            if let Some(medium) = curr_medium {
+                let p = ray.origin;
+                let wo = -ray.direction;
+                let (next_position, wi, still_in_medium, pdf, attenuation) =
+                    medium.sample(p, wo, inter.t);
+                // TODO - sample lights ?
+                if !still_in_medium {
+                    curr_medium = None;
                 }
-            }
+                color_coe *= attenuation / pdf;
+                ray = Ray::new(next_position, wi);
+            } else {
+                if !does_hit {
+                    break;
+                }
 
-            if !light.is_delta() {
-                let (wi, pdf, bsdf) = mat.sample(wo);
-                let light_dir = normal_to_world * wi;
-                let (light_strength, dist, light_pdf) = light.strength_dist_pdf(p, light_dir);
-                let shadow_ray = Ray::new(p, light_dir);
-                if pdf != 0.0 && light_strength.luminance() > Self::CUTOFF_LUMINANCE
-                    && bsdf.luminance() > Self::CUTOFF_LUMINANCE
-                    && !self.objects.intersect_test(&shadow_ray, dist - 0.001)
-                {
-                    if mat.is_delta() {
-                        li += light_strength * bsdf * wi.z / pdf;
-                    } else {
-                        let weight = power_heuristic(1, pdf, 1, light_pdf);
-                        li += light_strength * bsdf * wi.z * weight / pdf;
+                let p = ray.point_at(inter.t);
+                let mat = inter.primitive.unwrap().material().unwrap();
+                curr_medium = inter.primitive.unwrap().inside_medium();
+
+                let normal_to_world = normal_to_world(inter.normal);
+                let world_to_normal = normal_to_world.transpose();
+                let wo = world_to_normal * -ray.direction;
+
+                let mut li = if curr_depth == 0 {
+                    mat.emissive()
+                } else {
+                    Color::BLACK
+                };
+
+                for light in &self.lights {
+                    let (light_dir, pdf, light_strength, dist) = light.sample(p);
+                    let wi = world_to_normal * light_dir;
+                    if wi.z < 0.0 {
+                        continue;
+                    }
+                    let bsdf = mat.bsdf(wo, wi);
+                    let mat_pdf = mat.pdf(wo, wi);
+                    let shadow_ray = Ray::new(p, light_dir);
+                    if pdf != 0.0
+                        && light_strength.luminance() > Self::CUTOFF_LUMINANCE
+                        && bsdf.luminance() > Self::CUTOFF_LUMINANCE
+                        && !self.objects.intersect_test(&shadow_ray, dist - 0.001)
+                    {
+                        if light.is_delta() {
+                            li += light_strength * bsdf * wi.z / pdf;
+                        } else {
+                            let weight = power_heuristic(1, pdf, 1, mat_pdf);
+                            li += light_strength * bsdf * wi.z * weight / pdf;
+                        }
+                    }
+
+                    if !light.is_delta() {
+                        let (wi, pdf, bsdf) = mat.sample(wo);
+                        if wi.z < 0.0 {
+                            continue;
+                        }
+                        let light_dir = normal_to_world * wi;
+                        let (light_strength, dist, light_pdf) =
+                            light.strength_dist_pdf(p, light_dir);
+                        let shadow_ray = Ray::new(p, light_dir);
+                        if pdf != 0.0
+                            && light_strength.luminance() > Self::CUTOFF_LUMINANCE
+                            && bsdf.luminance() > Self::CUTOFF_LUMINANCE
+                            && !self.objects.intersect_test(&shadow_ray, dist - 0.001)
+                        {
+                            if mat.is_delta() {
+                                li += light_strength * bsdf * wi.z / pdf;
+                            } else {
+                                let weight = power_heuristic(1, pdf, 1, light_pdf);
+                                li += light_strength * bsdf * wi.z * weight / pdf;
+                            }
+                        }
                     }
                 }
+                final_color += color_coe * li;
+
+                let rr_rand: f32 = rr_rng.gen();
+                let rr_prop = color_coe.luminance().clamp(0.2, 1.0);
+                if rr_rand > rr_prop {
+                    break;
+                }
+
+                let (wi, pdf, bsdf) = mat.sample(wo);
+                ray = Ray::new(p, normal_to_world * wi);
+                color_coe *= bsdf * wi.z.abs() / pdf / rr_prop;
             }
+
+            curr_depth += 1;
         }
 
-        let rr_rand: f32 = rr_rng.gen();
-        let rr_prop = li.luminance().clamp(0.2, 1.0);
-        // let rr_prop = 0.8;
-        if rr_rand > rr_prop {
-            return li;
-        }
-
-        let (wi, pdf, bsdf) = mat.sample(wo);
-        if bsdf.luminance() > Self::CUTOFF_LUMINANCE {
-            let next_ray = Ray::new(p, normal_to_world * wi);
-            let li_next = self.trace_ray(next_ray, depth + 1, rr_rng);
-            li += li_next * bsdf * wi.z.abs() / pdf / rr_prop;
-        }
-
-        li
+        final_color
     }
 }
 

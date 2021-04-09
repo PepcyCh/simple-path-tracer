@@ -40,6 +40,7 @@
       "ior": 1.5
     }
   ],
+  "mediums": [],
   "objects": [
     {
       "type": "transform",

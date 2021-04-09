@@ -1,6 +1,7 @@
 use crate::core::bbox::Bbox;
 use crate::core::intersection::Intersection;
 use crate::core::material::Material;
+use crate::core::medium::Medium;
 use crate::core::ray::Ray;
 
 pub trait Primitive {
@@ -11,6 +12,8 @@ pub trait Primitive {
     fn bbox(&self) -> Bbox;
 
     fn material(&self) -> Option<&dyn Material>;
+
+    fn inside_medium(&self) -> Option<&dyn Medium>;
 }
 
 pub trait Aggregate: Primitive {}

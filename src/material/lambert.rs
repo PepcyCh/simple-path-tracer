@@ -35,7 +35,7 @@ impl Material for Lambert {
     }
 
     fn pdf(&self, _wo: Vector3<f32>, wi: Vector3<f32>) -> f32 {
-        wi.z / std::f32::consts::PI
+        wi.z.max(0.0) / std::f32::consts::PI
     }
 
     fn is_delta(&self) -> bool {

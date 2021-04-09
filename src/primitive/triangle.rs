@@ -1,6 +1,7 @@
 use crate::core::bbox::Bbox;
 use crate::core::intersection::Intersection;
 use crate::core::material::Material;
+use crate::core::medium::Medium;
 use crate::core::primitive::Primitive;
 use crate::core::ray::Ray;
 use cgmath::InnerSpace;
@@ -17,6 +18,7 @@ pub struct TriangleMesh {
     vertices: Vec<MeshVertex>,
     indices: Vec<u32>,
     material: Rc<dyn Material>,
+    inside_medium: Option<Rc<dyn Medium>>,
 }
 
 pub struct Triangle {
@@ -36,11 +38,17 @@ impl Default for MeshVertex {
 }
 
 impl TriangleMesh {
-    pub fn new(vertices: Vec<MeshVertex>, indices: Vec<u32>, material: Rc<dyn Material>) -> Self {
+    pub fn new(
+        vertices: Vec<MeshVertex>,
+        indices: Vec<u32>,
+        material: Rc<dyn Material>,
+        inside_medium: Option<Rc<dyn Medium>>,
+    ) -> Self {
         Self {
             vertices,
             indices,
             material,
+            inside_medium,
         }
     }
 
@@ -128,9 +136,6 @@ impl Primitive for Triangle {
                     let n2 = self.mesh.normal(self.indices[2]);
                     (n0 * u + n1 * v + n2 * w).normalize()
                 };
-                if inter.normal.dot(ray.direction) > 0.0 {
-                    inter.normal = -inter.normal;
-                }
                 inter.texcoords = {
                     let uv0 = self.mesh.texcoords(self.indices[0]);
                     let uv1 = self.mesh.texcoords(self.indices[1]);
@@ -150,6 +155,10 @@ impl Primitive for Triangle {
 
     fn material(&self) -> Option<&dyn Material> {
         Some(&*self.mesh.material)
+    }
+
+    fn inside_medium(&self) -> Option<&dyn Medium> {
+        self.mesh.inside_medium.as_ref().map(|rc| rc.as_ref())
     }
 }
 
