@@ -5,13 +5,13 @@ use crate::core::medium::Medium;
 use crate::core::primitive::Primitive;
 use crate::core::ray::Ray;
 use cgmath::InnerSpace;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct Sphere {
     center: cgmath::Point3<f32>,
     radius: f32,
-    material: Rc<dyn Material>,
-    inside_medium: Option<Rc<dyn Medium>>,
+    material: Arc<dyn Material>,
+    inside_medium: Option<Arc<dyn Medium>>,
     bbox: Bbox,
 }
 
@@ -19,8 +19,8 @@ impl Sphere {
     pub fn new(
         center: cgmath::Point3<f32>,
         radius: f32,
-        material: Rc<dyn Material>,
-        inside_medium: Option<Rc<dyn Medium>>,
+        material: Arc<dyn Material>,
+        inside_medium: Option<Arc<dyn Medium>>,
     ) -> Self {
         let delta = cgmath::Vector3::new(radius, radius, radius);
         let bbox = Bbox::new(center - delta, center + delta);

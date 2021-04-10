@@ -2,16 +2,16 @@ use crate::core::color::Color;
 use crate::core::material::Material;
 use crate::core::sampler::Sampler;
 use cgmath::Vector3;
-use std::cell::RefCell;
+use std::sync::Mutex;
 
 pub struct Lambert {
     albedo: Color,
     emissive: Color,
-    sampler: Box<RefCell<dyn Sampler>>,
+    sampler: Box<Mutex<dyn Sampler>>,
 }
 
 impl Lambert {
-    pub fn new(albedo: Color, emissive: Color, sampler: Box<RefCell<dyn Sampler>>) -> Self {
+    pub fn new(albedo: Color, emissive: Color, sampler: Box<Mutex<dyn Sampler>>) -> Self {
         Self {
             albedo,
             emissive,
@@ -22,7 +22,10 @@ impl Lambert {
 
 impl Material for Lambert {
     fn sample(&self, _wo: Vector3<f32>) -> (Vector3<f32>, f32, Color) {
-        let sample = self.sampler.borrow_mut().cosine_weighted_on_hemisphere();
+        let sample = {
+            let mut sampler = self.sampler.lock().unwrap();
+            sampler.cosine_weighted_on_hemisphere()
+        };
         (
             sample,
             sample.z / std::f32::consts::PI,

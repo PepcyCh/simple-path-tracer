@@ -11,6 +11,7 @@ use crate::core::sampler::Sampler;
 use cgmath::{InnerSpace, Matrix};
 use image::RgbImage;
 use rand::Rng;
+use std::sync::{Arc, Mutex};
 
 pub struct PathTracer {
     camera: Box<dyn Camera>,
@@ -46,20 +47,48 @@ impl PathTracer {
     }
 
     pub fn render(&mut self, width: u32, height: u32) -> RgbImage {
-        let mut film = Film::new(width, height);
+        let film = Arc::new(Mutex::new(Film::new(width, height)));
         let aspect = width as f32 / height as f32;
-        for j in 0..height {
-            for i in 0..width {
-                let samples = self.sampler.pixel_samples(self.spp);
-                for (offset_x, offset_y) in samples {
-                    let x = (i as f32 + offset_x) / width as f32 * aspect - 0.5;
-                    let y = ((height - j - 1) as f32 + offset_y) / height as f32 - 0.5;
-                    let ray = self.camera.generate_ray((x, y));
-                    let color = self.trace_ray(ray);
-                    film.add_sample(i, j, (x, y), color);
+
+        let progress_bar = indicatif::ProgressBar::new((width * height) as u64);
+        progress_bar.set_style(
+            indicatif::ProgressStyle::default_bar()
+                .template("[{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len}")
+                .progress_chars("#>-"),
+        );
+
+        crossbeam::scope(|scope| {
+            let mut samples = vec![];
+            for _ in 0..height {
+                for _ in 0..width {
+                    let samples_pixel = self.sampler.pixel_samples(self.spp);
+                    samples.push(samples_pixel);
                 }
             }
-        }
+
+            for j in 0..height {
+                for i in 0..width {
+                    let samples = std::mem::take(&mut samples[(j * width + i) as usize]);
+                    let film = film.clone();
+                    let progress_bar = progress_bar.clone();
+                    let path_tracer = &self;
+                    scope.spawn(move |_| {
+                        for (offset_x, offset_y) in samples {
+                            let x = (i as f32 + offset_x) / width as f32 * aspect - 0.5;
+                            let y = ((height - j - 1) as f32 + offset_y) / height as f32 - 0.5;
+                            let ray = path_tracer.camera.generate_ray((x, y));
+                            let color = path_tracer.trace_ray(ray);
+                            let mut film = film.lock().unwrap();
+                            film.add_sample(i, j, (offset_x - 0.5, offset_y - 0.5), color);
+                        }
+                        progress_bar.inc(1);
+                    });
+                }
+            }
+        })
+        .unwrap();
+
+        let film = film.lock().unwrap();
         film.filter_to_image(self.filter.as_ref())
     }
 

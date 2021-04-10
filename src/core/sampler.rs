@@ -1,4 +1,4 @@
-pub trait Sampler {
+pub trait Sampler: Send + Sync {
     fn uniform_1d(&mut self) -> f32;
 
     fn uniform_2d(&mut self) -> (f32, f32) {

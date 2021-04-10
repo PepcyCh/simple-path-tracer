@@ -5,7 +5,7 @@ use crate::core::medium::Medium;
 use crate::core::primitive::Primitive;
 use crate::core::ray::Ray;
 use cgmath::InnerSpace;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Copy, Clone)]
 pub struct MeshVertex {
@@ -17,12 +17,12 @@ pub struct MeshVertex {
 pub struct TriangleMesh {
     vertices: Vec<MeshVertex>,
     indices: Vec<u32>,
-    material: Rc<dyn Material>,
-    inside_medium: Option<Rc<dyn Medium>>,
+    material: Arc<dyn Material>,
+    inside_medium: Option<Arc<dyn Medium>>,
 }
 
 pub struct Triangle {
-    mesh: Rc<TriangleMesh>,
+    mesh: Arc<TriangleMesh>,
     indices: [usize; 3],
     bbox: Bbox,
 }
@@ -41,8 +41,8 @@ impl TriangleMesh {
     pub fn new(
         vertices: Vec<MeshVertex>,
         indices: Vec<u32>,
-        material: Rc<dyn Material>,
-        inside_medium: Option<Rc<dyn Medium>>,
+        material: Arc<dyn Material>,
+        inside_medium: Option<Arc<dyn Medium>>,
     ) -> Self {
         Self {
             vertices,
@@ -65,7 +65,7 @@ impl TriangleMesh {
     }
 
     pub fn into_triangles(self) -> Vec<Box<dyn Primitive>> {
-        let rc = Rc::new(self);
+        let rc = Arc::new(self);
         let triangle_count = rc.indices.len() / 3;
         let mut triangles = vec![];
         for i in 0..triangle_count {
@@ -79,7 +79,7 @@ impl TriangleMesh {
 }
 
 impl Triangle {
-    fn new(mesh: Rc<TriangleMesh>, indices: [usize; 3]) -> Self {
+    fn new(mesh: Arc<TriangleMesh>, indices: [usize; 3]) -> Self {
         let p0 = mesh.position(indices[0]);
         let p1 = mesh.position(indices[1]);
         let p2 = mesh.position(indices[2]);

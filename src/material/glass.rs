@@ -2,13 +2,13 @@ use crate::core::color::Color;
 use crate::core::material::Material;
 use crate::core::sampler::Sampler;
 use cgmath::{InnerSpace, Vector3};
-use std::cell::RefCell;
+use std::sync::Mutex;
 
 pub struct Glass {
     reflectance: Color,
     transmittance: Color,
     ior: f32,
-    sampler: Box<RefCell<dyn Sampler>>,
+    sampler: Box<Mutex<dyn Sampler>>,
 }
 
 impl Glass {
@@ -16,7 +16,7 @@ impl Glass {
         reflectance: Color,
         transmittance: Color,
         ior: f32,
-        sampler: Box<RefCell<dyn Sampler>>,
+        sampler: Box<Mutex<dyn Sampler>>,
     ) -> Self {
         Self {
             reflectance,
@@ -30,7 +30,10 @@ impl Glass {
 impl Material for Glass {
     fn sample(&self, wo: Vector3<f32>) -> (Vector3<f32>, f32, Color) {
         let fresnel = crate::material::util::schlick_fresnel(self.ior, wo.z.abs());
-        let rand = self.sampler.borrow_mut().uniform_1d();
+        let rand = {
+            let mut sampler = self.sampler.lock().unwrap();
+            sampler.uniform_1d()
+        };
         if rand <= fresnel {
             let reflect = crate::material::util::reflect(wo);
             (

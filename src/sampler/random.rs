@@ -1,14 +1,14 @@
 use crate::core::sampler::Sampler;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
 
 pub struct RandomSampler {
-    rng: rand::rngs::ThreadRng,
+    rng: rand::rngs::SmallRng,
 }
 
 impl RandomSampler {
     pub fn new() -> Self {
         Self {
-            rng: rand::thread_rng(),
+            rng: rand::rngs::SmallRng::from_entropy(),
         }
     }
 }

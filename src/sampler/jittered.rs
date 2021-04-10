@@ -1,8 +1,8 @@
 use crate::core::sampler::Sampler;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
 
 pub struct JitteredSampler {
-    rng: rand::rngs::ThreadRng,
+    rng: rand::rngs::SmallRng,
     division: u32,
     division_inv: f32,
     division_sqrt: u32,
@@ -15,7 +15,7 @@ pub struct JitteredSampler {
 impl JitteredSampler {
     pub fn new(division: u32) -> Self {
         let division_sqrt = (division as f32).sqrt() as u32;
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
         let curr_ind = rng.gen_range(0..division);
         let curr_ind_x = rng.gen_range(0..division_sqrt);
         let curr_ind_y = rng.gen_range(0..division_sqrt);

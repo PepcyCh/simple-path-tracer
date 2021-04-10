@@ -1,7 +1,7 @@
 use crate::core::color::Color;
 use cgmath::{Point3, Vector3};
 
-pub trait Medium {
+pub trait Medium: Send + Sync {
     /// return (sample position, sample direction, still in medium or not, pdf, attenuation)
     fn sample(
         &self,

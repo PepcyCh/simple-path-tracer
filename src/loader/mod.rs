@@ -15,9 +15,8 @@ use crate::primitive::{BvhAccel, Group, MeshVertex, Sphere, Transform, TriangleM
 use crate::sampler::{JitteredSampler, RandomSampler};
 use anyhow::*;
 use cgmath::{Matrix4, Point3, SquareMatrix, Vector3};
-use std::cell::RefCell;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 pub struct OutputConfig {
     pub file: String,
@@ -27,8 +26,8 @@ pub struct OutputConfig {
 
 struct InputLoader {
     path: PathBuf,
-    materials: Vec<Rc<dyn Material>>,
-    mediums: Vec<Rc<dyn Medium>>,
+    materials: Vec<Arc<dyn Material>>,
+    mediums: Vec<Arc<dyn Medium>>,
 }
 
 pub fn load<P: AsRef<Path>>(path: P) -> Result<(PathTracer, OutputConfig)> {
@@ -153,7 +152,7 @@ impl InputLoader {
         }
     }
 
-    fn load_materials(&self, value: &serde_json::Value) -> Result<Vec<Rc<dyn Material>>> {
+    fn load_materials(&self, value: &serde_json::Value) -> Result<Vec<Arc<dyn Material>>> {
         let arr = value
             .as_array()
             .context("top: 'materials' should be an array")?;
@@ -161,14 +160,14 @@ impl InputLoader {
         for mat_json in arr {
             let ty = get_str_field(mat_json, "material", "type")?;
             let mat = match ty {
-                "pseudo" => Rc::new(PseudoMaterial::new()) as Rc<dyn Material>,
+                "pseudo" => Arc::new(PseudoMaterial::new()) as Arc<dyn Material>,
                 "lambert" => {
                     let albedo = get_float_array3_field(mat_json, "material-lambert", "albedo")?;
                     let emissive =
                         get_float_array3_field_option(mat_json, "material-lambert", "emissive")?;
                     let sampler = get_sampler_field_option(mat_json)?;
-                    Rc::new(Lambert::new(albedo.into(), emissive.into(), sampler))
-                        as Rc<dyn Material>
+                    Arc::new(Lambert::new(albedo.into(), emissive.into(), sampler))
+                        as Arc<dyn Material>
                 }
                 "glass" => {
                     let reflectance =
@@ -177,12 +176,12 @@ impl InputLoader {
                         get_float_array3_field(mat_json, "material-glass", "transmittance")?;
                     let ior = get_float_field(mat_json, "material-glass", "ior")?;
                     let sampler = get_sampler_field_option(mat_json)?;
-                    Rc::new(Glass::new(
+                    Arc::new(Glass::new(
                         reflectance.into(),
                         transmittance.into(),
                         ior,
                         sampler,
-                    )) as Rc<dyn Material>
+                    )) as Arc<dyn Material>
                 }
                 "microfacet" => {
                     let albedo = get_float_array3_field(mat_json, "material-microfacet", "albedo")?;
@@ -191,13 +190,13 @@ impl InputLoader {
                     let roughness = get_float_field(mat_json, "material-microfacet", "roughness")?;
                     let metallic = get_float_field(mat_json, "material-microfacet", "metallic")?;
                     let sampler = get_sampler_field_option(mat_json)?;
-                    Rc::new(Microfacet::new(
+                    Arc::new(Microfacet::new(
                         albedo.into(),
                         emissive.into(),
                         roughness * roughness,
                         metallic,
                         sampler,
-                    )) as Rc<dyn Material>
+                    )) as Arc<dyn Material>
                 }
                 _ => Err(LoadError::new(format!("material: unknown type '{}'", ty)))?,
             };
@@ -206,7 +205,7 @@ impl InputLoader {
         Ok(materials)
     }
 
-    fn load_mediums(&self, value: &serde_json::Value) -> Result<Vec<Rc<dyn Medium>>> {
+    fn load_mediums(&self, value: &serde_json::Value) -> Result<Vec<Arc<dyn Medium>>> {
         let arr = value
             .as_array()
             .context("top: 'mediums' should be an array")?;
@@ -220,8 +219,8 @@ impl InputLoader {
                     let sigma_s =
                         get_float_array3_field(med_json, "medium-homogeneous", "sigma_s")?;
                     let sampler = get_sampler_field_option(med_json)?;
-                    Rc::new(Homogeneous::new(sigma_t.into(), sigma_s.into(), sampler))
-                        as Rc<dyn Medium>
+                    Arc::new(Homogeneous::new(sigma_t.into(), sigma_s.into(), sampler))
+                        as Arc<dyn Medium>
                 }
                 _ => Err(LoadError::new(format!("medium: unknown type '{}'", ty)))?,
             };
@@ -527,21 +526,21 @@ fn get_float_array3_field(value: &serde_json::Value, env: &str, field: &str) -> 
     }
 }
 
-fn get_sampler_field_option(value: &serde_json::Value) -> Result<Box<RefCell<dyn Sampler>>> {
+fn get_sampler_field_option(value: &serde_json::Value) -> Result<Box<Mutex<dyn Sampler>>> {
     if let Some(sampler_json) = value.get("sampler") {
-        get_sampler_field_refcell(sampler_json)
+        get_sampler_field_mutex(sampler_json)
     } else {
-        Ok(Box::new(RefCell::new(RandomSampler::new())))
+        Ok(Box::new(Mutex::new(RandomSampler::new())))
     }
 }
 
-fn get_sampler_field_refcell(value: &serde_json::Value) -> Result<Box<RefCell<dyn Sampler>>> {
+fn get_sampler_field_mutex(value: &serde_json::Value) -> Result<Box<Mutex<dyn Sampler>>> {
     let ty = get_str_field(value, "sample", "type")?;
     match ty {
-        "random" => Ok(Box::new(RefCell::new(RandomSampler::new()))),
+        "random" => Ok(Box::new(Mutex::new(RandomSampler::new()))),
         "jittered" => {
             let division = get_int_field(value, "sampler-jittered", "division")?;
-            Ok(Box::new(RefCell::new(JitteredSampler::new(division))))
+            Ok(Box::new(Mutex::new(JitteredSampler::new(division))))
         }
         _ => Err(LoadError::new(format!("sampler: unknown type '{}'", ty)))?,
     }
