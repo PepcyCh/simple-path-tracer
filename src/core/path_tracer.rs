@@ -5,10 +5,10 @@ use crate::core::filter::Filter;
 use crate::core::intersection::Intersection;
 use crate::core::light::Light;
 use crate::core::medium::Medium;
-use crate::core::primitive::Aggregate;
+use crate::core::primitive::{Aggregate, Primitive};
 use crate::core::ray::Ray;
 use crate::core::sampler::Sampler;
-use cgmath::{InnerSpace, Matrix};
+use cgmath::{InnerSpace, Matrix, Point3, Vector3};
 use image::RgbImage;
 use rand::Rng;
 use std::sync::{Arc, Mutex};
@@ -24,8 +24,6 @@ pub struct PathTracer {
 }
 
 impl PathTracer {
-    const CUTOFF_LUMINANCE: f32 = 0.005;
-
     pub fn new(
         camera: Box<dyn Camera>,
         objects: Box<dyn Aggregate>,
@@ -98,22 +96,72 @@ impl PathTracer {
         let mut curr_depth = 0;
         let mut rr_rng = rand::thread_rng();
         let mut curr_medium: Option<&dyn Medium> = None;
+        let mut curr_primitive: Option<&dyn Primitive>;
 
         while curr_depth < self.max_depth {
             let mut inter = Intersection::default();
             let does_hit = self.objects.intersect(&ray, &mut inter);
+            curr_primitive = inter.primitive;
 
             if let Some(medium) = curr_medium {
-                let p = ray.origin;
                 let wo = -ray.direction;
-                let (next_position, wi, still_in_medium, pdf, attenuation) =
-                    medium.sample(p, wo, inter.t);
-                // TODO - sample lights ?
+                let (p, still_in_medium, attenuation) =
+                    medium.sample_transport(ray.origin, wo, inter.t);
+                color_coe *= attenuation;
+
                 if !still_in_medium {
                     curr_medium = None;
+                    continue;
+                } else {
+                    let mut li = Color::BLACK;
+                    for light in &self.lights {
+                        let (light_dir, pdf, light_strength, dist) = light.sample(p);
+                        let phase = medium.phase(wo, light_dir);
+
+                        let (shadow_ray, transported_dist) = self.shadow_ray_from_medium(
+                            p,
+                            light_dir,
+                            dist,
+                            curr_primitive.unwrap(),
+                        );
+                        let atten = medium.transport_attenuation(transported_dist);
+                        if pdf != 0.0
+                            && pdf.is_finite()
+                            && !self.objects.intersect_test(&shadow_ray, dist - 0.001)
+                        {
+                            if light.is_delta() {
+                                li += atten * phase * light_strength / pdf;
+                            } else {
+                                let weight = power_heuristic(1, pdf, 1, phase);
+                                li += atten * phase * light_strength * weight / pdf;
+                            }
+                        }
+
+                        if !light.is_delta() {
+                            let (wi, phase) = medium.sample_phase(wo);
+                            let (light_strength, dist, light_pdf) = light.strength_dist_pdf(p, wi);
+
+                            let (shadow_ray, transported_dist) = self.shadow_ray_from_medium(
+                                p,
+                                light_dir,
+                                dist,
+                                curr_primitive.unwrap(),
+                            );
+                            let atten = medium.transport_attenuation(transported_dist);
+                            if phase != 0.0
+                                && phase.is_finite()
+                                && !self.objects.intersect_test(&shadow_ray, dist - 0.001)
+                            {
+                                let weight = power_heuristic(1, phase, 1, light_pdf);
+                                li += atten * phase * light_strength * weight / phase;
+                            }
+                        }
+                    }
+                    final_color += color_coe * li;
                 }
-                color_coe *= attenuation / pdf;
-                ray = Ray::new(next_position, wi);
+
+                let (wi, _) = medium.sample_phase(wo);
+                ray = Ray::new(p, wi);
             } else {
                 if !does_hit {
                     break;
@@ -121,11 +169,13 @@ impl PathTracer {
 
                 let p = ray.point_at(inter.t);
                 let mat = inter.primitive.unwrap().material().unwrap();
-                curr_medium = inter.primitive.unwrap().inside_medium();
 
                 let normal_to_world = normal_to_world(inter.normal);
                 let world_to_normal = normal_to_world.transpose();
                 let wo = world_to_normal * -ray.direction;
+                if wo.z > 0.0 {
+                    curr_medium = inter.primitive.unwrap().inside_medium();
+                }
 
                 let mut li = if curr_depth == 0 {
                     mat.emissive()
@@ -143,8 +193,7 @@ impl PathTracer {
                     let mat_pdf = mat.pdf(wo, wi);
                     let shadow_ray = Ray::new(p, light_dir);
                     if pdf != 0.0
-                        && light_strength.luminance() > Self::CUTOFF_LUMINANCE
-                        && bsdf.luminance() > Self::CUTOFF_LUMINANCE
+                        && pdf.is_finite()
                         && !self.objects.intersect_test(&shadow_ray, dist - 0.001)
                     {
                         if light.is_delta() {
@@ -165,8 +214,7 @@ impl PathTracer {
                             light.strength_dist_pdf(p, light_dir);
                         let shadow_ray = Ray::new(p, light_dir);
                         if pdf != 0.0
-                            && light_strength.luminance() > Self::CUTOFF_LUMINANCE
-                            && bsdf.luminance() > Self::CUTOFF_LUMINANCE
+                            && pdf.is_finite()
                             && !self.objects.intersect_test(&shadow_ray, dist - 0.001)
                         {
                             if mat.is_delta() {
@@ -180,21 +228,49 @@ impl PathTracer {
                 }
                 final_color += color_coe * li;
 
-                let rr_rand: f32 = rr_rng.gen();
-                let rr_prop = color_coe.luminance().clamp(0.2, 1.0);
-                if rr_rand > rr_prop {
-                    break;
-                }
-
                 let (wi, pdf, bsdf) = mat.sample(wo);
                 ray = Ray::new(p, normal_to_world * wi);
-                color_coe *= bsdf * wi.z.abs() / pdf / rr_prop;
+                color_coe *= bsdf * wi.z.abs() / pdf;
+                if !color_coe.is_finite() {
+                    break;
+                }
             }
+
+            let rr_rand: f32 = rr_rng.gen();
+            let rr_prop = color_coe.luminance().clamp(0.05, 1.0);
+            if rr_rand > rr_prop {
+                break;
+            }
+            color_coe /= rr_prop;
 
             curr_depth += 1;
         }
 
         final_color
+    }
+
+    fn shadow_ray_from_medium(
+        &self,
+        p: Point3<f32>,
+        light_dir: Vector3<f32>,
+        light_dist: f32,
+        medium_primitive: &dyn Primitive,
+    ) -> (Ray, f32) {
+        let mut shadow_ray = Ray::new(p, light_dir);
+
+        let mut temp_inter = Intersection::default();
+        temp_inter.t = light_dist - 0.001;
+
+        let transported_dist;
+        if medium_primitive.intersect(&shadow_ray, &mut temp_inter) {
+            transported_dist = temp_inter.t;
+            shadow_ray.t_min += temp_inter.t;
+        } else {
+            transported_dist = light_dist;
+            shadow_ray.t_min += light_dist - 0.001;
+        }
+
+        (shadow_ray, transported_dist)
     }
 }
 

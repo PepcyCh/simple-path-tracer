@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Color {
@@ -63,6 +63,14 @@ impl SubAssign for Color {
         self.r -= rhs.r;
         self.g -= rhs.g;
         self.b -= rhs.b;
+    }
+}
+
+impl Neg for Color {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self::new(-self.r, -self.g, -self.b)
     }
 }
 

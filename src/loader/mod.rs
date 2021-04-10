@@ -218,9 +218,14 @@ impl InputLoader {
                         get_float_array3_field(med_json, "medium-homogeneous", "sigma_t")?;
                     let sigma_s =
                         get_float_array3_field(med_json, "medium-homogeneous", "sigma_s")?;
+                    let asymmetric = get_float_field(med_json, "medium-homogeneous", "asymmetric")?;
                     let sampler = get_sampler_field_option(med_json)?;
-                    Arc::new(Homogeneous::new(sigma_t.into(), sigma_s.into(), sampler))
-                        as Arc<dyn Medium>
+                    Arc::new(Homogeneous::new(
+                        sigma_t.into(),
+                        sigma_s.into(),
+                        asymmetric,
+                        sampler,
+                    )) as Arc<dyn Medium>
                 }
                 _ => Err(LoadError::new(format!("medium: unknown type '{}'", ty)))?,
             };

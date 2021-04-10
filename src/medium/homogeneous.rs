@@ -1,80 +1,95 @@
 use crate::core::color::Color;
 use crate::core::medium::Medium;
-use crate::core::ray::Ray;
 use crate::core::sampler::Sampler;
-use cgmath::{Point3, Vector3};
+use cgmath::{InnerSpace, Point3, Vector3};
 use std::sync::Mutex;
 
 pub struct Homogeneous {
     sigma_t: Color,
     sigma_s: Color,
+    asymmetric: f32,
     sampler: Box<Mutex<dyn Sampler>>,
 }
 
 impl Homogeneous {
-    pub fn new(sigma_t: Color, sigma_s: Color, sampler: Box<Mutex<dyn Sampler>>) -> Self {
+    pub fn new(
+        sigma_t: Color,
+        sigma_s: Color,
+        asymmetric: f32,
+        sampler: Box<Mutex<dyn Sampler>>,
+    ) -> Self {
         Self {
             sigma_t,
             sigma_s,
+            asymmetric,
             sampler,
         }
     }
 }
 
 impl Medium for Homogeneous {
-    fn sample(
+    fn sample_transport(
         &self,
         position: Point3<f32>,
         wo: Vector3<f32>,
         t_max: f32,
-    ) -> (Point3<f32>, Vector3<f32>, bool, f32, Color) {
+    ) -> (Point3<f32>, bool, Color) {
+        let (rand_x, rand_y) = {
+            let mut sampler = self.sampler.lock().unwrap();
+            sampler.uniform_2d()
+        };
         let sample_sigma_t = {
-            let rand = {
-                let mut sampler = self.sampler.lock().unwrap();
-                sampler.uniform_1d()
-            };
-            if rand <= 0.33 {
+            if rand_x <= 0.33 {
                 self.sigma_t.r
-            } else if rand <= 0.66 {
+            } else if rand_x <= 0.66 {
                 self.sigma_t.g
             } else {
                 self.sigma_t.b
             }
         };
-        let sample_t = {
-            let rand = {
-                let mut sampler = self.sampler.lock().unwrap();
-                sampler.uniform_1d()
-            };
-            -(1.0 - rand).ln() / sample_sigma_t
-        };
-        let attenuation = (self.sigma_t * sample_t.min(t_max)).exp();
-        let sample_position = position - wo * sample_t.min(t_max - Ray::T_MIN_EPS * 2.0);
+        let sample_t = -(1.0 - rand_y).ln() / sample_sigma_t;
+
+        let attenuation = (-self.sigma_t * sample_t.min(t_max)).exp();
+        let sample_position = position - wo * sample_t.min(t_max);
+
         if sample_t < t_max {
-            let sample_direction = {
-                let mut sampler = self.sampler.lock().unwrap();
-                sampler.uniform_on_sphere()
-            };
             let density = self.sigma_t * attenuation;
             let atten_pdf = (density.r + density.g + density.b) / 3.0;
             (
                 sample_position,
-                sample_direction,
                 true,
-                0.25 / std::f32::consts::PI,
                 attenuation * self.sigma_s / atten_pdf,
             )
         } else {
-            let sample_direction = -wo;
             let density = attenuation;
             let atten_pdf = (density.r + density.g + density.b) / 3.0;
-            (
-                sample_position,
-                sample_direction,
-                false,
-                1.0,
-                attenuation / atten_pdf,
-            )
+            (sample_position, false, attenuation / atten_pdf)
         }
+    }
+
+    fn sample_phase(&self, wo: Vector3<f32>) -> (Vector3<f32>, f32) {
+        let (rand_x, rand_y) = {
+            let mut sampler = self.sampler.lock().unwrap();
+            sampler.uniform_2d()
+        };
+        let cos_theta = crate::medium::util::henyey_greenstein_cdf_inverse(self.asymmetric, rand_x);
+        let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
+        let phi = 2.0 * std::f32::consts::PI * rand_y;
+        let wi = Vector3::new(sin_theta * phi.cos(), sin_theta * phi.sin(), cos_theta);
+        let sample_direction = crate::medium::util::local_to_world(wo, wi);
+
+        (
+            sample_direction,
+            crate::medium::util::henyey_greenstein(self.asymmetric, cos_theta),
+        )
+    }
+
+    fn transport_attenuation(&self, dist: f32) -> Color {
+        (-self.sigma_t * dist).exp()
+    }
+
+    fn phase(&self, wo: Vector3<f32>, wi: Vector3<f32>) -> f32 {
+        let cos = wo.dot(wi);
+        crate::medium::util::henyey_greenstein(self.asymmetric, cos)
     }
 }

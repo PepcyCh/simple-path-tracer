@@ -40,12 +40,43 @@ impl Microfacet {
 
 impl Material for Microfacet {
     fn sample(&self, wo: Vector3<f32>) -> (Vector3<f32>, f32, Color) {
-        let sample = {
+        //! pdf: metallic * importance sampling of GGX NDF + (1.0 - metallic) * cosine weighted on hemisphere
+        let rand = {
             let mut sampler = self.sampler.lock().unwrap();
-            sampler.cosine_weighted_on_hemisphere()
+            sampler.uniform_1d()
         };
-        let bsdf = self.bsdf(wo, sample);
-        (sample, sample.z / std::f32::consts::PI, bsdf)
+        let (sample_direction, sample_half) = if rand > self.metallic {
+            let sample_direction = {
+                let mut sampler = self.sampler.lock().unwrap();
+                sampler.cosine_weighted_on_hemisphere()
+            };
+            let sample_half = (sample_direction + wo).normalize();
+            (sample_direction, sample_half)
+        } else {
+            let (rand_x, rand_y) = {
+                let mut sampler = self.sampler.lock().unwrap();
+                sampler.uniform_2d()
+            };
+            let cos_theta_sqr =
+                crate::material::util::ggx_ndf_cdf_inverse(self.roughness_sqr, rand_x);
+            let cos_theta = cos_theta_sqr.sqrt();
+            let sin_theta = (1.0 - cos_theta_sqr).sqrt();
+            let phi = 2.0 * std::f32::consts::PI * rand_y;
+            let sample_half = Vector3::new(sin_theta * phi.cos(), sin_theta * phi.sin(), cos_theta);
+            let sample_direction = 2.0 * wo.dot(sample_half) * sample_half - wo;
+            (sample_direction, sample_half)
+        };
+        if sample_direction.z <= 0.0 {
+            (sample_direction, 1.0, Color::BLACK)
+        } else {
+            let pdf = self.metallic
+                * crate::material::util::ggx_ndf(sample_half.z, self.roughness_sqr)
+                * sample_half.z
+                / (4.0 * wo.dot(sample_half))
+                + (1.0 - self.metallic) * sample_direction.z / std::f32::consts::PI;
+            let bsdf = self.bsdf(wo, sample_direction);
+            (sample_direction, pdf, bsdf)
+        }
     }
 
     fn bsdf(&self, wo: Vector3<f32>, wi: Vector3<f32>) -> Color {
@@ -66,8 +97,11 @@ impl Material for Microfacet {
         (1.0 - self.metallic) * dielectric_shading + self.metallic * metal_shading
     }
 
-    fn pdf(&self, _wo: Vector3<f32>, wi: Vector3<f32>) -> f32 {
-        wi.z / std::f32::consts::PI
+    fn pdf(&self, wo: Vector3<f32>, wi: Vector3<f32>) -> f32 {
+        let half = (wo + wi).normalize();
+        self.metallic * crate::material::util::ggx_ndf(half.z, self.roughness_sqr) * half.z
+            / (4.0 * wo.dot(half))
+            + (1.0 - self.metallic) * wi.z / std::f32::consts::PI
     }
 
     fn is_delta(&self) -> bool {

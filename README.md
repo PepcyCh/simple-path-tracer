@@ -8,6 +8,7 @@ Project structure is similar to that in pbrt.
 
 ## Implemented Features
 
-* Multiple Importance Sampling
-* Simple Microfacet Material (just use similar way to that in real-time rendering, GGX NDF and Smith separable visible term)
-* Medium Rendering (simple homogeneous medium) (not finished yet ...)
+* Surface area hierarchy
+* Multiple importance sampling
+* Simple microfacet material (GGX NDF and Smith separable visible term, importance sampling w.r.t GGX NDF)
+* Homogeneous medium with Henyey-Greenstein phase function
