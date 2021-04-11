@@ -214,14 +214,14 @@ impl InputLoader {
             let ty = get_str_field(med_json, "medium", "type")?;
             let med = match ty {
                 "homogeneous" => {
-                    let sigma_t =
-                        get_float_array3_field(med_json, "medium-homogeneous", "sigma_t")?;
+                    let sigma_a =
+                        get_float_array3_field(med_json, "medium-homogeneous", "sigma_a")?;
                     let sigma_s =
                         get_float_array3_field(med_json, "medium-homogeneous", "sigma_s")?;
                     let asymmetric = get_float_field(med_json, "medium-homogeneous", "asymmetric")?;
                     let sampler = get_sampler_field_option(med_json)?;
                     Arc::new(Homogeneous::new(
-                        sigma_t.into(),
+                        sigma_a.into(),
                         sigma_s.into(),
                         asymmetric,
                         sampler,

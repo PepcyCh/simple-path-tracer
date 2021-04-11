@@ -23,10 +23,36 @@ pub fn refract(i: cgmath::Vector3<f32>, ior: f32) -> Option<cgmath::Vector3<f32>
     }
 }
 
+#[allow(dead_code)]
 pub fn fresnel_r0(ior: f32) -> f32 {
     pow2((1.0 - ior) / (1.0 + ior))
 }
 
+pub fn fresnel(ior: f32, i: cgmath::Vector3<f32>) -> f32 {
+    let (i_ior, o_ior) = if i.z >= 0.0 {
+        (1.0, ior)
+    } else {
+        (ior, 1.0)
+    };
+
+    if let Some(refract) = refract(i, ior) {
+        let denom = i_ior * i.z.abs() + o_ior * refract.z.abs();
+        let num = i_ior * i.z.abs() - o_ior * refract.z.abs();
+        let rs = num / denom;
+        let rs = rs * rs;
+
+        let denom = i_ior * refract.z.abs() + o_ior * i.z.abs();
+        let num = i_ior * refract.z.abs() - o_ior * i.z.abs();
+        let rp = num / denom;
+        let rp = rp * rp;
+
+        (rs + rp) * 0.5
+    } else {
+        1.0
+    }
+}
+
+#[allow(dead_code)]
 pub fn schlick_fresnel(ior: f32, cos: f32) -> f32 {
     let r0 = fresnel_r0(ior);
     r0 + (1.0 - r0) * pow5(1.0 - cos)

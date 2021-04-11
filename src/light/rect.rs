@@ -63,7 +63,7 @@ impl Light for RectangleLight {
         let (pdf, strength) = if cos > 0.0 {
             (self.area_inv * dist_sqr / cos, self.strength)
         } else {
-            (0.0, Color::BLACK)
+            (1.0, Color::BLACK)
         };
         (sample, pdf, strength, dist)
     }
@@ -85,7 +85,7 @@ impl Light for RectangleLight {
                 }
             }
         }
-        (Color::BLACK, f32::MAX, 0.0)
+        (Color::BLACK, f32::MAX, 1.0)
     }
 
     fn is_delta(&self) -> bool {

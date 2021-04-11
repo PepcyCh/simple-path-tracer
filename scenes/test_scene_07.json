@@ -13,16 +13,16 @@
   },
   "pixel_sampler": {
     "type": "jittered",
-    "division": 256,
-    "spp": 256
+    "division": 1024,
+    "spp": 1024
   },
-  "max_depth": 8,
+  "max_depth": 24,
   "filter": {
     "type": "box",
     "radius": 0.5
   },
   "output": {
-    "file": "images/test_scene_06.jpg",
+    "file": "images/test_scene_07.jpg",
     "width": 400,
     "height": 400
   },
@@ -34,11 +34,11 @@
     },
     {
       "type": "lambert",
-      "albedo": [0.5, 0.7, 1.0]
+      "albedo": [0.2, 0.3, 0.5]
     },
     {
       "type": "lambert",
-      "albedo": [0.5, 1.0, 0.7]
+      "albedo": [0.2, 0.5, 0.3]
     },
     {
       "type": "microfacet",
@@ -48,14 +48,17 @@
       "metallic": 0.8
     },
     {
-      "type": "pseudo"
+      "type": "glass",
+      "reflectance": [1.0, 1.0, 1.0],
+      "transmittance": [1.0, 1.0, 1.0],
+      "ior": 1.3
     }
   ],
   "mediums": [
     {
       "type": "homogeneous",
-      "sigma_a": [0.5, 0.5, 0.5],
-      "sigma_s": [1.0, 0.2, 0.2],
+      "sigma_a": [0.003, 0.0034, 0.046],
+      "sigma_s": [2.29, 2.39, 1.97],
       "asymmetric": 0.0
     }
   ],

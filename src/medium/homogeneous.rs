@@ -13,11 +13,12 @@ pub struct Homogeneous {
 
 impl Homogeneous {
     pub fn new(
-        sigma_t: Color,
+        sigma_a: Color,
         sigma_s: Color,
         asymmetric: f32,
         sampler: Box<Mutex<dyn Sampler>>,
     ) -> Self {
+        let sigma_t = sigma_a + sigma_s;
         Self {
             sigma_t,
             sigma_s,

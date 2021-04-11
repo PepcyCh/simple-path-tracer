@@ -173,9 +173,6 @@ impl PathTracer {
                 let normal_to_world = normal_to_world(inter.normal);
                 let world_to_normal = normal_to_world.transpose();
                 let wo = world_to_normal * -ray.direction;
-                if wo.z > 0.0 {
-                    curr_medium = inter.primitive.unwrap().inside_medium();
-                }
 
                 let mut li = if curr_depth == 0 {
                     mat.emissive()
@@ -233,6 +230,10 @@ impl PathTracer {
                 color_coe *= bsdf * wi.z.abs() / pdf;
                 if !color_coe.is_finite() {
                     break;
+                }
+
+                if wi.z < 0.0 {
+                    curr_medium = inter.primitive.unwrap().inside_medium();
                 }
             }
 
