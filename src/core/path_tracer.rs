@@ -24,6 +24,8 @@ pub struct PathTracer {
 }
 
 impl PathTracer {
+    const CUTOFF_LUMINANCE: f32 = 0.001;
+
     pub fn new(
         camera: Box<dyn Camera>,
         objects: Box<dyn Aggregate>,
@@ -113,6 +115,7 @@ impl PathTracer {
                     curr_medium = None;
                     continue;
                 } else {
+                    // I found that sampling to lights for medium make less influence to the result...
                     let mut li = Color::BLACK;
                     for light in &self.lights {
                         let (light_dir, pdf, light_strength, dist) = light.sample(p);
@@ -167,12 +170,21 @@ impl PathTracer {
                     break;
                 }
 
-                let p = ray.point_at(inter.t);
+                let po = ray.point_at(inter.t);
                 let mat = inter.primitive.unwrap().material().unwrap();
 
-                let normal_to_world = normal_to_world(inter.normal);
+                let normal_to_world = normal_to_world_from_normal(inter.normal);
                 let world_to_normal = normal_to_world.transpose();
                 let wo = world_to_normal * -ray.direction;
+
+                let (pi, ni, sp) = mat.sample_sp(po, wo, normal_to_world, &*self.objects);
+                color_coe *= sp;
+                if !color_coe.is_finite() || color_coe.luminance() < Self::CUTOFF_LUMINANCE {
+                    break;
+                }
+
+                let normal_to_world = normal_to_world_from_normal(ni);
+                let world_to_normal = normal_to_world.transpose();
 
                 let mut li = if curr_depth == 0 {
                     mat.emissive()
@@ -181,14 +193,14 @@ impl PathTracer {
                 };
 
                 for light in &self.lights {
-                    let (light_dir, pdf, light_strength, dist) = light.sample(p);
+                    let (light_dir, pdf, light_strength, dist) = light.sample(pi);
                     let wi = world_to_normal * light_dir;
                     if wi.z < 0.0 {
                         continue;
                     }
                     let bsdf = mat.bsdf(wo, wi);
                     let mat_pdf = mat.pdf(wo, wi);
-                    let shadow_ray = Ray::new(p, light_dir);
+                    let shadow_ray = Ray::new(pi, light_dir);
                     if pdf != 0.0
                         && pdf.is_finite()
                         && !self.objects.intersect_test(&shadow_ray, dist - 0.001)
@@ -208,8 +220,8 @@ impl PathTracer {
                         }
                         let light_dir = normal_to_world * wi;
                         let (light_strength, dist, light_pdf) =
-                            light.strength_dist_pdf(p, light_dir);
-                        let shadow_ray = Ray::new(p, light_dir);
+                            light.strength_dist_pdf(pi, light_dir);
+                        let shadow_ray = Ray::new(pi, light_dir);
                         if pdf != 0.0
                             && pdf.is_finite()
                             && !self.objects.intersect_test(&shadow_ray, dist - 0.001)
@@ -226,7 +238,7 @@ impl PathTracer {
                 final_color += color_coe * li;
 
                 let (wi, pdf, bsdf) = mat.sample(wo);
-                ray = Ray::new(p, normal_to_world * wi);
+                ray = Ray::new(pi, normal_to_world * wi);
                 color_coe *= bsdf * wi.z.abs() / pdf;
                 if !color_coe.is_finite() {
                     break;
@@ -238,7 +250,7 @@ impl PathTracer {
             }
 
             let rr_rand: f32 = rr_rng.gen();
-            let rr_prop = color_coe.luminance().clamp(0.05, 1.0);
+            let rr_prop = color_coe.luminance().clamp(Self::CUTOFF_LUMINANCE, 1.0);
             if rr_rand > rr_prop {
                 break;
             }
@@ -259,8 +271,7 @@ impl PathTracer {
     ) -> (Ray, f32) {
         let mut shadow_ray = Ray::new(p, light_dir);
 
-        let mut temp_inter = Intersection::default();
-        temp_inter.t = light_dist - 0.001;
+        let mut temp_inter = Intersection::with_t_max(light_dist - 0.001);
 
         let transported_dist;
         if medium_primitive.intersect(&shadow_ray, &mut temp_inter) {
@@ -275,7 +286,7 @@ impl PathTracer {
     }
 }
 
-fn normal_to_world(normal: cgmath::Vector3<f32>) -> cgmath::Matrix3<f32> {
+fn normal_to_world_from_normal(normal: cgmath::Vector3<f32>) -> cgmath::Matrix3<f32> {
     let bitangent = if normal.y.abs() < 0.99 {
         cgmath::Vector3::unit_y()
     } else {

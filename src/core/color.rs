@@ -27,6 +27,10 @@ impl Color {
         0.299 * self.r + 0.587 * self.g + 0.114 * self.b
     }
 
+    pub fn avg(&self) -> f32 {
+        (self.r + self.g + self.b) / 3.0
+    }
+
     pub fn is_finite(&self) -> bool {
         self.r.is_finite() && self.g.is_finite() && self.b.is_finite()
     }

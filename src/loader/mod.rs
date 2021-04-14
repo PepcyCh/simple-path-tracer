@@ -9,7 +9,7 @@ use crate::core::primitive::{Aggregate, Primitive};
 use crate::core::sampler::Sampler;
 use crate::filter::BoxFilter;
 use crate::light::{DirLight, PointLight, RectangleLight};
-use crate::material::{Glass, Lambert, Microfacet, PseudoMaterial};
+use crate::material::{Glass, Lambert, Microfacet, PseudoMaterial, Subsurface};
 use crate::medium::Homogeneous;
 use crate::primitive::{BvhAccel, Group, MeshVertex, Sphere, Transform, TriangleMesh};
 use crate::sampler::{JitteredSampler, RandomSampler};
@@ -197,6 +197,13 @@ impl InputLoader {
                         metallic,
                         sampler,
                     )) as Arc<dyn Material>
+                }
+                "subsurface" => {
+                    let albedo = get_float_array3_field(mat_json, "material-subsurface", "albedo")?;
+                    let ld = get_float_field(mat_json, "material-subsurface", "ld")?;
+                    let ior = get_float_field(mat_json, "material-subsurface", "ior")?;
+                    let sampler = get_sampler_field_option(mat_json)?;
+                    Arc::new(Subsurface::new(albedo.into(), ld, ior, sampler)) as Arc<dyn Material>
                 }
                 _ => Err(LoadError::new(format!("material: unknown type '{}'", ty)))?,
             };

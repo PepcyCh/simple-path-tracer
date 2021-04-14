@@ -40,9 +40,9 @@ impl Medium for Homogeneous {
             sampler.uniform_2d()
         };
         let sample_sigma_t = {
-            if rand_x <= 0.33 {
+            if rand_x < 1.0 / 3.0 {
                 self.sigma_t.r
-            } else if rand_x <= 0.66 {
+            } else if rand_x < 2.0 / 3.0 {
                 self.sigma_t.g
             } else {
                 self.sigma_t.b
@@ -54,16 +54,14 @@ impl Medium for Homogeneous {
         let sample_position = position - wo * sample_t.min(t_max);
 
         if sample_t < t_max {
-            let density = self.sigma_t * attenuation;
-            let atten_pdf = (density.r + density.g + density.b) / 3.0;
+            let atten_pdf = (self.sigma_t * attenuation).avg();
             (
                 sample_position,
                 true,
                 attenuation * self.sigma_s / atten_pdf,
             )
         } else {
-            let density = attenuation;
-            let atten_pdf = (density.r + density.g + density.b) / 3.0;
+            let atten_pdf = attenuation.avg();
             (sample_position, false, attenuation / atten_pdf)
         }
     }

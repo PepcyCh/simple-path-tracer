@@ -29,11 +29,7 @@ pub fn fresnel_r0(ior: f32) -> f32 {
 }
 
 pub fn fresnel(ior: f32, i: cgmath::Vector3<f32>) -> f32 {
-    let (i_ior, o_ior) = if i.z >= 0.0 {
-        (1.0, ior)
-    } else {
-        (ior, 1.0)
-    };
+    let (i_ior, o_ior) = if i.z >= 0.0 { (1.0, ior) } else { (ior, 1.0) };
 
     if let Some(refract) = refract(i, ior) {
         let denom = i_ior * i.z.abs() + o_ior * refract.z.abs();

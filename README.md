@@ -12,3 +12,4 @@ Project structure is similar to that in pbrt.
 * Multiple importance sampling
 * Simple microfacet material (GGX NDF and Smith separable visible term, importance sampling w.r.t GGX NDF)
 * Homogeneous medium with Henyey-Greenstein phase function
+* BSSRDF with normalized diffusion profile

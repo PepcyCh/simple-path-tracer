@@ -7,6 +7,15 @@ pub struct Intersection<'a> {
     pub primitive: Option<&'a dyn Primitive>,
 }
 
+impl Intersection<'_> {
+    pub fn with_t_max(t_max: f32) -> Self {
+        Self {
+            t: t_max,
+            ..Default::default()
+        }
+    }
+}
+
 impl Default for Intersection<'_> {
     fn default() -> Self {
         Self {
