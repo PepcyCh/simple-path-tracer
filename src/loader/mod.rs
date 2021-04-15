@@ -9,7 +9,7 @@ use crate::core::primitive::{Aggregate, Primitive};
 use crate::core::sampler::Sampler;
 use crate::filter::BoxFilter;
 use crate::light::{DirLight, PointLight, RectangleLight};
-use crate::material::{Glass, Lambert, Microfacet, PseudoMaterial, Subsurface};
+use crate::material::{Glass, Lambert, Microfacet, MicrofacetGlass, PseudoMaterial, Subsurface};
 use crate::medium::Homogeneous;
 use crate::primitive::{BvhAccel, Group, MeshVertex, Sphere, Transform, TriangleMesh};
 use crate::sampler::{JitteredSampler, RandomSampler};
@@ -195,6 +195,29 @@ impl InputLoader {
                         emissive.into(),
                         roughness * roughness,
                         metallic,
+                        sampler,
+                    )) as Arc<dyn Material>
+                }
+                "microfacet_glass" => {
+                    let reflectance = get_float_array3_field(
+                        mat_json,
+                        "material-microfacet_glass",
+                        "reflectance",
+                    )?;
+                    let transmittance = get_float_array3_field(
+                        mat_json,
+                        "material-microfacet_glass",
+                        "transmittance",
+                    )?;
+                    let ior = get_float_field(mat_json, "material-microfacet_glass", "ior")?;
+                    let roughness =
+                        get_float_field(mat_json, "material-microfacet_glass", "roughness")?;
+                    let sampler = get_sampler_field_option(mat_json)?;
+                    Arc::new(MicrofacetGlass::new(
+                        reflectance.into(),
+                        transmittance.into(),
+                        ior,
+                        roughness,
                         sampler,
                     )) as Arc<dyn Material>
                 }

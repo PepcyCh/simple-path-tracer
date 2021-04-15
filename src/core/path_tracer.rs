@@ -240,7 +240,7 @@ impl PathTracer {
                 let (wi, pdf, bsdf) = mat.sample(wo);
                 ray = Ray::new(pi, normal_to_world * wi);
                 color_coe *= bsdf * wi.z.abs() / pdf;
-                if !color_coe.is_finite() {
+                if !color_coe.is_finite() || color_coe.luminance() < Self::CUTOFF_LUMINANCE {
                     break;
                 }
 

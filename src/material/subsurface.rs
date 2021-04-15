@@ -176,7 +176,7 @@ impl Material for Subsurface {
         let pdf_xy = 0.5 * normal_local.z.abs() * self.sp(r_xy).avg();
         let pdf_yz = 0.25 * normal_local.x.abs() * self.sp(r_yz).avg();
         let pdf_zx = 0.25 * normal_local.y.abs() * self.sp(r_zx).avg();
-        let pdf = (pdf_xy + pdf_yz + pdf_zx) * intersects.len() as f32;
+        let pdf = (pdf_xy + pdf_yz + pdf_zx) / intersects.len() as f32;
 
         (sample_p, sample_normal, sp / pdf)
     }

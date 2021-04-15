@@ -63,7 +63,7 @@ impl Material for Microfacet {
             let sin_theta = (1.0 - cos_theta_sqr).sqrt();
             let phi = 2.0 * std::f32::consts::PI * rand_y;
             let sample_half = Vector3::new(sin_theta * phi.cos(), sin_theta * phi.sin(), cos_theta);
-            let sample_direction = 2.0 * wo.dot(sample_half) * sample_half - wo;
+            let sample_direction = crate::material::util::reflect_n(wo, sample_half);
             (sample_direction, sample_half)
         };
         if sample_direction.z <= 0.0 {
