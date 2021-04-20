@@ -57,33 +57,59 @@ impl PathTracer {
                 .progress_chars("#>-"),
         );
 
+        #[derive(Copy, Clone)]
+        struct ImageRange {
+            from: u32,
+            to: u32,
+        }
+        let num_cpus = num_cpus::get() as u32;
+        let height_per_cpu = height / num_cpus;
+        let mut ranges = Vec::with_capacity(num_cpus as usize);
+        for t in 0..num_cpus {
+            let from = t * height_per_cpu;
+            let to = if t + 1 == num_cpus {
+                height
+            } else {
+                (t + 1) * height_per_cpu
+            };
+            ranges.push(ImageRange { from, to });
+        }
+
         crossbeam::scope(|scope| {
-            let mut samples = vec![];
-            for _ in 0..height {
-                for _ in 0..width {
-                    let samples_pixel = self.sampler.pixel_samples(self.spp);
-                    samples.push(samples_pixel);
+            let mut samples = Vec::with_capacity(num_cpus as usize);
+            for ImageRange { from, to } in &ranges {
+                let mut temp_samples = vec![];
+                for _ in *from..*to {
+                    for _ in 0..width {
+                        let samples_pixel = self.sampler.pixel_samples(self.spp);
+                        temp_samples.push(samples_pixel);
+                    }
                 }
+                samples.push(temp_samples);
             }
 
-            for j in 0..height {
-                for i in 0..width {
-                    let samples = std::mem::take(&mut samples[(j * width + i) as usize]);
-                    let film = film.clone();
-                    let progress_bar = progress_bar.clone();
-                    let path_tracer = &self;
-                    scope.spawn(move |_| {
-                        for (offset_x, offset_y) in samples {
-                            let x = (i as f32 + offset_x) / width as f32 * aspect - 0.5;
-                            let y = ((height - j - 1) as f32 + offset_y) / height as f32 - 0.5;
-                            let ray = path_tracer.camera.generate_ray((x, y));
-                            let color = path_tracer.trace_ray(ray);
-                            let mut film = film.lock().unwrap();
-                            film.add_sample(i, j, (offset_x - 0.5, offset_y - 0.5), color);
+            for t in 0..num_cpus as usize {
+                let samples = std::mem::take(&mut samples[t]);
+                let film = film.clone();
+                let progress_bar = progress_bar.clone();
+                let path_tracer = &self;
+                let ImageRange { from, to } = ranges[t];
+
+                scope.spawn(move |_| {
+                    for j in from..to {
+                        for i in 0..width {
+                            for (offset_x, offset_y) in &samples[((j - from) * width + i) as usize] {
+                                let x = (i as f32 + offset_x) / width as f32 * aspect - 0.5;
+                                let y = ((height - j - 1) as f32 + offset_y) / height as f32 - 0.5;
+                                let ray = path_tracer.camera.generate_ray((x, y));
+                                let color = path_tracer.trace_ray(ray);
+                                let mut film = film.lock().unwrap();
+                                film.add_sample(i, j, (offset_x - 0.5, offset_y - 0.5), color);
+                            }
+                            progress_bar.inc(1);
                         }
-                        progress_bar.inc(1);
-                    });
-                }
+                    }
+                });
             }
         })
         .unwrap();
