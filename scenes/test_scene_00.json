@@ -23,10 +23,23 @@
     "width": 200,
     "height": 200
   },
+  "textures": [
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.0, 0.0, 0.0]
+    },
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.5, 0.7, 1.0]
+    }
+  ],
   "materials": [
     {
       "type": "lambert",
-      "albedo": [0.5, 0.7, 1.0]
+      "albedo": 1,
+      "emissive": 0
     }
   ],
   "mediums": [],

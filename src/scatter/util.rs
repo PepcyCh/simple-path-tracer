@@ -75,10 +75,41 @@ pub fn fresnel_n(ior: f32, i: Vector3<f32>, n: Vector3<f32>) -> f32 {
         let rp = num / denom;
         let rp = rp * rp;
 
-        (rs + rp) * 0.5
+        0.5 * (rs + rp)
     } else {
         1.0
     }
+}
+
+pub fn fresnel_conductor(ior: Color, ior_k: Color, i: Vector3<f32>) -> Color {
+    fresnel_conductor_n(ior, ior_k, i, Vector3::unit_z())
+}
+
+pub fn fresnel_conductor_n(ior: Color, ior_k: Color, i: Vector3<f32>, n: Vector3<f32>) -> Color {
+    let cos = i.dot(n);
+    let (ior_ratio, k_ratio) = if cos >= 0.0 {
+        (ior, ior_k)
+    } else {
+        (Color::WHITE / ior, Color::WHITE / ior_k)
+    };
+
+    let cos2 = cos * cos;
+    let sin2 = 1.0 - cos2;
+    let ior_ratio2 = ior_ratio * ior_ratio;
+    let k_ratio2 = k_ratio * k_ratio;
+
+    let t0 = ior_ratio2 - k_ratio2 - Color::gray(sin2);
+    let a2_b2 = (t0 * t0 + 4.0 * ior_ratio2 * k_ratio2).sqrt();
+    let t1 = a2_b2 + Color::gray(cos2);
+    let a = (0.5 * (a2_b2 + t0)).sqrt();
+    let t2 = 2.0 * cos * a;
+    let rs = (t1 - t2) / (t1 + t2);
+
+    let t3 = cos2 * a2_b2 + Color::gray(sin2 * sin2);
+    let t4 = t2 * sin2;
+    let rp = rs * (t3 - t4) / (t3 + t4);
+
+    return 0.5 * (rs + rp);
 }
 
 #[allow(dead_code)]
@@ -87,8 +118,17 @@ pub fn schlick_fresnel(ior: f32, cos: f32) -> f32 {
     r0 + (1.0 - r0) * pow5(1.0 - cos)
 }
 
+#[allow(dead_code)]
 pub fn schlick_fresnel_with_r0(r0: Color, cos: f32) -> Color {
     r0 + (Color::WHITE - r0) * pow5(1.0 - cos)
+}
+
+pub fn half_from_reflect(i: Vector3<f32>, o: Vector3<f32>) -> Vector3<f32> {
+    if i.z >= 0.0 {
+        (i + o).normalize()
+    } else {
+        -(i + o).normalize()
+    }
 }
 
 pub fn half_from_refract(i: Vector3<f32>, o: Vector3<f32>, ior: f32) -> Vector3<f32> {

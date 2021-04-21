@@ -26,34 +26,82 @@
     "width": 400,
     "height": 400
   },
+  "textures": [
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.0, 0.0, 0.0]
+    },
+    {
+      "type": "scalar",
+      "ele": "float",
+      "value": 0.0
+    },
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [1.0, 1.0, 1.0]
+    },
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.2, 0.3, 0.5]
+    },
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.2, 0.5, 0.3]
+    },
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.9, 0.2, 0.2]
+    },
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.9, 0.9, 0.9]
+    },
+    {
+      "type": "scalar",
+      "ele": "float",
+      "value": 0.3
+    },
+    {
+      "type": "scalar",
+      "ele": "float",
+      "value": 0.2
+    }
+  ],
   "materials": [
     {
       "type": "lambert",
-      "albedo": [0.0, 0.0, 0.0],
-      "emissive": [1.0, 1.0, 1.0]
+      "albedo": 0,
+      "emissive": 2
     },
     {
       "type": "lambert",
-      "albedo": [0.2, 0.3, 0.5]
+      "albedo": 3,
+      "emissive": 0
     },
     {
       "type": "lambert",
-      "albedo": [0.2, 0.5, 0.3]
+      "albedo": 4,
+      "emissive": 0
     },
     {
-      "type": "microfacet",
-      "albedo": [0.9, 0.2, 0.2],
-      "emissive": [0.0, 0.0, 0.0],
-      "roughness": 0.3,
-      "metallic": 0.0
+      "type": "dielectric",
+      "ior": 1.5,
+      "albedo": 5,
+      "emissive": 0,
+      "roughness": 7
     },
     {
-      "type": "microfacet_glass",
-      "reflectance": [0.9, 0.9, 0.9],
-      "transmittance": [0.9, 0.9, 0.9],
-      "#roughness": 0.01,
-      "roughness": 0.2,
-      "ior": 1.5
+      "type": "glass",
+      "ior": 1.5,
+      "reflectance": 6,
+      "transmittance": 6,
+      "roughness": 8
     }
   ],
   "mediums": [],

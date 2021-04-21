@@ -2,5 +2,5 @@
 .vscode
 .DS_Store
 /target
-/images
+/images*
 Cargo.lock

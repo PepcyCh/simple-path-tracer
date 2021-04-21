@@ -1,51 +1,29 @@
 use crate::core::color::Color;
+use crate::core::intersection::Intersection;
 use crate::core::material::Material;
-use crate::core::sampler::Sampler;
-use cgmath::Vector3;
-use std::sync::Mutex;
+use crate::core::scatter::Scatter;
+use crate::core::texture::Texture;
+use crate::scatter::LambertReflect;
+use std::sync::Arc;
 
 pub struct Lambert {
-    albedo: Color,
-    emissive: Color,
-    sampler: Box<Mutex<dyn Sampler>>,
+    albedo: Arc<dyn Texture<Color>>,
+    emissive: Arc<dyn Texture<Color>>,
 }
 
 impl Lambert {
-    pub fn new(albedo: Color, emissive: Color, sampler: Box<Mutex<dyn Sampler>>) -> Self {
-        Self {
-            albedo,
-            emissive,
-            sampler,
-        }
+    pub fn new(albedo: Arc<dyn Texture<Color>>, emissive: Arc<dyn Texture<Color>>) -> Self {
+        Self { albedo, emissive }
     }
 }
 
 impl Material for Lambert {
-    fn sample(&self, _wo: Vector3<f32>) -> (Vector3<f32>, f32, Color) {
-        let sample = {
-            let mut sampler = self.sampler.lock().unwrap();
-            sampler.cosine_weighted_on_hemisphere()
-        };
-        (
-            sample,
-            sample.z / std::f32::consts::PI,
-            self.albedo / std::f32::consts::PI,
-        )
+    fn scatter(&self, inter: &Intersection<'_>) -> Box<dyn Scatter> {
+        let albedo = self.albedo.value_at(inter);
+        Box::new(LambertReflect::new(albedo)) as Box<dyn Scatter>
     }
 
-    fn bsdf(&self, _wo: Vector3<f32>, _wi: Vector3<f32>) -> Color {
-        self.albedo / std::f32::consts::PI
-    }
-
-    fn pdf(&self, _wo: Vector3<f32>, wi: Vector3<f32>) -> f32 {
-        wi.z.max(0.0) / std::f32::consts::PI
-    }
-
-    fn is_delta(&self) -> bool {
-        false
-    }
-
-    fn emissive(&self) -> Color {
-        self.emissive
+    fn emissive(&self, inter: &Intersection<'_>) -> Color {
+        self.emissive.value_at(inter)
     }
 }

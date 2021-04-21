@@ -1,15 +1,13 @@
-pub mod util;
-
+mod dielectric;
 mod glass;
 mod lambert;
-mod microfacet;
-mod microfacet_glass;
+mod metal;
 mod pseudo;
 mod subsurface;
 
+pub use dielectric::*;
 pub use glass::*;
 pub use lambert::*;
-pub use microfacet::*;
-pub use microfacet_glass::*;
+pub use metal::*;
 pub use pseudo::*;
 pub use subsurface::*;

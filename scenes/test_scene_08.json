@@ -26,43 +26,76 @@
     "width": 400,
     "height": 400
   },
+  "textures": [
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.0, 0.0, 0.0]
+    },
+    {
+      "type": "scalar",
+      "ele": "float",
+      "value": 0.0
+    },
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [1.0, 1.0, 1.0]
+    },
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.2, 0.3, 0.5]
+    },
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.2, 0.5, 0.3]
+    },
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.9987, 0.9986, 0.9772]
+    },
+    {
+      "type": "scalar",
+      "ele": "float",
+      "value": 0.3
+    },
+    {
+      "type": "scalar",
+      "ele": "float",
+      "value": 3.0
+    }
+  ],
   "materials": [
     {
       "type": "lambert",
-      "albedo": [0.0, 0.0, 0.0],
-      "emissive": [1.0, 1.0, 1.0]
+      "albedo": 0,
+      "emissive": 2
     },
     {
       "type": "lambert",
-      "albedo": [0.2, 0.3, 0.5]
+      "albedo": 3,
+      "emissive": 0
     },
     {
       "type": "lambert",
-      "albedo": [0.2, 0.5, 0.3]
-    },
-    {
-      "type": "microfacet",
-      "albedo": [0.7, 0.6, 0.3],
-      "emissive": [0.0, 0.0, 0.0],
-      "roughness": 0.2,
-      "metallic": 0.8
-    },
-    {
-      "type": "glass",
-      "reflectance": [1.0, 1.0, 1.0],
-      "transmittance": [1.0, 1.0, 1.0],
-      "ior": 1.3
+      "albedo": 4,
+      "emissive": 0
     },
     {
       "type": "subsurface",
-      "#albedo": [0.85, 0.84, 0.53],
-      "albedo": [0.9987, 0.9986, 0.9772],
-      "ld": 3.0,
-      "ior": 1.3
+      "ior": 1.3,
+      "albedo": 5,
+      "ld": 7,
+      "roughness": 6,
+      "emissive": 0
     },
     {
       "type": "lambert",
-      "albedo": [0.9987, 0.9986, 0.9772]
+      "albedo": 5,
+      "emissive": 0
     }
   ],
   "mediums": [
@@ -84,8 +117,8 @@
       "primitive": {
         "type": "obj_mesh",
         "file": "cube.obj",
-        "material": 5,
-        "#material": 6
+        "material": 3,
+        "#material": 4
       }
     },
     {

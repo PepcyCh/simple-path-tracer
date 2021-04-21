@@ -1,6 +1,8 @@
 use crate::core::color::Color;
+use crate::core::intersection::Intersection;
 use crate::core::material::Material;
-use cgmath::{InnerSpace, Vector3};
+use crate::core::scatter::Scatter;
+use crate::scatter::SpecularTransmit;
 
 pub struct PseudoMaterial {}
 
@@ -11,31 +13,11 @@ impl PseudoMaterial {
 }
 
 impl Material for PseudoMaterial {
-    fn sample(&self, wo: Vector3<f32>) -> (Vector3<f32>, f32, Color) {
-        (-wo, wo.z.abs(), Color::WHITE)
+    fn scatter(&self, _inter: &Intersection<'_>) -> Box<dyn Scatter> {
+        Box::new(SpecularTransmit::new(Color::WHITE, 1.0)) as Box<dyn Scatter>
     }
 
-    fn bsdf(&self, wo: Vector3<f32>, wi: Vector3<f32>) -> Color {
-        if wo.dot(wi) < -0.99 {
-            Color::WHITE
-        } else {
-            Color::BLACK
-        }
-    }
-
-    fn pdf(&self, wo: Vector3<f32>, wi: Vector3<f32>) -> f32 {
-        if wo.dot(wi) < -0.99 {
-            wi.z.abs()
-        } else {
-            0.0
-        }
-    }
-
-    fn is_delta(&self) -> bool {
-        true
-    }
-
-    fn emissive(&self) -> Color {
+    fn emissive(&self, _inter: &Intersection<'_>) -> Color {
         Color::BLACK
     }
 }

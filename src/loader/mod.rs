@@ -1,22 +1,23 @@
 use crate::camera::PerspectiveCamera;
 use crate::core::camera::Camera;
+use crate::core::color::Color;
 use crate::core::filter::Filter;
 use crate::core::light::Light;
 use crate::core::material::Material;
 use crate::core::medium::Medium;
-use crate::core::path_tracer::PathTracer;
 use crate::core::primitive::{Aggregate, Primitive};
-use crate::core::sampler::Sampler;
+use crate::core::texture::Texture;
 use crate::filter::BoxFilter;
 use crate::light::{DirLight, PointLight, RectangleLight};
-use crate::material::{Glass, Lambert, Microfacet, MicrofacetGlass, PseudoMaterial, Subsurface};
+use crate::material::{Dielectric, Glass, Lambert, Metal, PseudoMaterial, Subsurface};
 use crate::medium::Homogeneous;
 use crate::primitive::{BvhAccel, Group, MeshVertex, Sphere, Transform, TriangleMesh};
-use crate::sampler::{JitteredSampler, RandomSampler};
+use crate::renderer::PathTracer;
+use crate::texture::{ScalarTex, UvMap};
 use anyhow::*;
 use cgmath::{Matrix4, Point3, SquareMatrix, Vector3};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub struct OutputConfig {
     pub file: String,
@@ -26,6 +27,9 @@ pub struct OutputConfig {
 
 struct InputLoader {
     path: PathBuf,
+    textures_float: Vec<Arc<dyn Texture<f32>>>,
+    textures_color: Vec<Arc<dyn Texture<Color>>>,
+    textures_indices: Vec<usize>,
     materials: Vec<Arc<dyn Material>>,
     mediums: Vec<Arc<dyn Medium>>,
 }
@@ -40,6 +44,9 @@ impl InputLoader {
         let path = path.as_ref().to_path_buf();
         Self {
             path,
+            textures_color: vec![],
+            textures_float: vec![],
+            textures_indices: vec![],
             materials: vec![],
             mediums: vec![],
         }
@@ -57,7 +64,7 @@ impl InputLoader {
         let camera = self.load_camera(camera_json)?;
 
         let spp;
-        let sampler;
+        let sampler_type;
         if let Some(pixel_sampler_json) = json_value.get("pixel_sampler") {
             spp = if let Some(spp_value) = pixel_sampler_json.get("spp") {
                 spp_value
@@ -66,10 +73,10 @@ impl InputLoader {
             } else {
                 1_u32
             };
-            sampler = get_sampler_field(pixel_sampler_json)?;
+            sampler_type = get_sampler_type(pixel_sampler_json)?;
         } else {
             spp = 1_u32;
-            sampler = Box::new(RandomSampler::new()) as Box<dyn Sampler>;
+            sampler_type = "random";
         }
 
         let max_depth = get_int_field_option(&json_value, "top", "max_depth")?
@@ -81,6 +88,14 @@ impl InputLoader {
         } else {
             Box::new(BoxFilter::new(0.5))
         };
+
+        let textures_json = json_value
+            .get("textures")
+            .context("top: no 'textures' field")?;
+        let (textures_float, textures_color, textures_indices) = self.load_textures(textures_json)?;
+        self.textures_float = textures_float;
+        self.textures_color = textures_color;
+        self.textures_indices = textures_indices;
 
         let materials_json = json_value
             .get("materials")
@@ -105,8 +120,15 @@ impl InputLoader {
         let lights_json = json_value.get("lights").context("top: no 'lights' field")?;
         let lights = self.load_lights(lights_json)?;
 
-        let path_tracer =
-            PathTracer::new(camera, aggregate, lights, spp, sampler, max_depth, filter);
+        let path_tracer = PathTracer::new(
+            camera,
+            aggregate,
+            lights,
+            spp,
+            sampler_type,
+            max_depth,
+            filter,
+        );
 
         Ok((path_tracer, output_config))
     }
@@ -152,6 +174,62 @@ impl InputLoader {
         }
     }
 
+    fn load_textures(
+        &self,
+        value: &serde_json::Value,
+    ) -> Result<(Vec<Arc<dyn Texture<f32>>>, Vec<Arc<dyn Texture<Color>>>, Vec<usize>)> {
+        let arr = value
+            .as_array()
+            .context("top: 'textures' should be an array")?;
+        let mut textures_float = Vec::with_capacity(arr.len());
+        let mut textures_color = Vec::with_capacity(arr.len());
+        let mut textures_indices = Vec::with_capacity(arr.len());
+        for tex_json in arr {
+            let ty = get_str_field(tex_json, "texture", "type")?;
+            let ele = get_str_field(tex_json, "texture", "ele")?;
+            match ele {
+                "float" => {
+                    let tex = match ty {
+                        "scalar" => {
+                            let value = get_float_field(tex_json, "texture-scalar", "value")?;
+                            Arc::new(ScalarTex::new(value)) as Arc<dyn Texture<f32>>
+                        }
+                        "uvmap" => {
+                            let value =
+                                get_image_field(tex_json, "texture-uvmap", "value", &self.path)?;
+                            Arc::new(UvMap::new(value)) as Arc<dyn Texture<f32>>
+                        }
+                        _ => Err(LoadError::new(format!("texture: unknown type: '{}'", ty)))?,
+                    };
+                    textures_indices.push(textures_float.len());
+                    textures_float.push(tex);
+                }
+                "color" => {
+                    let tex = match ty {
+                        "scalar" => {
+                            let value =
+                                get_float_array3_field(tex_json, "texture-scalar", "value")?;
+                            Arc::new(ScalarTex::new(value.into())) as Arc<dyn Texture<Color>>
+                        }
+                        "uvmap" => {
+                            let value =
+                                get_image_field(tex_json, "texture-uvmap", "value", &self.path)?;
+                            Arc::new(UvMap::new(value)) as Arc<dyn Texture<Color>>
+                        }
+                        _ => Err(LoadError::new(format!("texture: unknown type: '{}'", ty)))?,
+                    };
+                    textures_indices.push(textures_color.len());
+                    textures_color.push(tex);
+                }
+                _ => Err(LoadError::new(format!(
+                    "texture: unknown element type: '{}'",
+                    ele
+                )))?,
+            }
+        }
+        Ok((textures_float, textures_color, textures_indices))
+    }
+
     fn load_materials(&self, value: &serde_json::Value) -> Result<Vec<Arc<dyn Material>>> {
         let arr = value
             .as_array()
@@ -162,71 +240,71 @@ impl InputLoader {
             let mat = match ty {
                 "pseudo" => Arc::new(PseudoMaterial::new()) as Arc<dyn Material>,
                 "lambert" => {
-                    let albedo = get_float_array3_field(mat_json, "material-lambert", "albedo")?;
+                    let albedo = get_int_field(mat_json, "material-lambert", "albedo")? as usize;
                     let emissive =
-                        get_float_array3_field_option(mat_json, "material-lambert", "emissive")?;
-                    let sampler = get_sampler_field_option(mat_json)?;
-                    Arc::new(Lambert::new(albedo.into(), emissive.into(), sampler))
-                        as Arc<dyn Material>
+                        get_int_field(mat_json, "material-lambert", "emissive")? as usize;
+                    Arc::new(Lambert::new(
+                        self.get_texture_color(albedo),
+                        self.get_texture_color(emissive),
+                    )) as Arc<dyn Material>
                 }
                 "glass" => {
-                    let reflectance =
-                        get_float_array3_field(mat_json, "material-glass", "reflectance")?;
-                    let transmittance =
-                        get_float_array3_field(mat_json, "material-glass", "transmittance")?;
                     let ior = get_float_field(mat_json, "material-glass", "ior")?;
-                    let sampler = get_sampler_field_option(mat_json)?;
-                    Arc::new(Glass::new(
-                        reflectance.into(),
-                        transmittance.into(),
-                        ior,
-                        sampler,
-                    )) as Arc<dyn Material>
-                }
-                "microfacet" => {
-                    let albedo = get_float_array3_field(mat_json, "material-microfacet", "albedo")?;
-                    let emissive =
-                        get_float_array3_field(mat_json, "material-microfacet", "emissive")?;
-                    let roughness = get_float_field(mat_json, "material-microfacet", "roughness")?;
-                    let metallic = get_float_field(mat_json, "material-microfacet", "metallic")?;
-                    let sampler = get_sampler_field_option(mat_json)?;
-                    Arc::new(Microfacet::new(
-                        albedo.into(),
-                        emissive.into(),
-                        roughness * roughness,
-                        metallic,
-                        sampler,
-                    )) as Arc<dyn Material>
-                }
-                "microfacet_glass" => {
-                    let reflectance = get_float_array3_field(
-                        mat_json,
-                        "material-microfacet_glass",
-                        "reflectance",
-                    )?;
-                    let transmittance = get_float_array3_field(
-                        mat_json,
-                        "material-microfacet_glass",
-                        "transmittance",
-                    )?;
-                    let ior = get_float_field(mat_json, "material-microfacet_glass", "ior")?;
+                    let reflectance =
+                        get_int_field(mat_json, "material-glass", "reflectance")? as usize;
+                    let transmittance =
+                        get_int_field(mat_json, "material-glass", "transmittance")? as usize;
                     let roughness =
-                        get_float_field(mat_json, "material-microfacet_glass", "roughness")?;
-                    let sampler = get_sampler_field_option(mat_json)?;
-                    Arc::new(MicrofacetGlass::new(
-                        reflectance.into(),
-                        transmittance.into(),
+                        get_int_field(mat_json, "material-glass", "roughness")? as usize;
+                    Arc::new(Glass::new(
                         ior,
-                        roughness,
-                        sampler,
+                        self.get_texture_color(reflectance),
+                        self.get_texture_color(transmittance),
+                        self.get_texture_float(roughness),
+                    )) as Arc<dyn Material>
+                }
+                "dielectric" => {
+                    let ior = get_float_field(mat_json, "material-dielectric", "ior")?;
+                    let albedo = get_int_field(mat_json, "material-dielectric", "albedo")? as usize;
+                    let roughness =
+                        get_int_field(mat_json, "material-dielectric", "roughness")? as usize;
+                    let emissive =
+                        get_int_field(mat_json, "material-dielectric", "emissive")? as usize;
+                    Arc::new(Dielectric::new(
+                        ior,
+                        self.get_texture_color(albedo),
+                        self.get_texture_float(roughness),
+                        self.get_texture_color(emissive),
+                    )) as Arc<dyn Material>
+                }
+                "metal" => {
+                    let ior = get_int_field(mat_json, "material-metal", "ior")? as usize;
+                    let ior_k = get_int_field(mat_json, "material-metal", "ior_k")? as usize;
+                    let roughness =
+                        get_int_field(mat_json, "material-metal", "roughness")? as usize;
+                    let emissive = get_int_field(mat_json, "material-metal", "emissive")? as usize;
+                    Arc::new(Metal::new(
+                        self.get_texture_color(ior),
+                        self.get_texture_color(ior_k),
+                        self.get_texture_float(roughness),
+                        self.get_texture_color(emissive),
                     )) as Arc<dyn Material>
                 }
                 "subsurface" => {
-                    let albedo = get_float_array3_field(mat_json, "material-subsurface", "albedo")?;
-                    let ld = get_float_field(mat_json, "material-subsurface", "ld")?;
                     let ior = get_float_field(mat_json, "material-subsurface", "ior")?;
-                    let sampler = get_sampler_field_option(mat_json)?;
-                    Arc::new(Subsurface::new(albedo.into(), ld, ior, sampler)) as Arc<dyn Material>
+                    let albedo = get_int_field(mat_json, "material-subsurface", "albedo")? as usize;
+                    let ld = get_int_field(mat_json, "material-subsurface", "ld")? as usize;
+                    let roughness =
+                        get_int_field(mat_json, "material-subsurface", "roughness")? as usize;
+                    let emissive =
+                        get_int_field(mat_json, "material-subsurface", "emissive")? as usize;
+                    Arc::new(Subsurface::new(
+                        ior,
+                        self.get_texture_color(albedo),
+                        self.get_texture_float(ld),
+                        self.get_texture_float(roughness),
+                        self.get_texture_color(emissive),
+                    )) as Arc<dyn Material>
                 }
                 _ => Err(LoadError::new(format!("material: unknown type '{}'", ty)))?,
             };
@@ -249,13 +327,8 @@ impl InputLoader {
                     let sigma_s =
                         get_float_array3_field(med_json, "medium-homogeneous", "sigma_s")?;
                     let asymmetric = get_float_field(med_json, "medium-homogeneous", "asymmetric")?;
-                    let sampler = get_sampler_field_option(med_json)?;
-                    Arc::new(Homogeneous::new(
-                        sigma_a.into(),
-                        sigma_s.into(),
-                        asymmetric,
-                        sampler,
-                    )) as Arc<dyn Medium>
+                    Arc::new(Homogeneous::new(sigma_a.into(), sigma_s.into(), asymmetric))
+                        as Arc<dyn Medium>
                 }
                 _ => Err(LoadError::new(format!("medium: unknown type '{}'", ty)))?,
             };
@@ -440,7 +513,6 @@ impl InputLoader {
                     let up = get_float_array3_field(light_json, "light-rectangle", "up")?;
                     let width = get_float_field(light_json, "light-rectangle", "width")?;
                     let height = get_float_field(light_json, "light-rectangle", "height")?;
-                    let sampler = get_sampler_field_option(light_json)?;
                     Box::new(RectangleLight::new(
                         Point3::new(center[0], center[1], center[2]),
                         Vector3::new(direction[0], direction[1], direction[2]),
@@ -448,7 +520,6 @@ impl InputLoader {
                         height,
                         Vector3::new(up[0], up[1], up[2]),
                         strength.into(),
-                        sampler,
                     )) as Box<dyn Light>
                 }
                 _ => Err(LoadError::new(format!("light: unknown type '{}'", ty)))?,
@@ -491,6 +562,14 @@ impl InputLoader {
             _ => Err(LoadError::new(format!("aggregate: unknown type '{}'", ty)))?,
         }
     }
+
+    fn get_texture_float(&self, ind: usize) -> Arc<dyn Texture<f32>> {
+        self.textures_float[self.textures_indices[ind]].clone()
+    }
+
+    fn get_texture_color(&self, ind: usize) -> Arc<dyn Texture<Color>> {
+        self.textures_color[self.textures_indices[ind]].clone()
+    }
 }
 
 fn get_str_field<'a>(value: &'a serde_json::Value, env: &str, field: &str) -> Result<&'a str> {
@@ -523,6 +602,7 @@ fn get_int_field_option(value: &serde_json::Value, env: &str, field: &str) -> Re
         Ok(None)
     }
 }
+
 fn get_int_field(value: &serde_json::Value, env: &str, field: &str) -> Result<u32> {
     let field_value = value
         .get(field)
@@ -533,6 +613,7 @@ fn get_int_field(value: &serde_json::Value, env: &str, field: &str) -> Result<u3
         .context(format!("{}: '{}' should be an int", env, field))
 }
 
+#[allow(dead_code)]
 fn get_float_array3_field_option(
     value: &serde_json::Value,
     env: &str,
@@ -561,36 +642,27 @@ fn get_float_array3_field(value: &serde_json::Value, env: &str, field: &str) -> 
     }
 }
 
-fn get_sampler_field_option(value: &serde_json::Value) -> Result<Box<Mutex<dyn Sampler>>> {
-    if let Some(sampler_json) = value.get("sampler") {
-        get_sampler_field_mutex(sampler_json)
-    } else {
-        Ok(Box::new(Mutex::new(RandomSampler::new())))
-    }
-}
-
-fn get_sampler_field_mutex(value: &serde_json::Value) -> Result<Box<Mutex<dyn Sampler>>> {
+fn get_sampler_type(value: &serde_json::Value) -> Result<&'static str> {
     let ty = get_str_field(value, "sample", "type")?;
     match ty {
-        "random" => Ok(Box::new(Mutex::new(RandomSampler::new()))),
-        "jittered" => {
-            let division = get_int_field(value, "sampler-jittered", "division")?;
-            Ok(Box::new(Mutex::new(JitteredSampler::new(division))))
-        }
+        "random" => Ok("random"),
+        "jittered" => Ok("jittered"),
         _ => Err(LoadError::new(format!("sampler: unknown type '{}'", ty)))?,
     }
 }
 
-fn get_sampler_field(value: &serde_json::Value) -> Result<Box<dyn Sampler>> {
-    let ty = get_str_field(value, "sample", "type")?;
-    match ty {
-        "random" => Ok(Box::new(RandomSampler::new())),
-        "jittered" => {
-            let division = get_int_field(value, "sampler-jittered", "division")?;
-            Ok(Box::new(JitteredSampler::new(division)))
-        }
-        _ => Err(LoadError::new(format!("sampler: unknown type '{}'", ty)))?,
-    }
+fn get_image_field(
+    value: &serde_json::Value,
+    env: &str,
+    field: &str,
+    dir: &PathBuf,
+) -> Result<image::DynamicImage> {
+    let path = dir.with_file_name(get_str_field(value, env, field)?);
+    let path_str = path.to_str().unwrap();
+    image::open(path_str).context(format!(
+        "{}: '{}', can't find image '{}'",
+        env, field, path_str
+    ))
 }
 
 #[derive(Debug)]

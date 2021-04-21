@@ -23,6 +23,10 @@ impl Color {
         Self { r, g, b }
     }
 
+    pub fn gray(val: f32) -> Self {
+        Color::new(val, val, val)
+    }
+
     pub fn luminance(&self) -> f32 {
         0.299 * self.r + 0.587 * self.g + 0.114 * self.b
     }
@@ -37,6 +41,10 @@ impl Color {
 
     pub fn exp(&self) -> Color {
         Color::new(self.r.exp(), self.g.exp(), self.b.exp())
+    }
+
+    pub fn sqrt(&self) -> Color {
+        Color::new(self.r.sqrt(), self.g.sqrt(), self.b.sqrt())
     }
 }
 
@@ -170,5 +178,16 @@ impl From<(f32, f32, f32)> for Color {
 impl Into<(f32, f32, f32)> for Color {
     fn into(self) -> (f32, f32, f32) {
         (self.r, self.g, self.b)
+    }
+}
+
+impl From<image::Rgba<u8>> for Color {
+    fn from(value: image::Rgba<u8>) -> Self {
+        let inv = 1.0 / 255.0;
+        Color::new(
+            value.0[0] as f32 * inv,
+            value.0[1] as f32 * inv,
+            value.0[2] as f32 * inv,
+        )
     }
 }

@@ -2,28 +2,20 @@ use crate::core::color::Color;
 use crate::core::medium::Medium;
 use crate::core::sampler::Sampler;
 use cgmath::{InnerSpace, Point3, Vector3};
-use std::sync::Mutex;
 
 pub struct Homogeneous {
     sigma_t: Color,
     sigma_s: Color,
     asymmetric: f32,
-    sampler: Box<Mutex<dyn Sampler>>,
 }
 
 impl Homogeneous {
-    pub fn new(
-        sigma_a: Color,
-        sigma_s: Color,
-        asymmetric: f32,
-        sampler: Box<Mutex<dyn Sampler>>,
-    ) -> Self {
+    pub fn new(sigma_a: Color, sigma_s: Color, asymmetric: f32) -> Self {
         let sigma_t = sigma_a + sigma_s;
         Self {
             sigma_t,
             sigma_s,
             asymmetric,
-            sampler,
         }
     }
 }
@@ -34,11 +26,9 @@ impl Medium for Homogeneous {
         position: Point3<f32>,
         wo: Vector3<f32>,
         t_max: f32,
+        sampler: &mut dyn Sampler,
     ) -> (Point3<f32>, bool, Color) {
-        let (rand_x, rand_y) = {
-            let mut sampler = self.sampler.lock().unwrap();
-            sampler.uniform_2d()
-        };
+        let (rand_x, rand_y) = sampler.uniform_2d();
         let sample_sigma_t = {
             if rand_x < 1.0 / 3.0 {
                 self.sigma_t.r
@@ -66,11 +56,8 @@ impl Medium for Homogeneous {
         }
     }
 
-    fn sample_phase(&self, wo: Vector3<f32>) -> (Vector3<f32>, f32) {
-        let (rand_x, rand_y) = {
-            let mut sampler = self.sampler.lock().unwrap();
-            sampler.uniform_2d()
-        };
+    fn sample_phase(&self, wo: Vector3<f32>, sampler: &mut dyn Sampler) -> (Vector3<f32>, f32) {
+        let (rand_x, rand_y) = sampler.uniform_2d();
         let cos_theta = crate::medium::util::henyey_greenstein_cdf_inverse(self.asymmetric, rand_x);
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
         let phi = 2.0 * std::f32::consts::PI * rand_y;

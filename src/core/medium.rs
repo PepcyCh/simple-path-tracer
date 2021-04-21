@@ -1,4 +1,5 @@
 use crate::core::color::Color;
+use crate::core::sampler::Sampler;
 use cgmath::{Point3, Vector3};
 
 pub trait Medium: Send + Sync {
@@ -12,13 +13,14 @@ pub trait Medium: Send + Sync {
         position: Point3<f32>,
         wo: Vector3<f32>,
         t_max: f32,
+        sampler: &mut dyn Sampler,
     ) -> (Point3<f32>, bool, Color);
 
     /// return (
     ///   sample direction,
     ///   phase pdf
     /// )
-    fn sample_phase(&self, wo: Vector3<f32>) -> (Vector3<f32>, f32);
+    fn sample_phase(&self, wo: Vector3<f32>, sampler: &mut dyn Sampler) -> (Vector3<f32>, f32);
 
     fn transport_attenuation(&self, dist: f32) -> Color;
 

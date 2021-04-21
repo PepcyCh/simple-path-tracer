@@ -1,5 +1,6 @@
 use crate::core::color::Color;
 use crate::core::light::Light;
+use crate::core::sampler::Sampler;
 use cgmath::{InnerSpace, Point3, Vector3};
 
 pub struct PointLight {
@@ -14,7 +15,11 @@ impl PointLight {
 }
 
 impl Light for PointLight {
-    fn sample(&self, position: Point3<f32>) -> (Vector3<f32>, f32, Color, f32) {
+    fn sample(
+        &self,
+        position: Point3<f32>,
+        _sampler: &mut dyn Sampler,
+    ) -> (Vector3<f32>, f32, Color, f32) {
         let sample = self.position - position;
         let dist_sqr = sample.magnitude2();
         let dist = dist_sqr.sqrt();

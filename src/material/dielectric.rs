@@ -3,54 +3,48 @@ use crate::core::intersection::Intersection;
 use crate::core::material::Material;
 use crate::core::scatter::Scatter;
 use crate::core::texture::Texture;
-use crate::scatter::{
-    FresnelDielectricRSsr, MicrofacetReflect, SpecularReflect, SubsurfaceReflect,
-};
+use crate::scatter::{FresnelDielectricRR, LambertReflect, MicrofacetReflect, SpecularReflect};
 use std::sync::Arc;
 
-pub struct Subsurface {
+pub struct Dielectric {
     ior: f32,
     albedo: Arc<dyn Texture<Color>>,
-    ld: Arc<dyn Texture<f32>>,
     roughness: Arc<dyn Texture<f32>>,
     emissive: Arc<dyn Texture<Color>>,
 }
 
-impl Subsurface {
+impl Dielectric {
     pub fn new(
         ior: f32,
         albedo: Arc<dyn Texture<Color>>,
-        ld: Arc<dyn Texture<f32>>,
         roughness: Arc<dyn Texture<f32>>,
         emissive: Arc<dyn Texture<Color>>,
     ) -> Self {
         Self {
             ior,
             albedo,
-            ld,
             roughness,
             emissive,
         }
     }
 }
 
-impl Material for Subsurface {
+impl Material for Dielectric {
     fn scatter(&self, inter: &Intersection<'_>) -> Box<dyn Scatter> {
         let albedo = self.albedo.value_at(inter);
-        let ld = self.ld.value_at(inter);
         let roughness = self.roughness.value_at(inter).powi(2);
 
         if roughness < 0.001 {
-            Box::new(FresnelDielectricRSsr::new(
+            Box::new(FresnelDielectricRR::new(
                 self.ior,
                 SpecularReflect::new(albedo),
-                SubsurfaceReflect::new(albedo, ld, self.ior),
+                LambertReflect::new(albedo),
             )) as Box<dyn Scatter>
         } else {
-            Box::new(FresnelDielectricRSsr::new(
+            Box::new(FresnelDielectricRR::new(
                 self.ior,
                 MicrofacetReflect::new(albedo, roughness),
-                SubsurfaceReflect::new(albedo, ld, self.ior),
+                LambertReflect::new(albedo),
             )) as Box<dyn Scatter>
         }
     }

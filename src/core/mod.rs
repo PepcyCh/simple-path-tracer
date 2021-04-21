@@ -1,6 +1,7 @@
 pub mod bbox;
 pub mod camera;
 pub mod color;
+pub mod coord;
 pub mod film;
 pub mod filter;
 pub mod intersection;
@@ -11,3 +12,5 @@ pub mod path_tracer;
 pub mod primitive;
 pub mod ray;
 pub mod sampler;
+pub mod scatter;
+pub mod texture;
