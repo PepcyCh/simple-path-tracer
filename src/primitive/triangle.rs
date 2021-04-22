@@ -44,6 +44,14 @@ impl TriangleMesh {
         material: Arc<dyn Material>,
         inside_medium: Option<Arc<dyn Medium>>,
     ) -> Self {
+        // println!("Triangle Mesh");
+        // for v in &vertices {
+        //     println!(" Vertex");
+        //     println!("  v.pos = {:?}", v.position);
+        //     println!("  v.norm = {:?}", v.normal);
+        //     println!("  v.texc = {:?}", v.texcoords);
+        // }
+        // println!(" Index: {:?}", &indices);
         Self {
             vertices,
             indices,
@@ -102,12 +110,12 @@ impl Triangle {
         if det != 0.0 {
             let det = 1.0 / det;
             let s = ray.origin - p0;
-            let u = s.dot(q) * det;
-            if u >= 0.0 {
+            let v = s.dot(q) * det;
+            if v >= 0.0 {
                 let r = s.cross(e1);
-                let v = ray.direction.dot(r) * det;
-                let w = 1.0 - u - v;
-                if v >= 0.0 && w >= 0.0 {
+                let w = ray.direction.dot(r) * det;
+                let u = 1.0 - v - w;
+                if w >= 0.0 && u >= 0.0 {
                     let t = e2.dot(r) * det;
                     return Some((t, u, v, w));
                 }

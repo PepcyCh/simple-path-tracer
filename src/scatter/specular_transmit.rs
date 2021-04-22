@@ -28,7 +28,11 @@ impl Scatter for SpecularTransmit {
             } else {
                 self.ior
             };
-            (wi, 1.0, ior_ratio * ior_ratio * self.transmittance / wi.z.abs())
+            (
+                wi,
+                1.0,
+                ior_ratio * ior_ratio * self.transmittance / wi.z.abs(),
+            )
         } else {
             (wo, 1.0, Color::BLACK)
         }

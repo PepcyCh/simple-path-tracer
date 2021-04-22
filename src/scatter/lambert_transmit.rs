@@ -26,7 +26,11 @@ impl Scatter for LambertTransmit {
         if wo.z > 0.0 {
             wi.z = -wi.z;
         }
-        (wi, wi.z.abs() / std::f32::consts::PI, self.transmittance / std::f32::consts::PI)
+        (
+            wi,
+            wi.z.abs() / std::f32::consts::PI,
+            self.transmittance / std::f32::consts::PI,
+        )
     }
 
     fn pdf(&self, _po: Point3<f32>, wo: Vector3<f32>, _pi: Point3<f32>, wi: Vector3<f32>) -> f32 {

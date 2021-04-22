@@ -1,6 +1,7 @@
 .idea
 .vscode
 .DS_Store
-/target
-/images*
+target
+images*
+scenes/textures
 Cargo.lock

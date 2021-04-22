@@ -126,7 +126,7 @@ impl PathTracer {
             if let Some(medium) = curr_medium {
                 let wo = -ray.direction;
                 let (pi, still_in_medium, attenuation) =
-                    medium.sample_transport(ray.origin, wo, inter.t, sampler);
+                    medium.sample_pi(ray.origin, wo, inter.t, sampler);
                 color_coe *= attenuation;
 
                 if !still_in_medium {
@@ -159,7 +159,7 @@ impl PathTracer {
                         }
 
                         if !light.is_delta() {
-                            let (wi, phase) = medium.sample_phase(wo, sampler);
+                            let (wi, phase) = medium.sample_wi(wo, sampler);
                             let (light_strength, dist, light_pdf) = light.strength_dist_pdf(pi, wi);
 
                             let (shadow_ray, transported_dist) = self.shadow_ray_from_medium(
@@ -181,7 +181,7 @@ impl PathTracer {
                     final_color += color_coe * li;
                 }
 
-                let (wi, _) = medium.sample_phase(wo, sampler);
+                let (wi, _) = medium.sample_wi(wo, sampler);
                 ray = Ray::new(pi, wi);
             } else {
                 if !does_hit {

@@ -92,7 +92,8 @@ impl InputLoader {
         let textures_json = json_value
             .get("textures")
             .context("top: no 'textures' field")?;
-        let (textures_float, textures_color, textures_indices) = self.load_textures(textures_json)?;
+        let (textures_float, textures_color, textures_indices) =
+            self.load_textures(textures_json)?;
         self.textures_float = textures_float;
         self.textures_color = textures_color;
         self.textures_indices = textures_indices;
@@ -177,7 +178,11 @@ impl InputLoader {
     fn load_textures(
         &self,
         value: &serde_json::Value,
-    ) -> Result<(Vec<Arc<dyn Texture<f32>>>, Vec<Arc<dyn Texture<Color>>>, Vec<usize>)> {
+    ) -> Result<(
+        Vec<Arc<dyn Texture<f32>>>,
+        Vec<Arc<dyn Texture<Color>>>,
+        Vec<usize>,
+    )> {
         let arr = value
             .as_array()
             .context("top: 'textures' should be an array")?;

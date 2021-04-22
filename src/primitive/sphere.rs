@@ -89,8 +89,7 @@ impl Primitive for Sphere {
 
 fn sphere_normal_to_texcoords(p: cgmath::Vector3<f32>) -> cgmath::Point2<f32> {
     let theta = p.y.acos();
-    let sin_theta = (1.0 - p.y * p.y).sqrt();
-    let phi = (p.z / sin_theta).acos();
+    let phi = p.x.atan2(p.z) + std::f32::consts::PI;
     cgmath::Point2::new(
         phi / (2.0 * std::f32::consts::PI),
         theta / std::f32::consts::PI,
