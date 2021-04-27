@@ -13,8 +13,8 @@
   },
   "pixel_sampler": {
     "type": "jittered",
-    "division": 1024,
-    "spp": 1024
+    "division": 256,
+    "spp": 256
   },
   "max_depth": 8,
   "filter": {
@@ -22,7 +22,7 @@
     "radius": 0.5
   },
   "output": {
-    "file": "images/test_scene_10.jpg",
+    "file": "images/test_scene_11.jpg",
     "width": 400,
     "height": 400
   },
@@ -50,17 +50,12 @@
     {
       "type": "uvmap",
       "ele": "color",
-      "value": "textures/uv-test.png"
+      "value": "textures/checkboard.jpg"
     },
     {
       "type": "scalar",
       "ele": "color",
-      "value": [0.7, 0.6, 0.3]
-    },
-    {
-      "type": "uvmap",
-      "ele": "float",
-      "value": "textures/earthmap_bw.png"
+      "value": [0.7, 0.8, 0.5]
     },
     {
       "type": "scalar",
@@ -81,50 +76,36 @@
     },
     {
       "type": "lambert",
-      "albedo": 4,
+      "albedo": 5,
       "emissive": 0
     },
     {
-      "type": "metal",
-      "ior": 5,
-      "ior_k": 0,
-      "emissive": 0,
-      "roughness": 7
-    },
-    {
-      "type": "glass",
+      "type": "dielectric",
       "ior": 1.5,
-      "reflectance": 2,
-      "transmittance": 2,
+      "albedo": 4,
+      "emissive": 0,
       "roughness": 6
     }
   ],
   "mediums": [],
   "objects": [
     {
-      "type": "sphere",
-      "material": 3,
-      "center": [1.2, 0.3, 0.0],
-      "radius": 1.0
-    },
-    {
       "type": "transform",
       "transform": {
-        "translate": [-1.2, 0.3, 0.0],
-        "rotate": [0.0, -90.0, 0.0]
+        "translate": [0.0, 0.3, -5.0],
+        "rotate": [-30.0, 30.0, 0.0]
       },
       "primitive": {
-        "type": "sphere",
-        "material": 4,
-        "center": [0.0, 0.0, 0.0],
-        "radius": 1.0
+        "type": "obj_mesh",
+        "file": "models/cube.obj",
+        "material": 3
       }
     },
     {
       "type": "transform",
       "transform": {
         "translate": [0.0, -1.0, 0.0],
-        "scale": [5.0, 1.0, 5.0]
+        "scale": [15.0, 1.0, 15.0]
       },
       "primitive": {
         "type": "obj_mesh",
@@ -135,9 +116,9 @@
     {
       "type": "transform",
       "transform": {
-        "scale": [5.0, 1.0, 3.0],
+        "scale": [15.0, 1.0, 9.0],
         "rotate": [90.0, 0.0, 0.0],
-        "translate": [0.0, 2.0, -5.0]
+        "translate": [0.0, 8.0, -15.0]
       },
       "primitive": {
         "type": "obj_mesh",
@@ -148,9 +129,9 @@
     {
       "type": "transform",
       "transform": {
-        "scale": [5.0, 1.0, 3.0],
+        "scale": [15.0, 1.0, 9.0],
         "rotate": [-90.0, 0.0, 0.0],
-        "translate": [0.0, 2.0, 5.0]
+        "translate": [0.0, 8.0, 15.0]
       },
       "primitive": {
         "type": "obj_mesh",
@@ -161,9 +142,9 @@
     {
       "type": "transform",
       "transform": {
-        "scale": [3.0, 1.0, 5.0],
+        "scale": [9.0, 1.0, 15.0],
         "rotate": [0.0, 0.0, -90.0],
-        "translate": [-5.0, 2.0, 0.0]
+        "translate": [-15.0, 8.0, 0.0]
       },
       "primitive": {
         "type": "obj_mesh",
@@ -174,9 +155,9 @@
     {
       "type": "transform",
       "transform": {
-        "scale": [3.0, 1.0, 5.0],
+        "scale": [9.0, 1.0, 15.0],
         "rotate": [0.0, 0.0, 90.0],
-        "translate": [5.0, 2.0, 0.0]
+        "translate": [15.0, 8.0, 0.0]
       },
       "primitive": {
         "type": "obj_mesh",
@@ -187,9 +168,9 @@
     {
       "type": "transform",
       "transform": {
-        "scale": [5.0, 1.0, 5.0],
+        "scale": [15.0, 1.0, 15.0],
         "rotate": [180.0, 0.0, 0.0],
-        "translate": [0.0, 5.0, 0.0]
+        "translate": [0.0, 17.0, 0.0]
       },
       "primitive": {
         "type": "obj_mesh",
@@ -202,10 +183,10 @@
     {
       "type": "rectangle",
       "direction": [0.0, -1.0, 0.0],
-      "center": [0.0, 5.0, 0.0],
+      "center": [0.0, 17.0, 0.0],
       "up": [1.0, 0.0, 0.0],
-      "width": 10.0,
-      "height": 10.0,
+      "width": 30.0,
+      "height": 30.0,
       "strength": [2.0, 2.0, 2.0]
     }
   ]

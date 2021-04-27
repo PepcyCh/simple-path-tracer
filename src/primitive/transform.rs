@@ -8,7 +8,7 @@ use cgmath::{InnerSpace, Matrix, SquareMatrix};
 
 pub struct Transform {
     primitive: Box<dyn Primitive>,
-    _trans: cgmath::Matrix4<f32>,
+    trans: cgmath::Matrix4<f32>,
     trans_inv: cgmath::Matrix4<f32>,
     trans_it: cgmath::Matrix4<f32>,
     bbox: Bbox,
@@ -21,7 +21,7 @@ impl Transform {
         let bbox = primitive.bbox().transformed_by(trans);
         Self {
             primitive,
-            _trans: trans,
+            trans,
             trans_inv,
             trans_it,
             bbox,
@@ -40,6 +40,8 @@ impl Primitive for Transform {
         if self.primitive.intersect(&transformed_ray, inter) {
             inter.normal =
                 cgmath::Transform::transform_vector(&self.trans_it, inter.normal).normalize();
+            inter.tangent = cgmath::Transform::transform_vector(&self.trans, inter.tangent);
+            inter.bitangent = cgmath::Transform::transform_vector(&self.trans, inter.bitangent);
             true
         } else {
             false

@@ -3,5 +3,6 @@
 .DS_Store
 target
 images*
+scenes/models
 scenes/textures
 Cargo.lock

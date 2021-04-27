@@ -78,7 +78,10 @@ impl PathTracer {
 
         crossbeam::scope(|scope| {
             for t in 0..num_cpus as usize {
+                let width_inv = 1.0 / width as f32;
+                let height_inv = 1.0 / height as f32;
                 let spp = self.spp;
+                let spp_sqrt_inv = 1.0 / (spp as f32).sqrt();
                 let sampler_type = self.sampler_type;
                 let film = film.clone();
                 let progress_bar = progress_bar.clone();
@@ -91,9 +94,13 @@ impl PathTracer {
                         for i in 0..width {
                             let samples = sampler.pixel_samples(spp);
                             for (offset_x, offset_y) in samples {
-                                let x = (i as f32 + offset_x) / width as f32 * aspect - 0.5;
-                                let y = ((height - j - 1) as f32 + offset_y) / height as f32 - 0.5;
-                                let ray = path_tracer.camera.generate_ray((x, y));
+                                let x = (i as f32 + offset_x) * width_inv * aspect - 0.5;
+                                let y = ((height - j - 1) as f32 + offset_y) * height_inv - 0.5;
+                                // let ray = path_tracer.camera.generate_ray((x, y));
+                                let ray = path_tracer.camera.generate_ray_with_aux_ray(
+                                    (x, y),
+                                    (aspect * width_inv * spp_sqrt_inv, height_inv * spp_sqrt_inv)
+                                );
                                 let color = path_tracer.trace_ray(ray, sampler.as_mut());
                                 let mut film = film.lock().unwrap();
                                 film.add_sample(i, j, (offset_x - 0.5, offset_y - 0.5), color);
@@ -121,6 +128,9 @@ impl PathTracer {
         while curr_depth < self.max_depth {
             let mut inter = Intersection::default();
             let does_hit = self.objects.intersect(&ray, &mut inter);
+            if does_hit {
+                inter.calc_differential(&ray);
+            }
             curr_primitive = inter.primitive;
 
             if let Some(medium) = curr_medium {

@@ -65,7 +65,19 @@ impl Primitive for Sphere {
             if ray.t_min < t && t < inter.t {
                 inter.t = t;
                 let norm = (ray.point_at(t) - self.center) / self.radius;
+                let sin_theta = (1.0 - norm.y * norm.y).sqrt();
                 inter.normal = norm;
+                if sin_theta != 0.0 {
+                    inter.bitangent = norm * (-norm.y / sin_theta);
+                    inter.bitangent.y = sin_theta;
+                    inter.tangent = inter.bitangent.cross(inter.normal);
+                } else if norm.y > 0.0 {
+                    inter.bitangent = cgmath::Vector3::unit_x();
+                    inter.tangent = cgmath::Vector3::unit_z();
+                } else {
+                    inter.bitangent = -cgmath::Vector3::unit_x();
+                    inter.tangent = -cgmath::Vector3::unit_z();
+                }
                 inter.texcoords = sphere_normal_to_texcoords(norm);
                 inter.primitive = Some(self);
                 return true;
