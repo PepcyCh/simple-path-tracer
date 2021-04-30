@@ -94,7 +94,7 @@ impl PathTracer {
                         for i in 0..width {
                             let samples = sampler.pixel_samples(spp);
                             for (offset_x, offset_y) in samples {
-                                let x = (i as f32 + offset_x) * width_inv * aspect - 0.5;
+                                let x = ((i as f32 + offset_x) * width_inv - 0.5) * aspect;
                                 let y = ((height - j - 1) as f32 + offset_y) * height_inv - 0.5;
                                 // let ray = path_tracer.camera.generate_ray((x, y));
                                 let ray = path_tracer.camera.generate_ray_with_aux_ray(
