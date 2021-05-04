@@ -52,7 +52,7 @@
       },
       "primitive": {
         "type": "obj_mesh",
-        "file": "cube.obj",
+        "file": "models/cube.obj",
         "material": 0
       }
     }

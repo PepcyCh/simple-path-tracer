@@ -174,10 +174,10 @@ impl<R: Reflect, T: SsReflect> Scatter for FresnelDielectricRSsr<R, T> {
         let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
         if po == pi {
             let (wi, pdf, bxdf) = self.0.reflect.sample_wi(po, wo, pi, sampler);
-            (wi, fresnel * pdf, bxdf)
+            (wi, fresnel * pdf, fresnel * bxdf)
         } else {
             let (wi, pdf, bxdf) = self.0.transmit.sample_wi(po, wo, pi, sampler);
-            (wi, (1.0 - fresnel) * pdf, bxdf)
+            (wi, (1.0 - fresnel) * pdf, (1.0 - fresnel) * bxdf)
         }
     }
 

@@ -109,7 +109,7 @@
       },
       "primitive": {
         "type": "obj_mesh",
-        "file": "plane.obj",
+        "file": "models/plane.obj",
         "material": 2
       }
     },
@@ -122,7 +122,7 @@
       },
       "primitive": {
         "type": "obj_mesh",
-        "file": "plane.obj",
+        "file": "models/plane.obj",
         "material": 1
       }
     },
@@ -135,7 +135,7 @@
       },
       "primitive": {
         "type": "obj_mesh",
-        "file": "plane.obj",
+        "file": "models/plane.obj",
         "material": 1
       }
     },
@@ -148,7 +148,7 @@
       },
       "primitive": {
         "type": "obj_mesh",
-        "file": "plane.obj",
+        "file": "models/plane.obj",
         "material": 1
       }
     },
@@ -161,7 +161,7 @@
       },
       "primitive": {
         "type": "obj_mesh",
-        "file": "plane.obj",
+        "file": "models/plane.obj",
         "material": 1
       }
     },
@@ -174,7 +174,7 @@
       },
       "primitive": {
         "type": "obj_mesh",
-        "file": "plane.obj",
+        "file": "models/plane.obj",
         "material": 0
       }
     }
