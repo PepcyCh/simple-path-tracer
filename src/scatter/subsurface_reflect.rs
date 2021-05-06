@@ -1,4 +1,4 @@
-use crate::core::color::Color;
+use crate::core::{color::Color, scatter::ScatterType};
 use crate::core::coord::Coordinate;
 use crate::core::intersection::Intersection;
 use crate::core::primitive::Aggregate;
@@ -103,7 +103,8 @@ impl Scatter for SubsurfaceReflect {
         loop {
             if scene.intersect(&ray, &mut inter) {
                 // TODO - check if the intersected one is the same as self
-                intersects.push((ray.point_at(inter.t), inter.normal));
+                inter.apply_normal_map();
+                intersects.push((ray.point_at(inter.t), inter.normal, inter.shade_normal));
                 ray.t_min = inter.t + Ray::T_MIN_EPS;
             } else {
                 break;
@@ -114,7 +115,7 @@ impl Scatter for SubsurfaceReflect {
             return (po, coord_po, 1.0, Color::BLACK);
         }
         let sample_inter = ((rand_u * intersects.len() as f32) as usize).min(intersects.len() - 1);
-        let (pi, sample_normal) = intersects[sample_inter];
+        let (pi, sample_normal, sample_shade_normal) = intersects[sample_inter];
 
         let sp = self.albedo * self.sp(pi.distance(po));
 
@@ -128,7 +129,7 @@ impl Scatter for SubsurfaceReflect {
         let pdf_zx = 0.25 * normal_local.y.abs() * self.sp(r_zx).avg();
         let pdf = (pdf_xy + pdf_yz + pdf_zx) / intersects.len() as f32;
 
-        (pi, Coordinate::from_z(sample_normal), pdf, sp)
+        (pi, Coordinate::from_z(sample_shade_normal, sample_normal), pdf, sp)
     }
 
     fn sample_wi(
@@ -137,7 +138,7 @@ impl Scatter for SubsurfaceReflect {
         wo: Vector3<f32>,
         pi: Point3<f32>,
         sampler: &mut dyn Sampler,
-    ) -> (Vector3<f32>, f32, Color) {
+    ) -> (Vector3<f32>, f32, Color, ScatterType) {
         let mut wi = sampler.cosine_weighted_on_hemisphere();
         if wo.z < 0.0 {
             wi.z = -wi.z;
@@ -146,6 +147,7 @@ impl Scatter for SubsurfaceReflect {
             wi,
             wi.z.abs() / std::f32::consts::PI,
             self.bxdf(po, wo, pi, wi),
+            ScatterType::lambert_reflect(),
         )
     }
 

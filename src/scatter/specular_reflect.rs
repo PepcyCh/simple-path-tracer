@@ -1,4 +1,4 @@
-use crate::core::color::Color;
+use crate::core::{color::Color, scatter::ScatterType};
 use crate::core::sampler::Sampler;
 use crate::core::scatter::{Reflect, Scatter};
 use cgmath::{InnerSpace, Point3, Vector3};
@@ -20,9 +20,9 @@ impl Scatter for SpecularReflect {
         wo: Vector3<f32>,
         _pi: Point3<f32>,
         _sampler: &mut dyn Sampler,
-    ) -> (Vector3<f32>, f32, Color) {
+    ) -> (Vector3<f32>, f32, Color, ScatterType) {
         let wi = crate::scatter::util::reflect(wo);
-        (wi, 1.0, self.reflectance / wi.z.abs())
+        (wi, 1.0, self.reflectance / wi.z.abs(), ScatterType::specular_reflect())
     }
 
     fn pdf(&self, _po: Point3<f32>, _wo: Vector3<f32>, _pi: Point3<f32>, _wi: Vector3<f32>) -> f32 {

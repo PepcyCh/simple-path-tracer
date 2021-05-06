@@ -1,13 +1,16 @@
 use cgmath::{InnerSpace, Matrix, Matrix3, Vector3};
 
+use super::scatter::ScatterDirType;
+
 #[derive(Copy, Clone)]
 pub struct Coordinate {
     local_to_world: Matrix3<f32>,
     world_to_local: Matrix3<f32>,
+    hemisphere: Vector3<f32>,
 }
 
 impl Coordinate {
-    pub fn from_z(z_world: Vector3<f32>) -> Self {
+    pub fn from_z(z_world: Vector3<f32>, hemisphere: Vector3<f32>) -> Self {
         let y_world = if z_world.y.abs() < 0.99 {
             cgmath::Vector3::unit_y()
         } else {
@@ -21,6 +24,7 @@ impl Coordinate {
         Self {
             local_to_world,
             world_to_local,
+            hemisphere,
         }
     }
 
@@ -30,5 +34,13 @@ impl Coordinate {
 
     pub fn to_world(&self, local: Vector3<f32>) -> Vector3<f32> {
         self.local_to_world * local
+    }
+
+    pub fn in_expected_hemisphere(&self, dir: Vector3<f32>, ty: ScatterDirType) -> bool {
+        if ty == ScatterDirType::Reflect {
+            dir.dot(self.hemisphere) >= 0.0
+        } else {
+            dir.dot(self.hemisphere) <= 0.0
+        }
     }
 }

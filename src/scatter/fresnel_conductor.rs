@@ -1,4 +1,4 @@
-use crate::core::color::Color;
+use crate::core::{color::Color, scatter::ScatterType};
 use crate::core::sampler::Sampler;
 use crate::core::scatter::{Reflect, Scatter};
 use cgmath::{Point3, Vector3};
@@ -27,11 +27,11 @@ impl<R: Reflect> Scatter for FresnelConductor<R> {
         wo: Vector3<f32>,
         pi: Point3<f32>,
         sampler: &mut dyn Sampler,
-    ) -> (Vector3<f32>, f32, Color) {
+    ) -> (Vector3<f32>, f32, Color, ScatterType) {
         // let fresnel = crate::scatter::util::fresnel_conductor(self.ior, self.ior_k, wo);
         let fresnel = crate::scatter::util::schlick_fresnel_with_r0(self.ior, wo.z.abs());
-        let (wi, pdf, bxdf) = self.reflect.sample_wi(po, wo, pi, sampler);
-        (wi, pdf, fresnel * bxdf)
+        let (wi, pdf, bxdf, ty) = self.reflect.sample_wi(po, wo, pi, sampler);
+        (wi, pdf, fresnel * bxdf, ty)
     }
 
     fn pdf(&self, po: Point3<f32>, wo: Vector3<f32>, pi: Point3<f32>, wi: Vector3<f32>) -> f32 {

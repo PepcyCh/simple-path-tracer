@@ -1,4 +1,4 @@
-use crate::core::color::Color;
+use crate::core::{color::Color, scatter::ScatterType};
 use crate::core::sampler::Sampler;
 use crate::core::scatter::{Scatter, Transmit};
 use cgmath::{InnerSpace, Point3, Vector3};
@@ -21,7 +21,7 @@ impl Scatter for SpecularTransmit {
         wo: Vector3<f32>,
         _pi: Point3<f32>,
         _sampler: &mut dyn Sampler,
-    ) -> (Vector3<f32>, f32, Color) {
+    ) -> (Vector3<f32>, f32, Color, ScatterType) {
         if let Some(wi) = crate::scatter::util::refract(wo, self.ior) {
             let ior_ratio = if wo.z >= 0.0 {
                 1.0 / self.ior
@@ -32,9 +32,10 @@ impl Scatter for SpecularTransmit {
                 wi,
                 1.0,
                 ior_ratio * ior_ratio * self.transmittance / wi.z.abs(),
+                ScatterType::specular_transmit()
             )
         } else {
-            (wo, 1.0, Color::BLACK)
+            (wo, 1.0, Color::BLACK, ScatterType::specular_transmit())
         }
     }
 

@@ -1,4 +1,4 @@
-use crate::core::color::Color;
+use crate::core::{color::Color, scatter::ScatterType};
 use crate::core::sampler::Sampler;
 use crate::core::scatter::{Scatter, Transmit};
 use cgmath::{Point3, Vector3};
@@ -21,7 +21,7 @@ impl Scatter for LambertTransmit {
         wo: Vector3<f32>,
         _pi: Point3<f32>,
         sampler: &mut dyn Sampler,
-    ) -> (Vector3<f32>, f32, Color) {
+    ) -> (Vector3<f32>, f32, Color, ScatterType) {
         let mut wi = sampler.cosine_weighted_on_hemisphere();
         if wo.z > 0.0 {
             wi.z = -wi.z;
@@ -30,6 +30,7 @@ impl Scatter for LambertTransmit {
             wi,
             wi.z.abs() / std::f32::consts::PI,
             self.transmittance / std::f32::consts::PI,
+            ScatterType::lambert_transmit(),
         )
     }
 

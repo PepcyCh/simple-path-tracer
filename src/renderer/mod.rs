@@ -10,7 +10,7 @@ use crate::core::primitive::{Aggregate, Primitive};
 use crate::core::ray::Ray;
 use crate::core::sampler::Sampler;
 use crate::sampler::sampler_from;
-use cgmath::{Point3, Vector3};
+use cgmath::{InnerSpace, Point3, Vector3};
 use image::RgbImage;
 use std::sync::{Arc, Mutex};
 
@@ -129,6 +129,7 @@ impl PathTracer {
             let mut inter = Intersection::default();
             let does_hit = self.objects.intersect(&ray, &mut inter);
             if does_hit {
+                inter.apply_normal_map();
                 inter.calc_differential(&ray);
             }
             curr_primitive = inter.primitive;
@@ -202,7 +203,13 @@ impl PathTracer {
                 let mat = inter.primitive.unwrap().material().unwrap();
                 let scatter = mat.scatter(&inter);
 
-                let coord_po = Coordinate::from_z(inter.normal);
+                let coord_po = Coordinate::from_z(inter.shade_normal,
+                    if ray.direction.dot(inter.normal) > 0.0 {
+                        -inter.normal
+                    } else {
+                        inter.normal
+                    }
+                );
                 let wo = coord_po.to_local(-ray.direction);
 
                 let (pi, coord_pi, sp_pdf, sp) =
@@ -221,9 +228,6 @@ impl PathTracer {
                 for light in &self.lights {
                     let (light_dir, pdf, light_strength, dist) = light.sample(pi, sampler);
                     let wi = coord_pi.to_local(light_dir);
-                    if wi.z < 0.0 {
-                        continue;
-                    }
                     let bxdf = scatter.bxdf(po, wo, pi, wi);
                     let mat_pdf = scatter.pdf(po, wo, pi, wi);
                     let shadow_ray = Ray::new(pi, light_dir);
@@ -240,11 +244,11 @@ impl PathTracer {
                     }
 
                     if !light.is_delta() {
-                        let (wi, pdf, bxdf) = scatter.sample_wi(po, wo, pi, sampler);
-                        if wi.z < 0.0 {
+                        let (wi, pdf, bxdf, ty) = scatter.sample_wi(po, wo, pi, sampler);
+                        let light_dir = coord_pi.to_world(wi);
+                        if !coord_pi.in_expected_hemisphere(light_dir, ty.dir) {
                             continue;
                         }
-                        let light_dir = coord_pi.to_world(wi);
                         let (light_strength, dist, light_pdf) =
                             light.strength_dist_pdf(pi, light_dir);
                         let shadow_ray = Ray::new(pi, light_dir);
@@ -263,10 +267,14 @@ impl PathTracer {
                 }
                 final_color += color_coe * li;
 
-                let (wi, pdf, bxdf) = scatter.sample_wi(po, wo, pi, sampler);
-                ray = Ray::new(pi, coord_pi.to_world(wi));
+                let (wi, pdf, bxdf, ty) = scatter.sample_wi(po, wo, pi, sampler);
+                let wi_world = coord_pi.to_world(wi);
+                ray = Ray::new(pi, wi_world);
                 color_coe *= bxdf * wi.z.abs() / pdf;
                 if !color_coe.is_finite() || color_coe.luminance() < Self::CUTOFF_LUMINANCE {
+                    break;
+                }
+                if !coord_pi.in_expected_hemisphere(wi_world, ty.dir) {
                     break;
                 }
 

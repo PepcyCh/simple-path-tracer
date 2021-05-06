@@ -240,6 +240,8 @@ impl InputLoader {
             .as_array()
             .context("top: 'materials' should be an array")?;
         let mut materials = Vec::with_capacity(arr.len());
+        let default_normal_map =
+            Arc::new(ScalarTex::new(Color::new(0.5, 0.5, 1.0))) as Arc<dyn Texture<Color>>;
         for mat_json in arr {
             let ty = get_str_field(mat_json, "material", "type")?;
             let mat = match ty {
@@ -248,9 +250,13 @@ impl InputLoader {
                     let albedo = get_int_field(mat_json, "material-lambert", "albedo")? as usize;
                     let emissive =
                         get_int_field(mat_json, "material-lambert", "emissive")? as usize;
+                    let normal =
+                        get_int_field_option(mat_json, "material-lambert", "normal_map")?;
                     Arc::new(Lambert::new(
                         self.get_texture_color(albedo),
                         self.get_texture_color(emissive),
+                        normal.map_or(default_normal_map.clone(),
+                            |ind| self.get_texture_color(ind as usize)),
                     )) as Arc<dyn Material>
                 }
                 "glass" => {
@@ -261,11 +267,15 @@ impl InputLoader {
                         get_int_field(mat_json, "material-glass", "transmittance")? as usize;
                     let roughness =
                         get_int_field(mat_json, "material-glass", "roughness")? as usize;
+                    let normal =
+                        get_int_field_option(mat_json, "material-glass", "normal_map")?;
                     Arc::new(Glass::new(
                         ior,
                         self.get_texture_color(reflectance),
                         self.get_texture_color(transmittance),
                         self.get_texture_float(roughness),
+                        normal.map_or(default_normal_map.clone(),
+                            |ind| self.get_texture_color(ind as usize)),
                     )) as Arc<dyn Material>
                 }
                 "dielectric" => {
@@ -275,11 +285,15 @@ impl InputLoader {
                         get_int_field(mat_json, "material-dielectric", "roughness")? as usize;
                     let emissive =
                         get_int_field(mat_json, "material-dielectric", "emissive")? as usize;
+                    let normal =
+                        get_int_field_option(mat_json, "material-dielectric", "normal_map")?;
                     Arc::new(Dielectric::new(
                         ior,
                         self.get_texture_color(albedo),
                         self.get_texture_float(roughness),
                         self.get_texture_color(emissive),
+                        normal.map_or(default_normal_map.clone(),
+                            |ind| self.get_texture_color(ind as usize)),
                     )) as Arc<dyn Material>
                 }
                 "metal" => {
@@ -288,11 +302,15 @@ impl InputLoader {
                     let roughness =
                         get_int_field(mat_json, "material-metal", "roughness")? as usize;
                     let emissive = get_int_field(mat_json, "material-metal", "emissive")? as usize;
+                    let normal =
+                        get_int_field_option(mat_json, "material-metal", "normal_map")?;
                     Arc::new(Metal::new(
                         self.get_texture_color(ior),
                         self.get_texture_color(ior_k),
                         self.get_texture_float(roughness),
                         self.get_texture_color(emissive),
+                        normal.map_or(default_normal_map.clone(),
+                            |ind| self.get_texture_color(ind as usize)),
                     )) as Arc<dyn Material>
                 }
                 "subsurface" => {
@@ -303,12 +321,16 @@ impl InputLoader {
                         get_int_field(mat_json, "material-subsurface", "roughness")? as usize;
                     let emissive =
                         get_int_field(mat_json, "material-subsurface", "emissive")? as usize;
+                    let normal =
+                        get_int_field_option(mat_json, "material-subsurface", "normal_map")?;
                     Arc::new(Subsurface::new(
                         ior,
                         self.get_texture_color(albedo),
                         self.get_texture_float(ld),
                         self.get_texture_float(roughness),
                         self.get_texture_color(emissive),
+                        normal.map_or(default_normal_map.clone(),
+                            |ind| self.get_texture_color(ind as usize)),
                     )) as Arc<dyn Material>
                 }
                 _ => Err(LoadError::new(format!("material: unknown type '{}'", ty)))?,

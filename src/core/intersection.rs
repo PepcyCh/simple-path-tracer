@@ -9,6 +9,8 @@ pub struct Intersection<'a> {
     /// bitangent - dpdv
     pub bitangent: cgmath::Vector3<f32>,
     pub normal: cgmath::Vector3<f32>,
+    /// shade_normal - normal from normal map (in world space)
+    pub shade_normal: cgmath::Vector3<f32>,
     pub texcoords: cgmath::Point2<f32>,
     pub primitive: Option<&'a dyn Primitive>,
     pub duvdx: cgmath::Vector2<f32>,
@@ -75,6 +77,17 @@ impl Intersection<'_> {
             }
         }
     }
+
+    pub fn apply_normal_map(&mut self) {
+        if let Some(prim) = self.primitive {
+            if let Some(mat) = prim.material() {
+                let shade_normal_local = mat.apply_normal_map(self);
+                self.shade_normal = (shade_normal_local.x * self.tangent
+                    + shade_normal_local.y * self.bitangent + shade_normal_local.z * self.normal)
+                    .normalize();
+            }
+        }
+    }
 }
 
 impl Default for Intersection<'_> {
@@ -84,6 +97,7 @@ impl Default for Intersection<'_> {
             tangent: cgmath::Vector3::unit_x(),
             bitangent: cgmath::Vector3::unit_y(),
             normal: cgmath::Vector3::unit_z(),
+            shade_normal: cgmath::Vector3::unit_z(),
             texcoords: cgmath::Point2::new(0.0, 0.0),
             primitive: None,
             duvdx: cgmath::Vector2::zero(),

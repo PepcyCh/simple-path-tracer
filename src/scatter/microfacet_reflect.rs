@@ -1,4 +1,4 @@
-use crate::core::color::Color;
+use crate::core::{color::Color, scatter::ScatterType};
 use crate::core::sampler::Sampler;
 use crate::core::scatter::{Reflect, Scatter};
 use cgmath::{InnerSpace, Point3, Vector3};
@@ -27,7 +27,7 @@ impl Scatter for MicrofacetReflect {
         wo: Vector3<f32>,
         _pi: Point3<f32>,
         sampler: &mut dyn Sampler,
-    ) -> (Vector3<f32>, f32, Color) {
+    ) -> (Vector3<f32>, f32, Color, ScatterType) {
         let (rand_x, rand_y) = sampler.uniform_2d();
         let cos_theta_sqr = crate::scatter::util::ggx_ndf_cdf_inverse(self.roughness_sqr, rand_x);
         let cos_theta = cos_theta_sqr.sqrt();
@@ -45,9 +45,9 @@ impl Scatter for MicrofacetReflect {
             );
             let pdf = ndf * half.z / (4.0 * wo.dot(half).abs());
             let bxdf = self.reflectance * ndf * visible;
-            (wi, pdf, bxdf)
+            (wi, pdf, bxdf, ScatterType::glossy_reflect())
         } else {
-            (wo, 1.0, Color::BLACK)
+            (wo, 1.0, Color::BLACK, ScatterType::glossy_reflect())
         }
     }
 

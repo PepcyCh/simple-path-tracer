@@ -1,4 +1,4 @@
-use crate::core::color::Color;
+use crate::core::{color::Color, scatter::ScatterType};
 use crate::core::sampler::Sampler;
 use crate::core::scatter::{Scatter, Transmit};
 use cgmath::{InnerSpace, Point3, Vector3};
@@ -29,7 +29,7 @@ impl Scatter for MicrofacetTransmit {
         wo: Vector3<f32>,
         _pi: Point3<f32>,
         sampler: &mut dyn Sampler,
-    ) -> (Vector3<f32>, f32, Color) {
+    ) -> (Vector3<f32>, f32, Color, ScatterType) {
         let (rand_x, rand_y) = sampler.uniform_2d();
         let cos_theta_sqr = crate::scatter::util::ggx_ndf_cdf_inverse(self.roughness_sqr, rand_x);
         let cos_theta = cos_theta_sqr.sqrt();
@@ -58,10 +58,10 @@ impl Scatter for MicrofacetTransmit {
 
                 let num = wi.dot(half).abs();
                 let pdf = ndf * half.z * num / denom;
-                return (wi, pdf, bsdf);
+                return (wi, pdf, bsdf, ScatterType::glossy_transmit());
             }
         }
-        (wo, 1.0, Color::BLACK)
+        (wo, 1.0, Color::BLACK, ScatterType::glossy_transmit())
     }
 
     fn pdf(&self, _po: Point3<f32>, wo: Vector3<f32>, _pi: Point3<f32>, wi: Vector3<f32>) -> f32 {

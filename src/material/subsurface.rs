@@ -2,7 +2,7 @@ use crate::core::color::Color;
 use crate::core::intersection::Intersection;
 use crate::core::material::Material;
 use crate::core::scatter::Scatter;
-use crate::core::texture::Texture;
+use crate::core::texture::{self, Texture};
 use crate::scatter::{
     FresnelDielectricRSsr, MicrofacetReflect, SpecularReflect, SubsurfaceReflect,
 };
@@ -14,6 +14,7 @@ pub struct Subsurface {
     ld: Arc<dyn Texture<f32>>,
     roughness: Arc<dyn Texture<f32>>,
     emissive: Arc<dyn Texture<Color>>,
+    normal_map: Arc<dyn Texture<Color>>,
 }
 
 impl Subsurface {
@@ -23,6 +24,7 @@ impl Subsurface {
         ld: Arc<dyn Texture<f32>>,
         roughness: Arc<dyn Texture<f32>>,
         emissive: Arc<dyn Texture<Color>>,
+        normal_map: Arc<dyn Texture<Color>>,
     ) -> Self {
         Self {
             ior,
@@ -30,11 +32,16 @@ impl Subsurface {
             ld,
             roughness,
             emissive,
+            normal_map,
         }
     }
 }
 
 impl Material for Subsurface {
+    fn apply_normal_map(&self, inter: &Intersection<'_>) -> cgmath::Vector3<f32> {
+        texture::get_normal_at(&self.normal_map, inter)
+    }
+
     fn scatter(&self, inter: &Intersection<'_>) -> Box<dyn Scatter> {
         let albedo = self.albedo.value_at(inter);
         let ld = self.ld.value_at(inter);
