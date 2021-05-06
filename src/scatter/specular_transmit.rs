@@ -1,6 +1,6 @@
-use crate::core::{color::Color, scatter::ScatterType};
 use crate::core::sampler::Sampler;
 use crate::core::scatter::{Scatter, Transmit};
+use crate::core::{color::Color, scatter::ScatterType};
 use cgmath::{InnerSpace, Point3, Vector3};
 
 pub struct SpecularTransmit {
@@ -32,7 +32,7 @@ impl Scatter for SpecularTransmit {
                 wi,
                 1.0,
                 ior_ratio * ior_ratio * self.transmittance / wi.z.abs(),
-                ScatterType::specular_transmit()
+                ScatterType::specular_transmit(),
             )
         } else {
             (wo, 1.0, Color::BLACK, ScatterType::specular_transmit())

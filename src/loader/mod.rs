@@ -1,4 +1,3 @@
-use crate::camera::PerspectiveCamera;
 use crate::core::camera::Camera;
 use crate::core::color::Color;
 use crate::core::filter::Filter;
@@ -14,6 +13,7 @@ use crate::medium::Homogeneous;
 use crate::primitive::{BvhAccel, Group, MeshVertex, Sphere, Transform, TriangleMesh};
 use crate::renderer::PathTracer;
 use crate::texture::{ScalarTex, UvMap};
+use crate::{camera::PerspectiveCamera, light::EnvLight};
 use anyhow::*;
 use cgmath::{Matrix4, Point3, SquareMatrix, Vector3};
 use std::path::{Path, PathBuf};
@@ -119,12 +119,21 @@ impl InputLoader {
         let aggregate = self.load_aggregate(aggregate_json, objects)?;
 
         let lights_json = json_value.get("lights").context("top: no 'lights' field")?;
-        let lights = self.load_lights(lights_json)?;
+        let mut lights = self.load_lights(lights_json)?;
+
+        let environment = if let Some(environment_json) = json_value.get("environment") {
+            let env = self.load_environment(environment_json)?;
+            lights.push(env.clone() as Arc<dyn Light>);
+            Some(env)
+        } else {
+            None
+        };
 
         let path_tracer = PathTracer::new(
             camera,
             aggregate,
             lights,
+            environment,
             spp,
             sampler_type,
             max_depth,
@@ -250,13 +259,13 @@ impl InputLoader {
                     let albedo = get_int_field(mat_json, "material-lambert", "albedo")? as usize;
                     let emissive =
                         get_int_field(mat_json, "material-lambert", "emissive")? as usize;
-                    let normal =
-                        get_int_field_option(mat_json, "material-lambert", "normal_map")?;
+                    let normal = get_int_field_option(mat_json, "material-lambert", "normal_map")?;
                     Arc::new(Lambert::new(
                         self.get_texture_color(albedo),
                         self.get_texture_color(emissive),
-                        normal.map_or(default_normal_map.clone(),
-                            |ind| self.get_texture_color(ind as usize)),
+                        normal.map_or(default_normal_map.clone(), |ind| {
+                            self.get_texture_color(ind as usize)
+                        }),
                     )) as Arc<dyn Material>
                 }
                 "glass" => {
@@ -267,15 +276,15 @@ impl InputLoader {
                         get_int_field(mat_json, "material-glass", "transmittance")? as usize;
                     let roughness =
                         get_int_field(mat_json, "material-glass", "roughness")? as usize;
-                    let normal =
-                        get_int_field_option(mat_json, "material-glass", "normal_map")?;
+                    let normal = get_int_field_option(mat_json, "material-glass", "normal_map")?;
                     Arc::new(Glass::new(
                         ior,
                         self.get_texture_color(reflectance),
                         self.get_texture_color(transmittance),
                         self.get_texture_float(roughness),
-                        normal.map_or(default_normal_map.clone(),
-                            |ind| self.get_texture_color(ind as usize)),
+                        normal.map_or(default_normal_map.clone(), |ind| {
+                            self.get_texture_color(ind as usize)
+                        }),
                     )) as Arc<dyn Material>
                 }
                 "dielectric" => {
@@ -292,8 +301,9 @@ impl InputLoader {
                         self.get_texture_color(albedo),
                         self.get_texture_float(roughness),
                         self.get_texture_color(emissive),
-                        normal.map_or(default_normal_map.clone(),
-                            |ind| self.get_texture_color(ind as usize)),
+                        normal.map_or(default_normal_map.clone(), |ind| {
+                            self.get_texture_color(ind as usize)
+                        }),
                     )) as Arc<dyn Material>
                 }
                 "metal" => {
@@ -302,15 +312,15 @@ impl InputLoader {
                     let roughness =
                         get_int_field(mat_json, "material-metal", "roughness")? as usize;
                     let emissive = get_int_field(mat_json, "material-metal", "emissive")? as usize;
-                    let normal =
-                        get_int_field_option(mat_json, "material-metal", "normal_map")?;
+                    let normal = get_int_field_option(mat_json, "material-metal", "normal_map")?;
                     Arc::new(Metal::new(
                         self.get_texture_color(ior),
                         self.get_texture_color(ior_k),
                         self.get_texture_float(roughness),
                         self.get_texture_color(emissive),
-                        normal.map_or(default_normal_map.clone(),
-                            |ind| self.get_texture_color(ind as usize)),
+                        normal.map_or(default_normal_map.clone(), |ind| {
+                            self.get_texture_color(ind as usize)
+                        }),
                     )) as Arc<dyn Material>
                 }
                 "subsurface" => {
@@ -329,8 +339,9 @@ impl InputLoader {
                         self.get_texture_float(ld),
                         self.get_texture_float(roughness),
                         self.get_texture_color(emissive),
-                        normal.map_or(default_normal_map.clone(),
-                            |ind| self.get_texture_color(ind as usize)),
+                        normal.map_or(default_normal_map.clone(), |ind| {
+                            self.get_texture_color(ind as usize)
+                        }),
                     )) as Arc<dyn Material>
                 }
                 _ => Err(LoadError::new(format!("material: unknown type '{}'", ty)))?,
@@ -505,7 +516,7 @@ impl InputLoader {
         Ok(matrix)
     }
 
-    fn load_lights(&self, value: &serde_json::Value) -> Result<Vec<Box<dyn Light>>> {
+    fn load_lights(&self, value: &serde_json::Value) -> Result<Vec<Arc<dyn Light>>> {
         let arr = value
             .as_array()
             .context("top: 'lights' should be an array")?;
@@ -516,20 +527,20 @@ impl InputLoader {
                 "point" => {
                     let position = get_float_array3_field(light_json, "light-point", "position")?;
                     let strength = get_float_array3_field(light_json, "light-point", "strength")?;
-                    Box::new(PointLight::new(
+                    Arc::new(PointLight::new(
                         Point3::new(position[0], position[1], position[2]),
                         strength.into(),
-                    )) as Box<dyn Light>
+                    )) as Arc<dyn Light>
                 }
                 "directional" => {
                     let direction =
                         get_float_array3_field(light_json, "light-directional", "direction")?;
                     let strength =
                         get_float_array3_field(light_json, "light-directional", "strength")?;
-                    Box::new(DirLight::new(
+                    Arc::new(DirLight::new(
                         Vector3::new(direction[0], direction[1], direction[2]),
                         strength.into(),
-                    )) as Box<dyn Light>
+                    )) as Arc<dyn Light>
                 }
                 "rectangle" => {
                     let center = get_float_array3_field(light_json, "light-rectangle", "center")?;
@@ -540,20 +551,46 @@ impl InputLoader {
                     let up = get_float_array3_field(light_json, "light-rectangle", "up")?;
                     let width = get_float_field(light_json, "light-rectangle", "width")?;
                     let height = get_float_field(light_json, "light-rectangle", "height")?;
-                    Box::new(RectangleLight::new(
+                    Arc::new(RectangleLight::new(
                         Point3::new(center[0], center[1], center[2]),
                         Vector3::new(direction[0], direction[1], direction[2]),
                         width,
                         height,
                         Vector3::new(up[0], up[1], up[2]),
                         strength.into(),
-                    )) as Box<dyn Light>
+                    )) as Arc<dyn Light>
                 }
                 _ => Err(LoadError::new(format!("light: unknown type '{}'", ty)))?,
             };
             lights.push(light)
         }
         Ok(lights)
+    }
+
+    fn load_environment(&self, value: &serde_json::Value) -> Result<Arc<EnvLight>> {
+        let ty = get_str_field(value, "environment", "type")?;
+        let env = match ty {
+            "color" => {
+                let color: Color = get_float_array3_field(value, "environment", "color")?.into();
+                Arc::new(EnvLight::new(vec![vec![color]]))
+            }
+            "texture" => {
+                let path = self
+                    .path
+                    .with_file_name(get_str_field(value, "environment", "file")?);
+                let path_str = path.to_str().unwrap();
+                let image = get_exr_image(&path).context(format!(
+                    "environment: 'file', can't find image '{}'",
+                    path_str
+                ))?;
+                Arc::new(EnvLight::new(image))
+            }
+            _ => Err(LoadError::new(format!(
+                "environment: unknown type '{}'",
+                ty
+            )))?,
+        };
+        Ok(env)
     }
 
     fn load_aggregate(
@@ -690,6 +727,21 @@ fn get_image_field(
         "{}: '{}', can't find image '{}'",
         env, field, path_str
     ))
+}
+
+fn get_exr_image(path: &PathBuf) -> Result<Vec<Vec<Color>>> {
+    Ok(exr::image::read::read_first_rgba_layer_from_file(
+        path,
+        |resolution: exr::math::Vec2<usize>, _| {
+            vec![vec![Color::BLACK; resolution.width()]; resolution.height()]
+        },
+        |image, pos, (r, g, b, _): (f32, f32, f32, f32)| {
+            image[pos.height()][pos.width()] = Color::new(r, g, b)
+        },
+    )?
+    .layer_data
+    .channel_data
+    .pixels)
 }
 
 #[derive(Debug)]

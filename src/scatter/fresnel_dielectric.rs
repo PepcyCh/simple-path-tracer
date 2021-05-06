@@ -1,8 +1,8 @@
-use crate::core::{color::Color, scatter::ScatterType};
 use crate::core::coord::Coordinate;
 use crate::core::primitive::Aggregate;
 use crate::core::sampler::Sampler;
 use crate::core::scatter::{Reflect, Scatter, SsReflect, Transmit};
+use crate::core::{color::Color, scatter::ScatterType};
 use cgmath::{Point3, Vector3};
 
 struct FresnelDielectric<R, T> {
@@ -110,7 +110,8 @@ impl<R: Reflect, T: Reflect> Scatter for FresnelDielectricRR<R, T> {
             let bxdf = fresnel * reflect_bxdf + (1.0 - fresnel) * transmit_bxdf;
             (wi, pdf, bxdf, ty)
         } else {
-            let (wi, transmit_pdf, transmit_bxdf, ty) = self.0.transmit.sample_wi(po, wo, pi, sampler);
+            let (wi, transmit_pdf, transmit_bxdf, ty) =
+                self.0.transmit.sample_wi(po, wo, pi, sampler);
             let reflect_pdf = self.0.reflect.pdf(po, wo, pi, wi);
             let reflect_bxdf = self.0.reflect.bxdf(po, wo, pi, wi);
             let pdf = fresnel * reflect_pdf + (1.0 - fresnel) * transmit_pdf;

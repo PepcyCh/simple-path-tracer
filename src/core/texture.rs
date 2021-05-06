@@ -1,6 +1,6 @@
-use cgmath::InnerSpace;
-use crate::core::intersection::Intersection;
 use crate::core::color::Color;
+use crate::core::intersection::Intersection;
+use cgmath::InnerSpace;
 
 pub trait Texture<T>: Send + Sync {
     fn value_at(&self, inter: &Intersection<'_>) -> T;
@@ -8,7 +8,7 @@ pub trait Texture<T>: Send + Sync {
 
 pub fn get_normal_at<T>(tex: &T, inter: &Intersection<'_>) -> cgmath::Vector3<f32>
 where
-    T: std::ops::Deref<Target = dyn Texture<Color>>
+    T: std::ops::Deref<Target = dyn Texture<Color>>,
 {
     let value = tex.value_at(inter);
     let normal_color = value * 2.0 - Color::WHITE;

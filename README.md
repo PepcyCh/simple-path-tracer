@@ -9,6 +9,7 @@ Project structure is similar to that in pbrt.
 ## Implemented Features
 
 * Texture mapping and mipmap
+* Importance sampling to HDR(`.exr`) environment map using atlas method
 * Surface area hierarchy
 * Multiple importance sampling
 * Simple microfacet material (GGX NDF and Smith separable visible term, importance sampling w.r.t GGX NDF)

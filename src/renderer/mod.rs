@@ -1,4 +1,3 @@
-use crate::core::camera::Camera;
 use crate::core::color::Color;
 use crate::core::coord::Coordinate;
 use crate::core::film::Film;
@@ -10,6 +9,7 @@ use crate::core::primitive::{Aggregate, Primitive};
 use crate::core::ray::Ray;
 use crate::core::sampler::Sampler;
 use crate::sampler::sampler_from;
+use crate::{core::camera::Camera, light::EnvLight};
 use cgmath::{InnerSpace, Point3, Vector3};
 use image::RgbImage;
 use std::sync::{Arc, Mutex};
@@ -17,7 +17,8 @@ use std::sync::{Arc, Mutex};
 pub struct PathTracer {
     camera: Box<dyn Camera>,
     objects: Box<dyn Aggregate>,
-    lights: Vec<Box<dyn Light>>,
+    lights: Vec<Arc<dyn Light>>,
+    environment: Option<Arc<EnvLight>>,
     spp: u32,
     sampler_type: &'static str,
     max_depth: u32,
@@ -30,7 +31,8 @@ impl PathTracer {
     pub fn new(
         camera: Box<dyn Camera>,
         objects: Box<dyn Aggregate>,
-        lights: Vec<Box<dyn Light>>,
+        lights: Vec<Arc<dyn Light>>,
+        environment: Option<Arc<EnvLight>>,
         spp: u32,
         sampler_type: &'static str,
         max_depth: u32,
@@ -40,6 +42,7 @@ impl PathTracer {
             camera,
             objects,
             lights,
+            environment,
             spp,
             sampler_type,
             max_depth,
@@ -99,7 +102,7 @@ impl PathTracer {
                                 // let ray = path_tracer.camera.generate_ray((x, y));
                                 let ray = path_tracer.camera.generate_ray_with_aux_ray(
                                     (x, y),
-                                    (aspect * width_inv * spp_sqrt_inv, height_inv * spp_sqrt_inv)
+                                    (aspect * width_inv * spp_sqrt_inv, height_inv * spp_sqrt_inv),
                                 );
                                 let color = path_tracer.trace_ray(ray, sampler.as_mut());
                                 let mut film = film.lock().unwrap();
@@ -196,6 +199,12 @@ impl PathTracer {
                 ray = Ray::new(pi, wi);
             } else {
                 if !does_hit {
+                    if let Some(env) = &self.environment {
+                        if curr_depth == 0 {
+                            let (env, _, _) = env.strength_dist_pdf(ray.origin, ray.direction);
+                            final_color += color_coe * env;
+                        }
+                    }
                     break;
                 }
 
@@ -203,12 +212,13 @@ impl PathTracer {
                 let mat = inter.primitive.unwrap().material().unwrap();
                 let scatter = mat.scatter(&inter);
 
-                let coord_po = Coordinate::from_z(inter.shade_normal,
+                let coord_po = Coordinate::from_z(
+                    inter.shade_normal,
                     if ray.direction.dot(inter.normal) > 0.0 {
                         -inter.normal
                     } else {
                         inter.normal
-                    }
+                    },
                 );
                 let wo = coord_po.to_local(-ray.direction);
 

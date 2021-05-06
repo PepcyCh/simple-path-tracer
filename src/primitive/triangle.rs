@@ -239,7 +239,7 @@ impl TriangleMesh {
                 self.vertices[i].tangent = tangents_sum[i] / tangents_cnt[i] as f32;
             }
             if bitangents_cnt[i] != 0 {
-                self.vertices[i].bitangent = bitangents_sum[i] /  bitangents_cnt[i] as f32;
+                self.vertices[i].bitangent = bitangents_sum[i] / bitangents_cnt[i] as f32;
             }
         }
     }

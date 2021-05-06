@@ -1,6 +1,6 @@
-use crate::core::{color::Color, scatter::ScatterType};
 use crate::core::sampler::Sampler;
 use crate::core::scatter::{Scatter, Transmit};
+use crate::core::{color::Color, scatter::ScatterType};
 use cgmath::{Point3, Vector3};
 
 pub struct LambertTransmit {

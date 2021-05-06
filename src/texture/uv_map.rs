@@ -21,7 +21,8 @@ impl Texture<f32> for UvMap {
             inter.texcoords.y,
             inter.duvdx,
             inter.duvdy,
-        ).r
+        )
+        .r
     }
 }
 

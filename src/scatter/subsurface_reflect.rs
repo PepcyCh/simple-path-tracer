@@ -1,10 +1,10 @@
-use crate::core::{color::Color, scatter::ScatterType};
 use crate::core::coord::Coordinate;
 use crate::core::intersection::Intersection;
 use crate::core::primitive::Aggregate;
 use crate::core::ray::Ray;
 use crate::core::sampler::Sampler;
 use crate::core::scatter::{Scatter, SsReflect};
+use crate::core::{color::Color, scatter::ScatterType};
 use cgmath::{MetricSpace, Point3, Vector3};
 
 pub struct SubsurfaceReflect {
@@ -129,7 +129,12 @@ impl Scatter for SubsurfaceReflect {
         let pdf_zx = 0.25 * normal_local.y.abs() * self.sp(r_zx).avg();
         let pdf = (pdf_xy + pdf_yz + pdf_zx) / intersects.len() as f32;
 
-        (pi, Coordinate::from_z(sample_shade_normal, sample_normal), pdf, sp)
+        (
+            pi,
+            Coordinate::from_z(sample_shade_normal, sample_normal),
+            pdf,
+            sp,
+        )
     }
 
     fn sample_wi(

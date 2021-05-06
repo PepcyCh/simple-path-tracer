@@ -18,7 +18,11 @@ impl Lambert {
         emissive: Arc<dyn Texture<Color>>,
         normal_map: Arc<dyn Texture<Color>>,
     ) -> Self {
-        Self { albedo, emissive, normal_map }
+        Self {
+            albedo,
+            emissive,
+            normal_map,
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::core::color::Color;
+use cgmath::{ElementWise, InnerSpace};
 use image::GenericImageView;
-use cgmath::{InnerSpace, ElementWise};
 
 pub fn generate_mipmap(image: image::DynamicImage) -> Vec<image::DynamicImage> {
     let mut width = image.width();
@@ -79,7 +79,9 @@ pub fn sample_trilinear(
     let duvdx = duvdx.mul_element_wise(scale);
     let duvdy = duvdy.mul_element_wise(scale);
 
-    let level = (duvdx.magnitude().max(duvdy.magnitude()) + 0.001).log2().clamp(0.0, (images.len() - 1) as f32);
+    let level = (duvdx.magnitude().max(duvdy.magnitude()) + 0.001)
+        .log2()
+        .clamp(0.0, (images.len() - 1) as f32);
     let l0 = level.floor() as usize;
     if l0 + 1 == images.len() {
         sample_blinear(&images[l0], u, v)

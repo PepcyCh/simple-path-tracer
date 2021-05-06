@@ -1,6 +1,6 @@
 use crate::core::primitive::Primitive;
 use crate::core::ray::Ray;
-use cgmath::{EuclideanSpace, InnerSpace, Zero, SquareMatrix};
+use cgmath::{EuclideanSpace, InnerSpace, SquareMatrix, Zero};
 
 pub struct Intersection<'a> {
     pub t: f32,
@@ -30,9 +30,11 @@ impl Intersection<'_> {
             let p = ray.point_at(self.t);
 
             let d = p.dot(self.normal);
-            let tx = (d - aux_ray.x_origin.dot(self.normal)) / (aux_ray.x_direction.dot(self.normal));
+            let tx =
+                (d - aux_ray.x_origin.dot(self.normal)) / (aux_ray.x_direction.dot(self.normal));
             let px = aux_ray.point_x_at(tx);
-            let ty = (d - aux_ray.y_origin.dot(self.normal)) / (aux_ray.y_direction.dot(self.normal));
+            let ty =
+                (d - aux_ray.y_origin.dot(self.normal)) / (aux_ray.y_direction.dot(self.normal));
             let py = aux_ray.point_y_at(ty);
 
             let dpdx = px - p;
@@ -40,7 +42,9 @@ impl Intersection<'_> {
             let mut bx = cgmath::Vector2::zero();
             let mut by = cgmath::Vector2::zero();
             let mut a = cgmath::Matrix2::zero();
-            if self.normal.x.abs() >= self.normal.y.abs() && self.normal.x.abs() >= self.normal.z.abs() {
+            if self.normal.x.abs() >= self.normal.y.abs()
+                && self.normal.x.abs() >= self.normal.z.abs()
+            {
                 bx.x = dpdx.y;
                 bx.y = dpdx.z;
                 by.x = dpdy.y;
@@ -83,7 +87,8 @@ impl Intersection<'_> {
             if let Some(mat) = prim.material() {
                 let shade_normal_local = mat.apply_normal_map(self);
                 self.shade_normal = (shade_normal_local.x * self.tangent
-                    + shade_normal_local.y * self.bitangent + shade_normal_local.z * self.normal)
+                    + shade_normal_local.y * self.bitangent
+                    + shade_normal_local.z * self.normal)
                     .normalize();
             }
         }
