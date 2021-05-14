@@ -1,10 +1,10 @@
+use crate::core::color::Color;
 use crate::core::coord::Coordinate;
 use crate::core::intersection::Intersection;
 use crate::core::primitive::Aggregate;
 use crate::core::ray::Ray;
 use crate::core::sampler::Sampler;
-use crate::core::scatter::{Scatter, SsReflect};
-use crate::core::{color::Color, scatter::ScatterType};
+use crate::core::scatter::{Scatter, ScatterType, SsReflect};
 use cgmath::{MetricSpace, Point3, Vector3};
 
 pub struct SubsurfaceReflect {

@@ -1,4 +1,3 @@
-use crate::core::camera::Camera;
 use crate::core::color::Color;
 use crate::core::filter::Filter;
 use crate::core::light::Light;
@@ -14,6 +13,7 @@ use crate::primitive::{BvhAccel, Group, MeshVertex, Sphere, Transform, TriangleM
 use crate::renderer::PathTracer;
 use crate::texture::{ScalarTex, UvMap};
 use crate::{camera::PerspectiveCamera, light::EnvLight};
+use crate::{core::camera::Camera, material::PndfSurface};
 use anyhow::*;
 use cgmath::{Matrix4, Point3, SquareMatrix, Vector3};
 use std::path::{Path, PathBuf};
@@ -338,6 +338,25 @@ impl InputLoader {
                         self.get_texture_color(albedo),
                         self.get_texture_float(ld),
                         self.get_texture_float(roughness),
+                        self.get_texture_color(emissive),
+                        normal.map_or(default_normal_map.clone(), |ind| {
+                            self.get_texture_color(ind as usize)
+                        }),
+                    )) as Arc<dyn Material>
+                }
+                "pndf" => {
+                    let albedo = get_int_field(mat_json, "material-pndf", "albedo")? as usize;
+                    let sigma_r = get_float_field(mat_json, "material-pndf", "sigma_r")?;
+                    let base_normal =
+                        get_image_field(mat_json, "material-pndf", "base_normal", &self.path)?;
+                    let h = get_float_field(mat_json, "material-pndf", "h")?;
+                    let emissive = get_int_field(mat_json, "material-pndf", "emissive")? as usize;
+                    let normal = get_int_field_option(mat_json, "material-pndf", "normal_map")?;
+                    Arc::new(PndfSurface::new(
+                        self.get_texture_color(albedo),
+                        sigma_r,
+                        base_normal,
+                        h,
                         self.get_texture_color(emissive),
                         normal.map_or(default_normal_map.clone(), |ind| {
                             self.get_texture_color(ind as usize)

@@ -5,6 +5,26 @@ pub trait Sampler: Send + Sync {
         (self.uniform_1d(), self.uniform_1d())
     }
 
+    fn gaussian_1d(&mut self, mu: f32, sigma: f32) -> f32 {
+        self.gaussian_2d(mu, sigma).0
+    }
+
+    fn gaussian_2d(&mut self, mu: f32, sigma: f32) -> (f32, f32) {
+        let mut rand_xy;
+        loop {
+            rand_xy = self.uniform_2d();
+            if rand_xy.0 > 1e-6 {
+                break;
+            }
+        }
+
+        let mag = sigma * (-2.0 * rand_xy.0.ln()).sqrt();
+        let temp = 2.0 * std::f32::consts::PI * rand_xy.1;
+        let x = mag * temp.cos() + mu;
+        let y = mag * temp.sin() + mu;
+        (x, y)
+    }
+
     fn pixel_samples(&mut self, spp: u32) -> Vec<(f32, f32)> {
         let mut samples = Vec::with_capacity(spp as usize);
         for _ in 0..spp {

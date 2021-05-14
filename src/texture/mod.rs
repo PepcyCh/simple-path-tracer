@@ -1,4 +1,4 @@
-mod util;
+pub mod util;
 
 mod scalar;
 mod uv_map;

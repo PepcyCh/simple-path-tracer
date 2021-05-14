@@ -1,8 +1,8 @@
+use crate::core::color::Color;
 use crate::core::coord::Coordinate;
 use crate::core::primitive::Aggregate;
 use crate::core::sampler::Sampler;
-use crate::core::scatter::{Reflect, Scatter, SsReflect, Transmit};
-use crate::core::{color::Color, scatter::ScatterType};
+use crate::core::scatter::{Reflect, Scatter, ScatterType, SsReflect, Transmit};
 use cgmath::{Point3, Vector3};
 
 struct FresnelDielectric<R, T> {
