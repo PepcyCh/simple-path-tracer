@@ -27,15 +27,15 @@ impl Scatter for LambertReflect {
         }
         (
             wi,
-            wi.z.abs() / std::f32::consts::PI,
-            self.reflectance / std::f32::consts::PI,
+            wi.z.abs() * std::f32::consts::FRAC_1_PI,
+            self.reflectance * std::f32::consts::FRAC_1_PI,
             ScatterType::lambert_reflect(),
         )
     }
 
     fn pdf(&self, _po: Point3<f32>, wo: Vector3<f32>, _pi: Point3<f32>, wi: Vector3<f32>) -> f32 {
         if wo.z * wi.z >= 0.0 {
-            wi.z.abs() / std::f32::consts::PI
+            wi.z.abs() * std::f32::consts::FRAC_1_PI
         } else {
             1.0
         }
@@ -49,7 +49,7 @@ impl Scatter for LambertReflect {
         wi: Vector3<f32>,
     ) -> Color {
         if wo.z * wi.z >= 0.0 {
-            self.reflectance / std::f32::consts::PI
+            self.reflectance * std::f32::consts::FRAC_1_PI
         } else {
             Color::BLACK
         }

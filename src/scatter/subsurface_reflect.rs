@@ -32,7 +32,7 @@ impl SubsurfaceReflect {
     fn sp(&self, r: f32) -> Color {
         let exp1 = (-r / self.d).exp();
         let exp2 = (-r / self.d / 3.0).exp();
-        (exp1 + exp2) / (8.0 * std::f32::consts::PI * self.d * r)
+        (exp1 + exp2) * std::f32::consts::FRAC_1_PI / (8.0 * self.d * r)
     }
 
     fn sample_r(&self, rand: f32) -> f32 {
@@ -150,7 +150,7 @@ impl Scatter for SubsurfaceReflect {
         }
         (
             wi,
-            wi.z.abs() / std::f32::consts::PI,
+            wi.z.abs() * std::f32::consts::FRAC_1_PI,
             self.bxdf(po, wo, pi, wi),
             ScatterType::lambert_reflect(),
         )
@@ -158,7 +158,7 @@ impl Scatter for SubsurfaceReflect {
 
     fn pdf(&self, _po: Point3<f32>, wo: Vector3<f32>, _pi: Point3<f32>, wi: Vector3<f32>) -> f32 {
         if wo.z * wi.z >= 0.0 {
-            wi.z.abs() / std::f32::consts::PI
+            wi.z.abs() * std::f32::consts::FRAC_1_PI
         } else {
             1.0
         }
@@ -173,7 +173,7 @@ impl Scatter for SubsurfaceReflect {
     ) -> Color {
         let fresnel_wo = crate::scatter::util::fresnel(self.ior, wo);
         let fresnel_wi = crate::scatter::util::fresnel(self.ior, wi);
-        let value = (1.0 - fresnel_wo) * (1.0 - fresnel_wi) / std::f32::consts::PI;
+        let value = (1.0 - fresnel_wo) * (1.0 - fresnel_wi) * std::f32::consts::FRAC_1_PI;
         Color::new(value, value, value)
     }
 

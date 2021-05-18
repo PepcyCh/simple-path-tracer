@@ -6,6 +6,7 @@ use crate::core::{color::Color, light::Light, sampler::Sampler};
 
 pub struct EnvLight {
     texture: Vec<Vec<Color>>,
+    scale: Color,
     height: usize,
     width: usize,
     atlas_table: AtlasTable,
@@ -18,16 +19,17 @@ struct AtlasTable {
 }
 
 impl EnvLight {
-    pub fn new(texture: Vec<Vec<Color>>) -> Self {
+    pub fn new(texture: Vec<Vec<Color>>, scale: Color) -> Self {
         let height = texture.len();
         let width = texture[0].len();
         let size = width * height;
 
         let mut props = Vec::with_capacity(size);
         let mut sum = 0.0;
+        let height_inv = 1.0 / height as f32;
         for (row_ind, row) in texture.iter().enumerate() {
             for pixel in row {
-                let theta = (row_ind as f32 + 0.5) / height as f32;
+                let theta = (row_ind as f32 + 0.5) * height_inv;
                 let prop = pixel.luminance() * theta.sin();
                 sum += prop;
                 props.push(prop);
@@ -40,6 +42,7 @@ impl EnvLight {
         let atlas_table = AtlasTable::new(props);
         Self {
             texture,
+            scale,
             height,
             width,
             atlas_table,
@@ -47,14 +50,14 @@ impl EnvLight {
     }
 
     fn strength_dist_pdf(&self, theta: f32, phi: f32) -> (Color, f32, f32) {
-        let x = phi * 0.5 / std::f32::consts::PI * self.width as f32;
+        let x = phi * 0.5 * std::f32::consts::FRAC_1_PI * self.width as f32;
         let x1 = x.round() as i32;
         let x0 = x1 - 1;
         let xt = x - x0 as f32 - 0.5;
         let x0 = x0.clamp(0, self.width as i32 - 1) as usize;
         let x1 = x1.clamp(0, self.width as i32 - 1) as usize;
 
-        let y = theta / std::f32::consts::PI * self.height as f32;
+        let y = theta * std::f32::consts::FRAC_1_PI * self.height as f32;
         let y1 = y.round() as i32;
         let y0 = y1 - 1;
         let yt = y - y0 as f32 - 0.5;
@@ -77,7 +80,7 @@ impl EnvLight {
         let p1 = p10 * (1.0 - yt) + p11 * yt;
         let p = p0 * (1.0 - xt) * p1 * xt;
 
-        (c, f32::INFINITY, p)
+        (c * self.scale, f32::INFINITY, p)
     }
 }
 
@@ -138,7 +141,6 @@ impl AtlasTable {
             let rich_ind = rich.unwrap();
 
             let diff = 1.0 - u[poor_ind];
-            // u[poor_ind] = 1.0;
             u[rich_ind] -= diff;
             k[poor_ind] = rich_ind;
 

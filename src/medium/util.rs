@@ -5,7 +5,7 @@ pub fn henyey_greenstein(asymmetric: f32, cos: f32) -> f32 {
     let g2 = g * g;
     let denom = 1.0 + g2 + 2.0 * g * cos;
     let denom = denom * denom.sqrt();
-    0.25 / std::f32::consts::PI * (1.0 - g2) / denom
+    0.25 * std::f32::consts::FRAC_1_PI * (1.0 - g2) / denom
 }
 
 /// return sampled cos

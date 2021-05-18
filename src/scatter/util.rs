@@ -144,7 +144,7 @@ pub fn half_from_refract(i: Vector3<f32>, o: Vector3<f32>, ior: f32) -> Vector3<
 }
 
 pub fn ggx_ndf(ndoth: f32, a2: f32) -> f32 {
-    a2 / (std::f32::consts::PI * pow2(ndoth * ndoth * (a2 - 1.0) + 1.0)).max(0.0001)
+    a2 * std::f32::consts::FRAC_1_PI / (pow2(ndoth * ndoth * (a2 - 1.0) + 1.0)).max(0.0001)
 }
 
 /// return sampled (n dot h)^2

@@ -1,3 +1,5 @@
+use crate::camera::PerspectiveCamera;
+use crate::core::camera::Camera;
 use crate::core::color::Color;
 use crate::core::filter::Filter;
 use crate::core::light::Light;
@@ -6,14 +8,14 @@ use crate::core::medium::Medium;
 use crate::core::primitive::{Aggregate, Primitive};
 use crate::core::texture::Texture;
 use crate::filter::BoxFilter;
-use crate::light::{DirLight, PointLight, RectangleLight};
-use crate::material::{Dielectric, Glass, Lambert, Metal, PseudoMaterial, Subsurface};
+use crate::light::{DirLight, EnvLight, PointLight, RectangleLight};
+use crate::material::{
+    Dielectric, Glass, Lambert, Metal, PndfDielectric, PndfMetal, PseudoMaterial, Subsurface,
+};
 use crate::medium::Homogeneous;
 use crate::primitive::{BvhAccel, Group, MeshVertex, Sphere, Transform, TriangleMesh};
 use crate::renderer::PathTracer;
 use crate::texture::{ScalarTex, UvMap};
-use crate::{camera::PerspectiveCamera, light::EnvLight};
-use crate::{core::camera::Camera, material::PndfSurface};
 use anyhow::*;
 use cgmath::{Matrix4, Point3, SquareMatrix, Vector3};
 use std::path::{Path, PathBuf};
@@ -344,7 +346,8 @@ impl InputLoader {
                         }),
                     )) as Arc<dyn Material>
                 }
-                "pndf" => {
+                "pndf_dielectric" => {
+                    let ior = get_float_field(mat_json, "material-dielectric", "ior")?;
                     let albedo = get_int_field(mat_json, "material-pndf", "albedo")? as usize;
                     let sigma_r = get_float_field(mat_json, "material-pndf", "sigma_r")?;
                     let base_normal =
@@ -352,7 +355,27 @@ impl InputLoader {
                     let h = get_float_field(mat_json, "material-pndf", "h")?;
                     let emissive = get_int_field(mat_json, "material-pndf", "emissive")? as usize;
                     let normal = get_int_field_option(mat_json, "material-pndf", "normal_map")?;
-                    Arc::new(PndfSurface::new(
+                    Arc::new(PndfDielectric::new(
+                        ior,
+                        self.get_texture_color(albedo),
+                        sigma_r,
+                        base_normal,
+                        h,
+                        self.get_texture_color(emissive),
+                        normal.map_or(default_normal_map.clone(), |ind| {
+                            self.get_texture_color(ind as usize)
+                        }),
+                    )) as Arc<dyn Material>
+                }
+                "pndf_metal" => {
+                    let albedo = get_int_field(mat_json, "material-pndf", "albedo")? as usize;
+                    let sigma_r = get_float_field(mat_json, "material-pndf", "sigma_r")?;
+                    let base_normal =
+                        get_image_field(mat_json, "material-pndf", "base_normal", &self.path)?;
+                    let h = get_float_field(mat_json, "material-pndf", "h")?;
+                    let emissive = get_int_field(mat_json, "material-pndf", "emissive")? as usize;
+                    let normal = get_int_field_option(mat_json, "material-pndf", "normal_map")?;
+                    Arc::new(PndfMetal::new(
                         self.get_texture_color(albedo),
                         sigma_r,
                         base_normal,
@@ -591,7 +614,14 @@ impl InputLoader {
         let env = match ty {
             "color" => {
                 let color: Color = get_float_array3_field(value, "environment", "color")?.into();
-                Arc::new(EnvLight::new(vec![vec![color]]))
+                let scale: Color = get_float_array3_field_or_default(
+                    value,
+                    "environment",
+                    "scale",
+                    [1.0, 1.0, 1.0],
+                )?
+                .into();
+                Arc::new(EnvLight::new(vec![vec![color]], scale))
             }
             "texture" => {
                 let path = self
@@ -602,7 +632,14 @@ impl InputLoader {
                     "environment: 'file', can't find image '{}'",
                     path_str
                 ))?;
-                Arc::new(EnvLight::new(image))
+                let scale: Color = get_float_array3_field_or_default(
+                    value,
+                    "environment",
+                    "scale",
+                    [1.0, 1.0, 1.0],
+                )?
+                .into();
+                Arc::new(EnvLight::new(image, scale))
             }
             _ => Err(LoadError::new(format!(
                 "environment: unknown type '{}'",
@@ -696,16 +733,16 @@ fn get_int_field(value: &serde_json::Value, env: &str, field: &str) -> Result<u3
         .context(format!("{}: '{}' should be an int", env, field))
 }
 
-#[allow(dead_code)]
-fn get_float_array3_field_option(
+fn get_float_array3_field_or_default(
     value: &serde_json::Value,
     env: &str,
     field: &str,
+    default: [f32; 3],
 ) -> Result<[f32; 3]> {
     if let Some(_) = value.get(field) {
         get_float_array3_field(value, env, field)
     } else {
-        Ok([0.0, 0.0, 0.0])
+        Ok(default)
     }
 }
 

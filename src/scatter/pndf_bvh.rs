@@ -6,8 +6,10 @@ use cgmath::{InnerSpace, Matrix, Matrix2, SquareMatrix, Vector2};
 pub struct PndfGaussTerm {
     pub u: Vector2<f32>,
     pub s: Vector2<f32>,
-    pub jacobian: Matrix2<f32>,
-    pub jacobian_t: Matrix2<f32>,
+    coe: f32,
+    mat_a: Matrix2<f32>,
+    mat_s: Matrix2<f32>,
+    mat_mu: Matrix2<f32>,
 }
 
 struct Tuple4fBbox {
@@ -62,8 +64,10 @@ impl PndfAccel {
         let mut terms_split: Vec<_> = (0..bvh_count).into_iter().map(|_| vec![]).collect();
 
         for term in &mut terms {
-            let x = ((term.s.x * s_block_count as f32) as usize).min(s_block_count - 1);
-            let y = ((term.s.y * s_block_count as f32) as usize).min(s_block_count - 1);
+            let sx_temp = (term.s.x + 1.0) * 0.5;
+            let sy_temp = (term.s.y + 1.0) * 0.5;
+            let x = ((sx_temp * s_block_count as f32) as usize).min(s_block_count - 1);
+            let y = ((sy_temp * s_block_count as f32) as usize).min(s_block_count - 1);
             let term: *mut PndfGaussTerm = *term;
             terms_split[x * s_block_count + y].push(NonNull::new(term).unwrap());
         }
@@ -98,8 +102,10 @@ impl PndfAccel {
         u: Vector2<f32>,
         s: Vector2<f32>,
     ) -> f32 {
-        let x = ((s.x * self.s_block_count as f32) as usize).min(self.s_block_count - 1);
-        let y = ((s.y * self.s_block_count as f32) as usize).min(self.s_block_count - 1);
+        let sx_temp = (s.x + 1.0) * 0.5;
+        let sy_temp = (s.y + 1.0) * 0.5;
+        let x = ((sx_temp * self.s_block_count as f32) as usize).min(self.s_block_count - 1);
+        let y = ((sy_temp * self.s_block_count as f32) as usize).min(self.s_block_count - 1);
         let bvh_ind = x * self.s_block_count + y;
         self.bvhs[bvh_ind].calc(sigma_p, sigma_hx, sigma_hy, sigma_r, u, s)
     }
@@ -202,8 +208,8 @@ impl PndfBvh {
         let mut stack = vec![self.bvh_root.as_ref().unwrap()];
         while let Some(curr) = stack.pop() {
             let dist = curr.bbox.dist_to_point(us_tuple);
-            if dist.0 > 3.0 * sigma_hx
-                || dist.1 > 3.0 * sigma_hy
+            if dist.0 > 3.0 * (sigma_hx + sigma_p)
+                || dist.1 > 3.0 * (sigma_hy + sigma_p)
                 || dist.2 > 3.0 * sigma_r
                 || dist.3 > 3.0 * sigma_r
             {
@@ -213,13 +219,25 @@ impl PndfBvh {
             if curr.is_leaf() {
                 for i in curr.start..curr.end {
                     let term = unsafe { self.terms[i].as_ref() };
-                    value += term.calc(sigma_p, sigma_hx, sigma_hy, sigma_r, u, s);
+                    let res = term.calc(sigma_p, u, s);
+                    if res.is_finite() {
+                        value += res;
+                    }
                 }
             } else {
                 stack.push(curr.lc.as_ref().unwrap());
                 stack.push(curr.rc.as_ref().unwrap());
             }
         }
+
+        // let mut value_ref = 0.0;
+        // for term in &self.terms {
+        //     let term = unsafe { term.as_ref() };
+        //     let res = term.calc(sigma_p, u, s);
+        //     if res.is_finite() {
+        //         value_ref += res;
+        //     }
+        // }
 
         value
     }
@@ -335,7 +353,7 @@ impl PndfUvBvh {
             if curr.is_leaf() {
                 for i in curr.start..curr.end {
                     let term = unsafe { self.terms[i].as_ref() };
-                    let dist_sqr = (u.x - term.u.x).exp2() + (u.y - term.u.y).exp2();
+                    let dist_sqr = (u - term.u).magnitude2();
                     if dist_sqr < min_dist_sqr {
                         min_dist_sqr = dist_sqr;
                         result = *term;
@@ -376,13 +394,41 @@ impl PndfUvBvhNode {
 unsafe impl Send for PndfUvBvh {}
 unsafe impl Sync for PndfUvBvh {}
 
+#[rustfmt::skip]
 impl PndfGaussTerm {
-    pub fn new(u: Vector2<f32>, s: Vector2<f32>, jacobian: Matrix2<f32>) -> Self {
+    pub fn new(
+        u: Vector2<f32>,
+        s: Vector2<f32>,
+        jacobian: Matrix2<f32>,
+        sigma_hx: f32,
+        sigma_hy: f32,
+        sigma_r: f32,
+    ) -> Self {
+        let sigma_h_sqr = sigma_hx * sigma_hy;
+        let sigma_h_sqr_inv = 1.0 / sigma_h_sqr;
+        let sigma_r_sqr = sigma_r * sigma_r;
+        let sigma_r_sqr_inv = 1.0 / sigma_r_sqr;
+
+        let jacobian_t = jacobian.transpose();
+        let mat_a = sigma_h_sqr_inv * Matrix2::identity() + sigma_r_sqr_inv * jacobian_t * jacobian;
+        let mat_a_inv = mat_a.invert().unwrap();
+        let mat_b = sigma_r_sqr_inv * jacobian_t;
+        let mat_b_t = sigma_r_sqr_inv * jacobian;
+
+        let coe = sigma_h_sqr_inv * sigma_r_sqr_inv * 0.25 * std::f32::consts::FRAC_1_PI * std::f32::consts::FRAC_1_PI;
+
+        let mat_mu = mat_a_inv * mat_b;
+
+        let mat_s: Matrix2<f32> = sigma_r_sqr_inv * Matrix2::identity()
+            - mat_b_t * mat_a_inv * mat_b;
+
         Self {
             u,
             s,
-            jacobian,
-            jacobian_t: jacobian.transpose(),
+            coe,
+            mat_a,
+            mat_mu,
+            mat_s,
         }
     }
 
@@ -394,38 +440,25 @@ impl PndfGaussTerm {
         (self.u.x, self.u.y)
     }
 
-    fn calc(
-        &self,
-        sigma_p: f32,
-        sigma_hx: f32,
-        sigma_hy: f32,
-        sigma_r: f32,
-        u: Vector2<f32>,
-        s: Vector2<f32>,
-    ) -> f32 {
+    fn calc(&self, sigma_p: f32, u: Vector2<f32>, s: Vector2<f32>) -> f32 {
         let sigma_p_sqr = sigma_p * sigma_p;
         let sigma_p_sqr_inv = 1.0 / sigma_p_sqr;
-        let sigma_h_sqr = sigma_hx * sigma_hy;
-        let sigma_h_sqr_inv = 1.0 / sigma_h_sqr;
-        let sigma_r_sqr = sigma_r * sigma_r;
-        let sigma_r_sqr_inv = 1.0 / sigma_r_sqr;
 
         let delta_s = s - self.s;
 
-        let mat_a = sigma_h_sqr_inv * Matrix2::identity()
-            + sigma_r_sqr_inv * self.jacobian_t * self.jacobian;
-        let mat_a_inv = mat_a.invert().unwrap();
-        let mat_b = -sigma_r_sqr_inv * self.jacobian;
-        let mat_c = (sigma_h_sqr_inv + sigma_r_sqr_inv) * Matrix2::identity();
-        let mu = -mat_a_inv * mat_b * delta_s;
+        let mu = self.mat_mu * delta_s;
 
-        let k = (-0.5 * (delta_s.dot(mat_c * delta_s) - mu.dot(mat_a * mu))).exp();
-        k * integrate_gaussian_multiplication_2d(
+        let c0 = 0.5 * sigma_p_sqr_inv * std::f32::consts::FRAC_1_PI;
+        let c1 = self.coe * (-0.5 * delta_s.dot(self.mat_s * delta_s)).exp();
+        let res = integrate_gaussian_multiplication_2d(
             u,
             sigma_p_sqr_inv * Matrix2::identity(),
+            c0,
             self.u + mu,
-            mat_a,
-        )
+            self.mat_a,
+            c1,
+        );
+        res
     }
 }
 
@@ -482,13 +515,20 @@ fn max_tuple2f((a0, a1): (f32, f32), (b0, b1): (f32, f32)) -> (f32, f32) {
 fn integrate_gaussian_multiplication_2d(
     mu0: Vector2<f32>,
     sigma_sqr_inv0: Matrix2<f32>,
+    c0: f32,
     mu1: Vector2<f32>,
     sigma_sqr_inv1: Matrix2<f32>,
+    c1: f32,
 ) -> f32 {
     let sigma_sqr_inv = sigma_sqr_inv0 + sigma_sqr_inv1;
     let sigma_sqr = sigma_sqr_inv.invert().unwrap();
-    let sigma_sqr_sum_inv = sigma_sqr_inv0 * sigma_sqr * sigma_sqr_inv1;
-    let mu_diff = mu0 - mu1;
-    sigma_sqr_sum_inv.determinant() * (-0.5 * mu_diff.dot(sigma_sqr_sum_inv * mu_diff)).exp() * 0.5
-        / std::f32::consts::PI
+    let mu = sigma_sqr * (sigma_sqr_inv0 * mu0 + sigma_sqr_inv1 * mu1);
+
+    let mu_diff0 = mu - mu0;
+    let val0 = c0 * (-0.5 * mu_diff0.dot(sigma_sqr_inv0 * mu_diff0)).exp();
+    let mu_diff1 = mu - mu1;
+    let val1 = c1 * (-0.5 * mu_diff1.dot(sigma_sqr_inv1 * mu_diff1)).exp();
+    let c = val0 * val1;
+
+    c * 2.0 * std::f32::consts::PI * sigma_sqr.determinant().sqrt()
 }

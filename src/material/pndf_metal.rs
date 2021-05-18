@@ -3,14 +3,14 @@ use std::sync::Arc;
 use cgmath::{InnerSpace, Matrix2, Vector2};
 use image::GenericImageView;
 
-use crate::core::color::Color;
 use crate::core::intersection::Intersection;
 use crate::core::material::Material;
 use crate::core::scatter::Scatter;
 use crate::core::texture::{self, Texture};
 use crate::scatter::{PndfAccel, PndfGaussTerm, PndfReflect};
+use crate::{core::color::Color, scatter::FresnelConductor};
 
-pub struct PndfSurface {
+pub struct PndfMetal {
     albedo: Arc<dyn Texture<Color>>,
     sigma_r: f32,
     sigma_hx: f32,
@@ -22,7 +22,7 @@ pub struct PndfSurface {
     bvh: PndfAccel,
 }
 
-impl PndfSurface {
+impl PndfMetal {
     pub fn new(
         albedo: Arc<dyn Texture<Color>>,
         sigma_r: f32,
@@ -38,10 +38,10 @@ impl PndfSurface {
         let terms_count = terms_count_x * terms_count_y;
         let mut terms = Vec::with_capacity(terms_count);
 
-        let hx = 1.0 / (terms_count_x - 1) as f32;
+        let hx = 1.0 / terms_count_x as f32;
         let sigma_hx = hx / (8.0 * 2.0_f32.ln()).sqrt();
         let hx_inv = 1.0 / hx;
-        let hy = 1.0 / (terms_count_y - 1) as f32;
+        let hy = 1.0 / terms_count_y as f32;
         let sigma_hy = hy / (8.0 * 2.0_f32.ln()).sqrt();
         let hy_inv = 1.0 / hy;
 
@@ -59,7 +59,14 @@ impl PndfSurface {
                 let dsdv = (s_vp - s_vn) * hy_inv;
                 let jacobian = Matrix2::from_cols(dsdu, dsdv);
 
-                let term = PndfGaussTerm::new(Vector2::new(u, v), s, jacobian);
+                let term = PndfGaussTerm::new(
+                    Vector2::new(u, v),
+                    s,
+                    jacobian,
+                    sigma_hx,
+                    sigma_hy,
+                    sigma_r,
+                );
                 terms.push(term);
             }
         }
@@ -80,7 +87,7 @@ impl PndfSurface {
     }
 }
 
-impl Material for PndfSurface {
+impl Material for PndfMetal {
     fn apply_normal_map(&self, inter: &Intersection<'_>) -> cgmath::Vector3<f32> {
         texture::get_normal_at(&self.normal_map, inter)
     }
@@ -91,14 +98,27 @@ impl Material for PndfSurface {
         let sigma_p = inter.duvdx.magnitude().max(inter.duvdy.magnitude()) + 0.0001;
         let bvh: *const PndfAccel = &self.bvh;
 
-        Box::new(PndfReflect::new(
+        // Box::new(PndfReflect::new(
+        //     albedo,
+        //     u,
+        //     sigma_p,
+        //     self.sigma_hx,
+        //     self.sigma_hy,
+        //     self.sigma_r,
+        //     bvh,
+        // )) as Box<dyn Scatter>
+        Box::new(FresnelConductor::new(
             albedo,
-            u,
-            sigma_p,
-            self.sigma_hx,
-            self.sigma_hy,
-            self.sigma_r,
-            bvh,
+            Color::BLACK,
+            PndfReflect::new(
+                albedo,
+                u,
+                sigma_p,
+                self.sigma_hx,
+                self.sigma_hy,
+                self.sigma_r,
+                bvh,
+            ),
         )) as Box<dyn Scatter>
     }
 

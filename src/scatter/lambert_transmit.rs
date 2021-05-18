@@ -28,15 +28,15 @@ impl Scatter for LambertTransmit {
         }
         (
             wi,
-            wi.z.abs() / std::f32::consts::PI,
-            self.transmittance / std::f32::consts::PI,
+            wi.z.abs() * std::f32::consts::FRAC_1_PI,
+            self.transmittance * std::f32::consts::FRAC_1_PI,
             ScatterType::lambert_transmit(),
         )
     }
 
     fn pdf(&self, _po: Point3<f32>, wo: Vector3<f32>, _pi: Point3<f32>, wi: Vector3<f32>) -> f32 {
         if wo.z * wi.z <= 0.0 {
-            wi.z.abs() / std::f32::consts::PI
+            wi.z.abs() * std::f32::consts::FRAC_1_PI
         } else {
             1.0
         }
@@ -50,7 +50,7 @@ impl Scatter for LambertTransmit {
         wi: Vector3<f32>,
     ) -> Color {
         if wo.z * wi.z <= 0.0 {
-            self.transmittance / std::f32::consts::PI
+            self.transmittance * std::f32::consts::FRAC_1_PI
         } else {
             Color::BLACK
         }

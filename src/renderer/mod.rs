@@ -57,7 +57,7 @@ impl PathTracer {
         let progress_bar = indicatif::ProgressBar::new((width * height) as u64);
         progress_bar.set_style(
             indicatif::ProgressStyle::default_bar()
-                .template("[{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len}")
+                .template("[{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} (eta: {eta})")
                 .progress_chars("#>-"),
         );
 
@@ -66,7 +66,7 @@ impl PathTracer {
             from: u32,
             to: u32,
         }
-        let num_cpus = num_cpus::get() as u32;
+        let num_cpus = num_cpus::get() as u32 * 2;
         let height_per_cpu = height / num_cpus;
         let mut ranges = Vec::with_capacity(num_cpus as usize);
         for t in 0..num_cpus {
@@ -132,8 +132,8 @@ impl PathTracer {
             let mut inter = Intersection::default();
             let does_hit = self.objects.intersect(&ray, &mut inter);
             if does_hit {
-                inter.apply_normal_map();
                 inter.calc_differential(&ray);
+                inter.apply_normal_map();
             }
             curr_primitive = inter.primitive;
 

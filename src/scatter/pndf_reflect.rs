@@ -11,7 +11,6 @@ pub struct PndfReflect {
     sigma_hx: f32,
     sigma_hy: f32,
     sigma_r: f32,
-    // TODO - use ptr
     bvh: *const PndfAccel,
 }
 
@@ -54,10 +53,11 @@ impl Scatter for PndfReflect {
         let gaussian = bvh.find_term(term_u);
         let s = sampler.gaussian_2d(0.0, self.sigma_r);
         let s = Vector2::new(s.0 + gaussian.s.x, s.1 + gaussian.s.y);
-        let half = Vector3::new(s.x, s.y, (1.0 - s.magnitude2()).clamp(0.0, 1.0).sqrt());
+        let half =
+            Vector3::new(s.x, s.y, (1.0 - s.magnitude2()).clamp(0.0, 1.0).sqrt()).normalize();
 
         let wi = crate::scatter::util::reflect_n(wo, half);
-        if wo.dot(wi) >= 0.0 {
+        if wo.z * wi.z >= 0.0 {
             let pndf = bvh.calc(
                 self.sigma_p,
                 self.sigma_hx,
@@ -66,7 +66,7 @@ impl Scatter for PndfReflect {
                 self.u,
                 s,
             );
-            let pdf = pndf * half.z / (4.0 * wo.dot(half).abs());
+            let pdf = pndf / (4.0 * wo.dot(half).abs());
             let bxdf = self.albedo * pndf;
             (wi, pdf, bxdf, ScatterType::glossy_reflect())
         } else {
@@ -75,7 +75,7 @@ impl Scatter for PndfReflect {
     }
 
     fn pdf(&self, _po: Point3<f32>, wo: Vector3<f32>, _pi: Point3<f32>, wi: Vector3<f32>) -> f32 {
-        if wo.dot(wi) >= 0.0 {
+        if wo.z * wi.z >= 0.0 {
             let bvh = unsafe { self.bvh.as_ref().unwrap() };
             let half = crate::scatter::util::half_from_reflect(wo, wi);
             let s = Vector2::new(half.x, half.y);
@@ -87,7 +87,7 @@ impl Scatter for PndfReflect {
                 self.u,
                 s,
             );
-            pndf * half.z / (4.0 * wo.dot(half).abs())
+            pndf / (4.0 * wo.dot(half).abs())
         } else {
             1.0
         }
@@ -100,7 +100,7 @@ impl Scatter for PndfReflect {
         _pi: Point3<f32>,
         wi: Vector3<f32>,
     ) -> Color {
-        if wo.dot(wi) >= 0.0 {
+        if wo.z * wi.z >= 0.0 {
             let bvh = unsafe { self.bvh.as_ref().unwrap() };
             let half = crate::scatter::util::half_from_reflect(wo, wi);
             let s = Vector2::new(half.x, half.y);
