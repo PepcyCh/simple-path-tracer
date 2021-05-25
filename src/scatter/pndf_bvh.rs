@@ -107,6 +107,7 @@ impl PndfAccel {
         let x = ((sx_temp * self.s_block_count as f32) as usize).min(self.s_block_count - 1);
         let y = ((sy_temp * self.s_block_count as f32) as usize).min(self.s_block_count - 1);
         let bvh_ind = x * self.s_block_count + y;
+        // // TODO - consider "0.9 ~ 1.1" problem
         self.bvhs[bvh_ind].calc(sigma_p, sigma_hx, sigma_hy, sigma_r, u, s)
     }
 

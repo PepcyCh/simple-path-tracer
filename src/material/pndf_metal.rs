@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use cgmath::{InnerSpace, Matrix2, Vector2};
+use cgmath::{ElementWise, InnerSpace, Matrix2, Vector2};
 use image::GenericImageView;
 
 use crate::core::intersection::Intersection;
@@ -15,6 +15,8 @@ pub struct PndfMetal {
     sigma_r: f32,
     sigma_hx: f32,
     sigma_hy: f32,
+    base_normal_tiling: Vector2<f32>,
+    base_normal_offset: Vector2<f32>,
     emissive: Arc<dyn Texture<Color>>,
     normal_map: Arc<dyn Texture<Color>>,
     /// used to avoid drop of terms
@@ -27,6 +29,8 @@ impl PndfMetal {
         albedo: Arc<dyn Texture<Color>>,
         sigma_r: f32,
         base_normal: image::DynamicImage,
+        base_normal_tiling: Vector2<f32>,
+        base_normal_offset: Vector2<f32>,
         h: f32,
         emissive: Arc<dyn Texture<Color>>,
         normal_map: Arc<dyn Texture<Color>>,
@@ -79,6 +83,8 @@ impl PndfMetal {
             sigma_r,
             sigma_hx,
             sigma_hy,
+            base_normal_tiling,
+            base_normal_offset,
             emissive,
             normal_map,
             _terms: terms,
@@ -94,7 +100,10 @@ impl Material for PndfMetal {
 
     fn scatter(&self, inter: &Intersection<'_>) -> Box<dyn Scatter> {
         let albedo = self.albedo.value_at(inter);
-        let u = Vector2::new(inter.texcoords.x, inter.texcoords.y);
+        let u = Vector2::new(inter.texcoords.x, inter.texcoords.y)
+            .mul_element_wise(self.base_normal_tiling)
+            + self.base_normal_offset;
+        let (u_new, v_new) = crate::texture::util::wrap_uv(u.x, u.y);
         let sigma_p = inter.duvdx.magnitude().max(inter.duvdy.magnitude()) + 0.0001;
         let bvh: *const PndfAccel = &self.bvh;
 
@@ -112,7 +121,7 @@ impl Material for PndfMetal {
             Color::BLACK,
             PndfReflect::new(
                 albedo,
-                u,
+                Vector2::new(u_new, v_new),
                 sigma_p,
                 self.sigma_hx,
                 self.sigma_hy,

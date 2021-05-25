@@ -1,0 +1,97 @@
+{
+  "camera": {
+    "type": "perspective",
+    "eye": [0.0, 0.0, 10.0],
+    "forward": [0.0, 0.0, -1.0],
+    "up": [0.0, 1.0, 0.0],
+    "fov": 60.0
+  },
+  "aggregate": {
+    "type": "bvh",
+    "max_leaf_size": 4,
+    "bucket_number": 16
+  },
+  "pixel_sampler": {
+    "type": "jittered",
+    "division": 36,
+    "spp": 36
+  },
+  "max_depth": 1,
+  "filter": {
+    "type": "box",
+    "radius": 0.5
+  },
+  "output": {
+    "file": "images/test_scene_16.jpg",
+    "width": 3000,
+    "height": 3000
+  },
+  "textures": [
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.0, 0.0, 0.0]
+    },
+    {
+      "type": "scalar",
+      "ele": "float",
+      "value": 0.0
+    },
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.6, 0.6, 0.6]
+    },
+    {
+      "type": "uvmap",
+      "ele": "color",
+      "value": "textures/brushed.jpg"
+    },
+    {
+      "type": "scalar",
+      "ele": "float",
+      "value": 0.1
+    }
+  ],
+  "materials": [
+    {
+      "type": "pndf_metal",
+      "albedo": 2,
+      "sigma_r": 0.005,
+      "base_normal": "textures/brushed.jpg",
+      "h": 1.0,
+      "emissive": 0,
+      "#normal_map": 3
+    },
+    {
+      "type": "metal",
+      "ior_k": 0,
+      "ior": 2,
+      "roughness": 4,
+      "emissive": 0,
+      "normal_map": 3
+    }
+  ],
+  "mediums": [],
+  "objects": [
+    {
+      "type": "transform",
+      "transform": {
+        "translate": [0.0, 0.0, 0.0],
+        "scale": [2.0, 2.0, 2.0],
+        "rotate": [-30.0, 30.0, 0.0]
+      },
+      "primitive": {
+        "type": "obj_mesh",
+        "file": "models/cube.obj",
+        "material": 1
+      }
+    }
+  ],
+  "lights": [],
+  "environment": {
+    "type": "texture",
+    "file": "textures/exr/doge.exr",
+    "scale": [2.0, 2.0, 2.0]
+  }
+}

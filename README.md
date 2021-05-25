@@ -8,7 +8,7 @@ Project structure is similar to that in pbrt.
 
 ## Implemented Features
 
-* Texture mapping and mipmap
+* Texture mapping (support tiling and offset) and mipmap
 * Importance sampling to HDR(`.exr`) environment map using atlas method
 * Surface area hierarchy
 * Multiple importance sampling

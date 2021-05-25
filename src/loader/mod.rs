@@ -213,7 +213,21 @@ impl InputLoader {
                         "uvmap" => {
                             let value =
                                 get_image_field(tex_json, "texture-uvmap", "value", &self.path)?;
-                            Arc::new(UvMap::new(value)) as Arc<dyn Texture<f32>>
+                            let tiling = get_float_array2_field_or_default(
+                                tex_json,
+                                "texture-uvmap",
+                                "tiling",
+                                [1.0, 1.0],
+                            )?
+                            .into();
+                            let offset = get_float_array2_field_or_default(
+                                tex_json,
+                                "texture-uvmap",
+                                "offset",
+                                [0.0, 0.0],
+                            )?
+                            .into();
+                            Arc::new(UvMap::new(value, tiling, offset)) as Arc<dyn Texture<f32>>
                         }
                         _ => Err(LoadError::new(format!("texture: unknown type: '{}'", ty)))?,
                     };
@@ -230,7 +244,21 @@ impl InputLoader {
                         "uvmap" => {
                             let value =
                                 get_image_field(tex_json, "texture-uvmap", "value", &self.path)?;
-                            Arc::new(UvMap::new(value)) as Arc<dyn Texture<Color>>
+                            let tiling = get_float_array2_field_or_default(
+                                tex_json,
+                                "texture-uvmap",
+                                "tiling",
+                                [1.0, 1.0],
+                            )?
+                            .into();
+                            let offset = get_float_array2_field_or_default(
+                                tex_json,
+                                "texture-uvmap",
+                                "offset",
+                                [0.0, 0.0],
+                            )?
+                            .into();
+                            Arc::new(UvMap::new(value, tiling, offset)) as Arc<dyn Texture<Color>>
                         }
                         _ => Err(LoadError::new(format!("texture: unknown type: '{}'", ty)))?,
                     };
@@ -352,6 +380,20 @@ impl InputLoader {
                     let sigma_r = get_float_field(mat_json, "material-pndf", "sigma_r")?;
                     let base_normal =
                         get_image_field(mat_json, "material-pndf", "base_normal", &self.path)?;
+                    let base_normal_tiling = get_float_array2_field_or_default(
+                        mat_json,
+                        "material-pndf",
+                        "base_normal_tiling",
+                        [1.0, 1.0],
+                    )?
+                    .into();
+                    let base_normal_offset = get_float_array2_field_or_default(
+                        mat_json,
+                        "material-pndf",
+                        "base_normal_offset",
+                        [0.0, 0.0],
+                    )?
+                    .into();
                     let h = get_float_field(mat_json, "material-pndf", "h")?;
                     let emissive = get_int_field(mat_json, "material-pndf", "emissive")? as usize;
                     let normal = get_int_field_option(mat_json, "material-pndf", "normal_map")?;
@@ -360,6 +402,8 @@ impl InputLoader {
                         self.get_texture_color(albedo),
                         sigma_r,
                         base_normal,
+                        base_normal_tiling,
+                        base_normal_offset,
                         h,
                         self.get_texture_color(emissive),
                         normal.map_or(default_normal_map.clone(), |ind| {
@@ -372,6 +416,20 @@ impl InputLoader {
                     let sigma_r = get_float_field(mat_json, "material-pndf", "sigma_r")?;
                     let base_normal =
                         get_image_field(mat_json, "material-pndf", "base_normal", &self.path)?;
+                    let base_normal_tiling = get_float_array2_field_or_default(
+                        mat_json,
+                        "material-pndf",
+                        "base_normal_tiling",
+                        [1.0, 1.0],
+                    )?
+                    .into();
+                    let base_normal_offset = get_float_array2_field_or_default(
+                        mat_json,
+                        "material-pndf",
+                        "base_normal_offset",
+                        [0.0, 0.0],
+                    )?
+                    .into();
                     let h = get_float_field(mat_json, "material-pndf", "h")?;
                     let emissive = get_int_field(mat_json, "material-pndf", "emissive")? as usize;
                     let normal = get_int_field_option(mat_json, "material-pndf", "normal_map")?;
@@ -379,6 +437,8 @@ impl InputLoader {
                         self.get_texture_color(albedo),
                         sigma_r,
                         base_normal,
+                        base_normal_tiling,
+                        base_normal_offset,
                         h,
                         self.get_texture_color(emissive),
                         normal.map_or(default_normal_map.clone(), |ind| {
@@ -731,6 +791,34 @@ fn get_int_field(value: &serde_json::Value, env: &str, field: &str) -> Result<u3
         .as_u64()
         .map(|f| f as u32)
         .context(format!("{}: '{}' should be an int", env, field))
+}
+
+fn get_float_array2_field_or_default(
+    value: &serde_json::Value,
+    env: &str,
+    field: &str,
+    default: [f32; 2],
+) -> Result<[f32; 2]> {
+    if let Some(_) = value.get(field) {
+        get_float_array2_field(value, env, field)
+    } else {
+        Ok(default)
+    }
+}
+
+fn get_float_array2_field(value: &serde_json::Value, env: &str, field: &str) -> Result<[f32; 2]> {
+    let field_value = value
+        .get(field)
+        .context(format!("{}: no '{}' field", env, field))?;
+    let error_info = format!("{}: '{}' should be an array with 2 floats", env, field);
+    let arr = field_value.as_array().context(error_info.clone())?;
+    if arr.len() == 2 {
+        let arr0 = arr[0].as_f64().context(error_info.clone())? as f32;
+        let arr1 = arr[1].as_f64().context(error_info.clone())? as f32;
+        Ok([arr0, arr1])
+    } else {
+        Err(LoadError::new(error_info.clone()))?
+    }
 }
 
 fn get_float_array3_field_or_default(
