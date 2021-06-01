@@ -1,7 +1,7 @@
 use crate::core::color::Color;
 use crate::core::sampler::Sampler;
 use crate::core::scatter::{Reflect, Scatter, ScatterType};
-use crate::scatter::PndfAccel;
+use crate::scatter::{PndfAccel, PndfGaussTerm};
 use cgmath::{InnerSpace, Point3, Vector2, Vector3};
 
 pub struct PndfReflect {
@@ -11,6 +11,8 @@ pub struct PndfReflect {
     sigma_hx: f32,
     sigma_hy: f32,
     sigma_r: f32,
+    terms: Vec<(PndfGaussTerm, f32)>,
+    term_coe: f32,
     bvh: *const PndfAccel,
 }
 
@@ -24,6 +26,14 @@ impl PndfReflect {
         sigma_r: f32,
         bvh: *const PndfAccel,
     ) -> Self {
+        let bvh_ref = unsafe { bvh.as_ref().unwrap() };
+        let (mut terms, sum) = bvh_ref.find_terms(u, sigma_p, sigma_hx, sigma_hy);
+        let sum_inv = 1.0 / sum;
+        let term_coe = sum_inv / (2.0 * std::f32::consts::PI * sigma_r * sigma_r);
+        for (_, value) in &mut terms {
+            *value *= sum_inv;
+        }
+
         Self {
             albedo,
             u,
@@ -31,6 +41,8 @@ impl PndfReflect {
             sigma_hx,
             sigma_hy,
             sigma_r,
+            terms,
+            term_coe,
             bvh,
         }
     }
@@ -46,13 +58,30 @@ impl Scatter for PndfReflect {
     ) -> (cgmath::Vector3<f32>, f32, Color, ScatterType) {
         let bvh = unsafe { self.bvh.as_ref().unwrap() };
 
-        let u = sampler.gaussian_2d(0.0, self.sigma_p);
-        let u = Vector2::new(u.0 + self.u.x, u.1 + self.u.y);
-        let delta_u = sampler.gaussian_2d(0.0, 1.0);
-        let term_u = u + Vector2::new(delta_u.0 * self.sigma_hx, delta_u.1 * self.sigma_hy);
-        let gaussian = bvh.find_term(term_u);
+        let sigma_p_sqr = self.sigma_p * self.sigma_p;
+        let sigma_p_sqr_inv = 1.0 / sigma_p_sqr;
+        let sigma_h_sqr = self.sigma_hx * self.sigma_hy;
+        let sigma_h_sqr_inv = 1.0 / sigma_h_sqr;
+        let sigma_sqr_sum_inv = 1.0 / (sigma_p_sqr + sigma_h_sqr);
+
+        let mut rand = sampler.uniform_1d();
+        let mut gaussian = self.terms.last().unwrap().0;
+        for (term, value) in &self.terms {
+            rand -= value;
+            if rand <= 0.0 {
+                gaussian = *term;
+                break;
+            }
+        }
+
+        let mu = sigma_sqr_sum_inv * (sigma_h_sqr * self.u + sigma_p_sqr * gaussian.u);
+        let sigma = 1.0 / (sigma_p_sqr_inv + sigma_h_sqr_inv).sqrt();
+        let u = sampler.gaussian_2d(0.0, sigma);
+        let u = Vector2::new(mu.x + u.0, mu.y + u.1);
+
+        let s_mu = gaussian.s + gaussian.jacobian * (u - gaussian.u);
         let s = sampler.gaussian_2d(0.0, self.sigma_r);
-        let s = Vector2::new(s.0 + gaussian.s.x, s.1 + gaussian.s.y);
+        let s = s_mu + Vector2::new(s.0, s.1);
         let half =
             Vector3::new(s.x, s.y, (1.0 - s.magnitude2()).clamp(0.0, 1.0).sqrt()).normalize();
 
@@ -63,11 +92,14 @@ impl Scatter for PndfReflect {
                 self.sigma_hx,
                 self.sigma_hy,
                 self.sigma_r,
+                self.term_coe,
                 self.u,
                 s,
             );
+            let visible = 0.25 / (wi.z * wo.z).max(0.0001);
+            // let visible = 0.25;
             let pdf = pndf / (4.0 * wo.dot(half).abs());
-            let bxdf = self.albedo * pndf;
+            let bxdf = self.albedo * pndf / half.z.max(0.0001) * visible;
             (wi, pdf, bxdf, ScatterType::glossy_reflect())
         } else {
             (wo, 1.0, Color::BLACK, ScatterType::glossy_reflect())
@@ -84,6 +116,7 @@ impl Scatter for PndfReflect {
                 self.sigma_hx,
                 self.sigma_hy,
                 self.sigma_r,
+                self.term_coe,
                 self.u,
                 s,
             );
@@ -109,10 +142,13 @@ impl Scatter for PndfReflect {
                 self.sigma_hx,
                 self.sigma_hy,
                 self.sigma_r,
+                self.term_coe,
                 self.u,
                 s,
             );
-            self.albedo * pndf
+            let visible = 0.25 / (wi.z * wo.z).max(0.0001);
+            // let visible = 0.25;
+            self.albedo * pndf / half.z.max(0.0001) * visible
         } else {
             Color::BLACK
         }

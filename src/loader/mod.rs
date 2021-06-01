@@ -394,6 +394,8 @@ impl InputLoader {
                         [0.0, 0.0],
                     )?
                     .into();
+                    let fallback_roughness =
+                        get_int_field(mat_json, "material-pndf", "fallback_roughness")? as usize;
                     let h = get_float_field(mat_json, "material-pndf", "h")?;
                     let emissive = get_int_field(mat_json, "material-pndf", "emissive")? as usize;
                     let normal = get_int_field_option(mat_json, "material-pndf", "normal_map")?;
@@ -404,6 +406,7 @@ impl InputLoader {
                         base_normal,
                         base_normal_tiling,
                         base_normal_offset,
+                        self.get_texture_float(fallback_roughness),
                         h,
                         self.get_texture_color(emissive),
                         normal.map_or(default_normal_map.clone(), |ind| {
@@ -430,6 +433,8 @@ impl InputLoader {
                         [0.0, 0.0],
                     )?
                     .into();
+                    let fallback_roughness =
+                        get_int_field(mat_json, "material-pndf", "fallback_roughness")? as usize;
                     let h = get_float_field(mat_json, "material-pndf", "h")?;
                     let emissive = get_int_field(mat_json, "material-pndf", "emissive")? as usize;
                     let normal = get_int_field_option(mat_json, "material-pndf", "normal_map")?;
@@ -439,6 +444,7 @@ impl InputLoader {
                         base_normal,
                         base_normal_tiling,
                         base_normal_offset,
+                        self.get_texture_float(fallback_roughness),
                         h,
                         self.get_texture_color(emissive),
                         normal.map_or(default_normal_map.clone(), |ind| {

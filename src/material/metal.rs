@@ -53,7 +53,7 @@ impl Material for Metal {
                 ior,
                 ior_k,
                 MicrofacetReflect::new(Color::WHITE, roughness),
-            ))
+            )) as Box<dyn Scatter>
         }
     }
 

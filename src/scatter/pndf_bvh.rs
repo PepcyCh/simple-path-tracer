@@ -6,7 +6,7 @@ use cgmath::{InnerSpace, Matrix, Matrix2, SquareMatrix, Vector2};
 pub struct PndfGaussTerm {
     pub u: Vector2<f32>,
     pub s: Vector2<f32>,
-    coe: f32,
+    pub jacobian: Matrix2<f32>,
     mat_a: Matrix2<f32>,
     mat_s: Matrix2<f32>,
     mat_mu: Matrix2<f32>,
@@ -99,6 +99,7 @@ impl PndfAccel {
         sigma_hx: f32,
         sigma_hy: f32,
         sigma_r: f32,
+        term_coe: f32,
         u: Vector2<f32>,
         s: Vector2<f32>,
     ) -> f32 {
@@ -107,12 +108,17 @@ impl PndfAccel {
         let x = ((sx_temp * self.s_block_count as f32) as usize).min(self.s_block_count - 1);
         let y = ((sy_temp * self.s_block_count as f32) as usize).min(self.s_block_count - 1);
         let bvh_ind = x * self.s_block_count + y;
-        // // TODO - consider "0.9 ~ 1.1" problem
-        self.bvhs[bvh_ind].calc(sigma_p, sigma_hx, sigma_hy, sigma_r, u, s)
+        self.bvhs[bvh_ind].calc(sigma_p, sigma_hx, sigma_hy, sigma_r, term_coe, u, s)
     }
 
-    pub fn find_term(&self, u: Vector2<f32>) -> PndfGaussTerm {
-        self.uv_bvh.find_term(u)
+    pub fn find_terms(
+        &self,
+        u: Vector2<f32>,
+        sigma_p: f32,
+        sigma_hx: f32,
+        sigma_hy: f32,
+    ) -> (Vec<(PndfGaussTerm, f32)>, f32) {
+        self.uv_bvh.find_terms(u, sigma_p, sigma_hx, sigma_hy)
     }
 }
 
@@ -196,6 +202,7 @@ impl PndfBvh {
         sigma_hx: f32,
         sigma_hy: f32,
         sigma_r: f32,
+        term_coe: f32,
         u: Vector2<f32>,
         s: Vector2<f32>,
     ) -> f32 {
@@ -220,7 +227,7 @@ impl PndfBvh {
             if curr.is_leaf() {
                 for i in curr.start..curr.end {
                     let term = unsafe { self.terms[i].as_ref() };
-                    let res = term.calc(sigma_p, u, s);
+                    let res = term.calc(sigma_p, term_coe, u, s);
                     if res.is_finite() {
                         value += res;
                     }
@@ -230,15 +237,6 @@ impl PndfBvh {
                 stack.push(curr.rc.as_ref().unwrap());
             }
         }
-
-        // let mut value_ref = 0.0;
-        // for term in &self.terms {
-        //     let term = unsafe { term.as_ref() };
-        //     let res = term.calc(sigma_p, u, s);
-        //     if res.is_finite() {
-        //         value_ref += res;
-        //     }
-        // }
 
         value
     }
@@ -338,34 +336,45 @@ impl PndfUvBvh {
         }
     }
 
-    fn find_term(&self, u: Vector2<f32>) -> PndfGaussTerm {
-        let u_tuple = (u.x, u.y);
+    fn find_terms(
+        &self,
+        u: Vector2<f32>,
+        sigma_p: f32,
+        sigma_hx: f32,
+        sigma_hy: f32,
+    ) -> (Vec<(PndfGaussTerm, f32)>, f32) {
+        let mut terms = vec![];
+        let mut sum = 0.0;
 
-        let mut min_dist_sqr = 10.0;
-        let mut result = *unsafe { self.terms[0].as_ref() };
+        let u_tuple = (u.x, u.y);
+        let sigma_h_sqr = sigma_hx * sigma_hy;
+        let sigma_p_sqr = sigma_p * sigma_p;
+
+        let inv = 1.0 / (sigma_h_sqr + sigma_p_sqr);
+        let coe = sigma_h_sqr * inv;
+
         let mut stack = vec![self.bvh_root.as_ref().unwrap()];
         while let Some(curr) = stack.pop() {
             let dist = curr.bbox.dist_to_point(u_tuple);
-            let dist_sqr = dist.0 * dist.0 + dist.1 * dist.1;
-            if dist_sqr > min_dist_sqr {
+            if dist.0 > 3.0 * (sigma_hx + sigma_p) || dist.1 > 3.0 * (sigma_hy + sigma_p) {
                 continue;
             }
 
             if curr.is_leaf() {
                 for i in curr.start..curr.end {
                     let term = unsafe { self.terms[i].as_ref() };
-                    let dist_sqr = (u - term.u).magnitude2();
-                    if dist_sqr < min_dist_sqr {
-                        min_dist_sqr = dist_sqr;
-                        result = *term;
-                    }
+                    let delta_u = u - term.u;
+                    let value = (-delta_u.magnitude2() * inv).exp() * coe;
+                    terms.push((*term, value));
+                    sum += value;
                 }
             } else {
                 stack.push(curr.lc.as_ref().unwrap());
                 stack.push(curr.rc.as_ref().unwrap());
             }
         }
-        result
+
+        (terms, sum)
     }
 }
 
@@ -395,7 +404,6 @@ impl PndfUvBvhNode {
 unsafe impl Send for PndfUvBvh {}
 unsafe impl Sync for PndfUvBvh {}
 
-#[rustfmt::skip]
 impl PndfGaussTerm {
     pub fn new(
         u: Vector2<f32>,
@@ -416,8 +424,6 @@ impl PndfGaussTerm {
         let mat_b = sigma_r_sqr_inv * jacobian_t;
         let mat_b_t = sigma_r_sqr_inv * jacobian;
 
-        let coe = sigma_h_sqr_inv * sigma_r_sqr_inv * 0.25 * std::f32::consts::FRAC_1_PI * std::f32::consts::FRAC_1_PI;
-
         let mat_mu = mat_a_inv * mat_b;
 
         let mat_s: Matrix2<f32> = sigma_r_sqr_inv * Matrix2::identity()
@@ -426,7 +432,7 @@ impl PndfGaussTerm {
         Self {
             u,
             s,
-            coe,
+            jacobian,
             mat_a,
             mat_mu,
             mat_s,
@@ -441,7 +447,7 @@ impl PndfGaussTerm {
         (self.u.x, self.u.y)
     }
 
-    fn calc(&self, sigma_p: f32, u: Vector2<f32>, s: Vector2<f32>) -> f32 {
+    fn calc(&self, sigma_p: f32, term_coe: f32, u: Vector2<f32>, s: Vector2<f32>) -> f32 {
         let sigma_p_sqr = sigma_p * sigma_p;
         let sigma_p_sqr_inv = 1.0 / sigma_p_sqr;
 
@@ -450,7 +456,7 @@ impl PndfGaussTerm {
         let mu = self.mat_mu * delta_s;
 
         let c0 = 0.5 * sigma_p_sqr_inv * std::f32::consts::FRAC_1_PI;
-        let c1 = self.coe * (-0.5 * delta_s.dot(self.mat_s * delta_s)).exp();
+        let c1 = term_coe * (-0.5 * delta_s.dot(self.mat_s * delta_s)).exp();
         let res = integrate_gaussian_multiplication_2d(
             u,
             sigma_p_sqr_inv * Matrix2::identity(),

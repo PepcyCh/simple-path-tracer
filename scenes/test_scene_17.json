@@ -22,7 +22,7 @@
     "radius": 0.5
   },
   "output": {
-    "file": "images/test_scene_17.jpg",
+    "file": "images/test_scene_17_noise.jpg",
     "width": 400,
     "height": 400
   },
@@ -51,12 +51,12 @@
       "type": "uvmap",
       "ele": "color",
       "value": "textures/noise.jpg",
-      "tiling": [3.0, 3.0]
+      "tiling": [8.0, 8.0]
     },
     {
       "type": "scalar",
       "ele": "float",
-      "value": 0.1
+      "value": 0.2
     },
     {
       "type": "scalar",
@@ -80,8 +80,9 @@
       "albedo": 6,
       "sigma_r": 0.005,
       "base_normal": "textures/noise.jpg",
-      "base_normal_tiling": [3.0, 3.0],
+      "base_normal_tiling": [8.0, 8.0],
       "h": 1.0,
+      "fallback_roughness": 5,
       "emissive": 0,
       "#normal_map": 4
     },
@@ -182,8 +183,7 @@
       "primitive": {
         "type": "obj_mesh",
         "file": "models/plane.obj",
-        "material": 1,
-        "#material": 0
+        "material": 1
       }
     }
   ],
@@ -193,9 +193,9 @@
       "direction": [0.0, -1.0, 0.0],
       "center": [0.0, 5.0, 0.0],
       "up": [1.0, 0.0, 0.0],
-      "width": 1.0,
-      "height": 1.0,
-      "strength": [40.0, 40.0, 40.0]
+      "width": 0.5,
+      "height": 0.5,
+      "strength": [200.0, 200.0, 200.0]
     }
   ]
 }

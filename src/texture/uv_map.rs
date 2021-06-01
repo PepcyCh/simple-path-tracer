@@ -1,4 +1,4 @@
-use cgmath::{ElementWise, Point2};
+use cgmath::{ElementWise, Point2, Vector2};
 
 use crate::core::color::Color;
 use crate::core::intersection::Intersection;
@@ -28,7 +28,7 @@ impl Texture<f32> for UvMap {
             .mul_element_wise(self.tiling)
             .add_element_wise(self.offset);
         let (u, v) = crate::texture::util::wrap_uv(uv.x, uv.y);
-        crate::texture::util::sample_trilinear(&self.images, u, v, inter.duvdx, inter.duvdy).r
+        crate::texture::util::sample_trilinear(&self.images, u, v, vec2_mul_point2(inter.duvdx, self.tiling), vec2_mul_point2(inter.duvdy, self.tiling)).r
     }
 }
 
@@ -39,6 +39,10 @@ impl Texture<Color> for UvMap {
             .mul_element_wise(self.tiling)
             .add_element_wise(self.offset);
         let (u, v) = crate::texture::util::wrap_uv(uv.x, uv.y);
-        crate::texture::util::sample_trilinear(&self.images, u, v, inter.duvdx, inter.duvdy)
+        crate::texture::util::sample_trilinear(&self.images, u, v, vec2_mul_point2(inter.duvdx, self.tiling), vec2_mul_point2(inter.duvdy, self.tiling))
     }
+}
+
+fn vec2_mul_point2(a: Vector2<f32>, b: Point2<f32>) -> Vector2<f32> {
+    Vector2::new(a.x * b.x, a.y * b.y)
 }

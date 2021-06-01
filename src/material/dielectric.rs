@@ -44,13 +44,13 @@ impl Material for Dielectric {
         if roughness < 0.001 {
             Box::new(FresnelDielectricRR::new(
                 self.ior,
-                SpecularReflect::new(albedo),
+                SpecularReflect::new(Color::WHITE),
                 LambertReflect::new(albedo),
             )) as Box<dyn Scatter>
         } else {
             Box::new(FresnelDielectricRR::new(
                 self.ior,
-                MicrofacetReflect::new(albedo, roughness),
+                MicrofacetReflect::new(Color::WHITE, roughness),
                 LambertReflect::new(albedo),
             )) as Box<dyn Scatter>
         }

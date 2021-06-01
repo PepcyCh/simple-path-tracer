@@ -8,6 +8,8 @@ use crate::core::intersection::Intersection;
 use crate::core::material::Material;
 use crate::core::scatter::Scatter;
 use crate::core::texture::{self, Texture};
+use crate::scatter::MicrofacetReflect;
+use crate::scatter::SpecularReflect;
 use crate::scatter::{FresnelDielectricRR, LambertReflect, PndfAccel, PndfGaussTerm, PndfReflect};
 
 pub struct PndfDielectric {
@@ -18,6 +20,7 @@ pub struct PndfDielectric {
     sigma_hy: f32,
     base_normal_tiling: Vector2<f32>,
     base_normal_offset: Vector2<f32>,
+    fallback_roughness: Arc<dyn Texture<f32>>,
     emissive: Arc<dyn Texture<Color>>,
     normal_map: Arc<dyn Texture<Color>>,
     /// used to avoid drop of terms
@@ -33,6 +36,7 @@ impl PndfDielectric {
         base_normal: image::DynamicImage,
         base_normal_tiling: Vector2<f32>,
         base_normal_offset: Vector2<f32>,
+        fallback_roughness: Arc<dyn Texture<f32>>,
         h: f32,
         emissive: Arc<dyn Texture<Color>>,
         normal_map: Arc<dyn Texture<Color>>,
@@ -88,6 +92,7 @@ impl PndfDielectric {
             sigma_hy,
             base_normal_tiling,
             base_normal_offset,
+            fallback_roughness,
             emissive,
             normal_map,
             _terms: terms,
@@ -107,31 +112,50 @@ impl Material for PndfDielectric {
             .mul_element_wise(self.base_normal_tiling)
             + self.base_normal_offset;
         let (u_new, v_new) = crate::texture::util::wrap_uv(u.x, u.y);
-        let sigma_p = inter.duvdx.magnitude().max(inter.duvdy.magnitude()) + 0.0001;
+        let duvdx = inter.duvdx.mul_element_wise(self.base_normal_tiling);
+        let duvdy = inter.duvdy.mul_element_wise(self.base_normal_tiling);
+        let sigma_p = duvdx.magnitude().max(duvdy.magnitude()) / 3.0;
         let bvh: *const PndfAccel = &self.bvh;
 
-        // Box::new(PndfReflect::new(
-        //     albedo,
-        //     u,
-        //     sigma_p,
-        //     self.sigma_hx,
-        //     self.sigma_hy,
-        //     self.sigma_r,
-        //     bvh,
-        // )) as Box<dyn Scatter>
-        Box::new(FresnelDielectricRR::new(
-            self.ior,
-            PndfReflect::new(
-                Color::WHITE,
-                Vector2::new(u_new, v_new),
-                sigma_p,
-                self.sigma_hx,
-                self.sigma_hy,
-                self.sigma_r,
-                bvh,
-            ),
-            LambertReflect::new(albedo),
-        )) as Box<dyn Scatter>
+        if sigma_p > 0.0 {
+            // Box::new(PndfReflect::new(
+            //     albedo,
+            //     Vector2::new(u_new, v_new),
+            //     sigma_p,
+            //     self.sigma_hx,
+            //     self.sigma_hy,
+            //     self.sigma_r,
+            //     bvh,
+            // )) as Box<dyn Scatter>
+            Box::new(FresnelDielectricRR::new(
+                self.ior,
+                PndfReflect::new(
+                    Color::WHITE,
+                    Vector2::new(u_new, v_new),
+                    sigma_p,
+                    self.sigma_hx,
+                    self.sigma_hy,
+                    self.sigma_r,
+                    bvh,
+                ),
+                LambertReflect::new(albedo),
+            )) as Box<dyn Scatter>
+        } else {
+            let roughness = self.fallback_roughness.value_at(inter);
+            if roughness < 0.001 {
+                Box::new(FresnelDielectricRR::new(
+                    self.ior,
+                    SpecularReflect::new(Color::WHITE),
+                    LambertReflect::new(albedo),
+                )) as Box<dyn Scatter>
+            } else {
+                Box::new(FresnelDielectricRR::new(
+                    self.ior,
+                    MicrofacetReflect::new(Color::WHITE, roughness),
+                    LambertReflect::new(albedo),
+                )) as Box<dyn Scatter>
+            }
+        }
     }
 
     fn emissive(&self, inter: &Intersection<'_>) -> Color {

@@ -95,7 +95,7 @@ pub fn sample_trilinear(
 }
 
 pub fn wrap_uv(u: f32, v: f32) -> (f32, f32) {
-    let u_new = if u >= 0.0 { u.fract() } else { 1.0 - u.fract() };
-    let v_new = if v >= 0.0 { v.fract() } else { 1.0 - v.fract() };
+    let u_new = if u >= 0.0 { u.fract() } else { 1.0 + u.fract() };
+    let v_new = if v >= 0.0 { v.fract() } else { 1.0 + v.fract() };
     (u_new, v_new)
 }
