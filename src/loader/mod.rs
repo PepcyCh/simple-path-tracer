@@ -375,7 +375,7 @@ impl InputLoader {
                     )) as Arc<dyn Material>
                 }
                 "pndf_dielectric" => {
-                    let ior = get_float_field(mat_json, "material-dielectric", "ior")?;
+                    let ior = get_float_field(mat_json, "material-pndf", "ior")?;
                     let albedo = get_int_field(mat_json, "material-pndf", "albedo")? as usize;
                     let sigma_r = get_float_field(mat_json, "material-pndf", "sigma_r")?;
                     let base_normal =

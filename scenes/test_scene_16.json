@@ -13,8 +13,8 @@
   },
   "pixel_sampler": {
     "type": "jittered",
-    "division": 256,
-    "spp": 256
+    "division": 1024,
+    "spp": 1024
   },
   "max_depth": 2,
   "filter": {
@@ -51,7 +51,7 @@
     {
       "type": "scalar",
       "ele": "float",
-      "value": 0.1
+      "value": 0.3
     }
   ],
   "materials": [

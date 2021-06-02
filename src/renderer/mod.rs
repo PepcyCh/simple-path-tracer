@@ -246,10 +246,10 @@ impl PathTracer {
                         && !self.objects.intersect_test(&shadow_ray, dist - 0.001)
                     {
                         if light.is_delta() {
-                            li += light_strength * bxdf * wi.z / pdf;
+                            li += light_strength * bxdf * wi.z / pdf.max(0.00001);
                         } else {
                             let weight = power_heuristic(1, pdf, 1, mat_pdf);
-                            li += light_strength * bxdf * wi.z * weight / pdf;
+                            li += light_strength * bxdf * wi.z * weight / pdf.max(0.00001);
                         }
                     }
 
@@ -267,10 +267,10 @@ impl PathTracer {
                             && !self.objects.intersect_test(&shadow_ray, dist - 0.001)
                         {
                             if scatter.is_delta() {
-                                li += light_strength * bxdf * wi.z / pdf;
+                                li += light_strength * bxdf * wi.z / pdf.max(0.00001);
                             } else {
                                 let weight = power_heuristic(1, pdf, 1, light_pdf);
-                                li += light_strength * bxdf * wi.z * weight / pdf;
+                                li += light_strength * bxdf * wi.z * weight / pdf.max(0.00001);
                             }
                         }
                     }
@@ -280,7 +280,12 @@ impl PathTracer {
                 let (wi, pdf, bxdf, ty) = scatter.sample_wi(po, wo, pi, sampler);
                 let wi_world = coord_pi.to_world(wi);
                 ray = Ray::new(pi, wi_world);
-                color_coe *= bxdf * wi.z.abs() / pdf;
+                color_coe *= bxdf * wi.z.abs() / pdf.max(0.00001);
+                // final_color = color_coe;
+                // if !final_color.is_finite() {
+                //     println!("color_cor = {:?}, pdf = {}, bxdf = {:?}", color_coe, pdf, bxdf);
+                //     final_color = Color::new(1.0, 1.0, 0.0);
+                // }
                 if !color_coe.is_finite() || color_coe.luminance() < Self::CUTOFF_LUMINANCE {
                     break;
                 }

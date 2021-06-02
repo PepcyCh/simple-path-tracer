@@ -13,8 +13,8 @@
   },
   "pixel_sampler": {
     "type": "jittered",
-    "division": 256,
-    "spp": 256
+    "division": 1024,
+    "spp": 1024
   },
   "max_depth": 2,
   "filter": {
@@ -58,7 +58,7 @@
     {
       "type": "pndf_metal",
       "albedo": 2,
-      "sigma_r": 0.005,
+      "sigma_r": 0.01,
       "base_normal": "textures/brushed.jpg",
       "base_normal_tiling": [4.0, 4.0],
       "fallback_roughness": 4,

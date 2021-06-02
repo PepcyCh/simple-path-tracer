@@ -82,7 +82,8 @@ impl PndfDielectric {
         }
 
         let terms_ref: Vec<_> = terms.iter_mut().collect();
-        let bvh = PndfAccel::new(terms_ref, 5, 10);
+        let s_block_count = ((2.0 / (sigma_r * 16.0)) as usize).clamp(1, 20);
+        let bvh = PndfAccel::new(terms_ref, 5, s_block_count);
 
         Self {
             ior,
