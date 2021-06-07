@@ -426,8 +426,8 @@ impl PndfGaussTerm {
 
         let mat_mu = mat_a_inv * mat_b;
 
-        let mat_s: Matrix2<f32> = sigma_r_sqr_inv * Matrix2::identity()
-            - mat_b_t * mat_a_inv * mat_b;
+        let mat_s: Matrix2<f32> =
+            sigma_r_sqr_inv * Matrix2::identity() - mat_b_t * mat_a_inv * mat_b;
 
         Self {
             u,

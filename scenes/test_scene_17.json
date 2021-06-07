@@ -22,7 +22,7 @@
     "radius": 0.5
   },
   "output": {
-    "file": "images/test_scene_17_noise.jpg",
+    "file": "images/test_scene_17_scratched.jpg",
     "width": 400,
     "height": 400
   },
@@ -50,13 +50,13 @@
     {
       "type": "uvmap",
       "ele": "color",
-      "value": "textures/noise.jpg",
+      "value": "textures/scratched.jpg",
       "tiling": [8.0, 8.0]
     },
     {
       "type": "scalar",
       "ele": "float",
-      "value": 0.4
+      "value": 0.2
     },
     {
       "type": "scalar",
@@ -79,7 +79,7 @@
       "type": "pndf_metal",
       "albedo": 6,
       "sigma_r": 0.005,
-      "base_normal": "textures/noise.jpg",
+      "base_normal": "textures/scratched.jpg",
       "base_normal_tiling": [8.0, 8.0],
       "h": 1.0,
       "fallback_roughness": 5,

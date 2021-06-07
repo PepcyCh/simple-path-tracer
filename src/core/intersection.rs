@@ -86,8 +86,8 @@ impl Intersection<'_> {
         if let Some(prim) = self.primitive {
             if let Some(mat) = prim.material() {
                 let shade_normal_local = mat.apply_normal_map(self);
-                self.shade_normal = (shade_normal_local.x * self.tangent
-                    + shade_normal_local.y * self.bitangent
+                self.shade_normal = (shade_normal_local.x * self.tangent.normalize()
+                    + shade_normal_local.y * self.bitangent.normalize()
                     + shade_normal_local.z * self.normal)
                     .normalize();
             }
