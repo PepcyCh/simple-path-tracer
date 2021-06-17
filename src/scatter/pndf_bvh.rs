@@ -364,7 +364,7 @@ impl PndfUvBvh {
                 for i in curr.start..curr.end {
                     let term = unsafe { self.terms[i].as_ref() };
                     let delta_u = u - term.u;
-                    let value = (-delta_u.magnitude2() * inv).exp() * coe;
+                    let value = (-delta_u.magnitude2() * inv * 0.5).exp() * coe;
                     terms.push((*term, value));
                     sum += value;
                 }

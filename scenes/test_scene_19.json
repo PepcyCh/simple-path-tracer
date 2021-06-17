@@ -1,0 +1,116 @@
+{
+  "camera": {
+    "type": "perspective",
+    "eye": [-2.5, 0.0, 2.5],
+    "forward": [0.5, 0.0, -0.5],
+    "up": [0.0, 1.0, 0.0],
+    "fov": 75.0
+  },
+  "aggregate": {
+    "type": "bvh",
+    "max_leaf_size": 4,
+    "bucket_number": 16
+  },
+  "pixel_sampler": {
+    "type": "jittered",
+    "division": 16,
+    "spp": 16
+  },
+  "max_depth": 2,
+  "filter": {
+    "type": "box",
+    "radius": 0.5
+  },
+  "output": {
+    "file": "images/test_scene_19.jpg",
+    "width": 400,
+    "height": 400
+  },
+  "textures": [
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.0, 0.0, 0.0]
+    },
+    {
+      "type": "scalar",
+      "ele": "float",
+      "value": 0.0
+    },
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [1.0, 1.0, 1.0]
+    },
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.7, 0.7, 0.7]
+    },
+    {
+      "type": "uvmap",
+      "ele": "color",
+      "value": "textures/flake.jpg",
+      "tiling": [16.0, 16.0]
+    },
+    {
+      "type": "scalar",
+      "ele": "float",
+      "value": 0.3
+    },
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.1, 0.2, 0.7]
+    }
+  ],
+  "materials": [
+    {
+      "type": "pndf_dielectric",
+      "#type": "pndf_metal",
+      "albedo": 6,
+      "sigma_r": 0.005,
+      "ior": 1.3,
+      "base_normal": "textures/flake.jpg",
+      "base_normal_tiling": [16.0, 16.0],
+      "h": 1.0,
+      "fallback_roughness": 5,
+      "emissive": 0,
+      "#normal_map": 4
+    },
+    {
+      "type": "dielectric",
+      "ior": 1.3,
+      "albedo": 6,
+      "roughness": 5,
+      "emissive": 0,
+      "normal_map": 4
+    }
+  ],
+  "mediums": [],
+  "objects": [
+    {
+      "type": "sphere",
+      "material": 0,
+      "center": [0.0, 0.0, 0.0],
+      "radius": 1.5
+    }
+  ],
+  "lights": [
+    {
+      "type": "point",
+      "position": [0.0, 7.0, 4.0],
+      "strength": [200.0, 200.0, 200.0]
+    },
+    {
+      "type": "point",
+      "position": [-5.0, 0.0, 3.0],
+      "strength": [200.0, 200.0, 200.0]
+    },
+    {
+      "type": "point",
+      "position": [-4.0, -3.0, -4.0],
+      "strength": [200.0, 200.0, 200.0]
+    }
+  ]
+}
