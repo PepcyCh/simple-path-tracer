@@ -119,15 +119,6 @@ impl Material for PndfDielectric {
         let bvh: *const PndfAccel = &self.bvh;
 
         if sigma_p > 0.0 {
-            // Box::new(PndfReflect::new(
-            //     albedo,
-            //     Vector2::new(u_new, v_new),
-            //     sigma_p,
-            //     self.sigma_hx,
-            //     self.sigma_hy,
-            //     self.sigma_r,
-            //     bvh,
-            // )) as Box<dyn Scatter>
             Box::new(FresnelDielectricRR::new(
                 self.ior,
                 PndfReflect::new(

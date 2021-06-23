@@ -1,10 +1,10 @@
 {
   "camera": {
     "type": "perspective",
-    "eye": [0.0, 0.0, 10.0],
+    "eye": [0.0, 0.0, 4.0],
     "forward": [0.0, 0.0, -1.0],
     "up": [0.0, 1.0, 0.0],
-    "fov": 60.0
+    "fov": 75.0
   },
   "aggregate": {
     "type": "bvh",
@@ -13,10 +13,10 @@
   },
   "pixel_sampler": {
     "type": "jittered",
-    "division": 1024,
-    "spp": 1024
+    "division": 256,
+    "spp": 256
   },
-  "max_depth": 2,
+  "max_depth": 8,
   "filter": {
     "type": "box",
     "radius": 0.5
@@ -40,61 +40,162 @@
     {
       "type": "scalar",
       "ele": "color",
-      "value": [0.9, 0.9, 0.9]
+      "value": [1.0, 1.0, 1.0]
+    },
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.7, 0.7, 0.7]
     },
     {
       "type": "uvmap",
       "ele": "color",
-      "value": "textures/brushed.jpg",
-      "tiling": [4.0, 4.0]
+      "value": "textures/scratched_low.jpg",
+      "tiling": [16.0, 16.0]
     },
     {
       "type": "scalar",
       "ele": "float",
-      "value": 0.1
+      "value": 0.2
+    },
+    {
+      "type": "scalar",
+      "ele": "color",
+      "value": [0.6, 0.7, 0.4]
     }
   ],
   "materials": [
     {
+      "type": "lambert",
+      "albedo": 0,
+      "emissive": 2
+    },
+    {
+      "type": "lambert",
+      "albedo": 3,
+      "emissive": 0
+    },
+    {
       "type": "pndf_metal",
-      "albedo": 2,
-      "sigma_r": 0.01,
-      "base_normal": "textures/brushed.jpg",
-      "base_normal_tiling": [4.0, 4.0],
-      "fallback_roughness": 4,
+      "albedo": 6,
+      "sigma_r": 0.005,
+      "base_normal": "textures/scratched_low.jpg",
+      "base_normal_tiling": [16.0, 16.0],
       "h": 1.0,
+      "fallback_roughness": 5,
       "emissive": 0,
-      "#normal_map": 3
+      "#normal_map": 4
     },
     {
       "type": "metal",
       "ior_k": 0,
-      "ior": 2,
-      "roughness": 4,
+      "ior": 6,
+      "roughness": 5,
       "emissive": 0,
-      "normal_map": 3
+      "normal_map": 4
     }
   ],
   "mediums": [],
   "objects": [
     {
+      "type": "sphere",
+      "material": 2,
+      "center": [-1.2, 0.3, 0.0],
+      "radius": 1.0
+    },
+    {
+      "type": "sphere",
+      "material": 3,
+      "center": [1.2, 0.3, 0.0],
+      "radius": 1.0
+    },
+    {
       "type": "transform",
       "transform": {
-        "translate": [0.0, 0.0, 0.0],
-        "scale": [2.0, 2.0, 2.0],
-        "rotate": [-30.0, 30.0, 0.0]
+        "translate": [0.0, -1.0, 0.0],
+        "scale": [5.0, 1.0, 5.0]
       },
       "primitive": {
         "type": "obj_mesh",
-        "file": "models/cube.obj",
-        "material": 0
+        "file": "models/plane.obj",
+        "material": 1
+      }
+    },
+    {
+      "type": "transform",
+      "transform": {
+        "scale": [5.0, 1.0, 3.0],
+        "rotate": [90.0, 0.0, 0.0],
+        "translate": [0.0, 2.0, -5.0]
+      },
+      "primitive": {
+        "type": "obj_mesh",
+        "file": "models/plane.obj",
+        "material": 1
+      }
+    },
+    {
+      "type": "transform",
+      "transform": {
+        "scale": [5.0, 1.0, 3.0],
+        "rotate": [-90.0, 0.0, 0.0],
+        "translate": [0.0, 2.0, 5.0]
+      },
+      "primitive": {
+        "type": "obj_mesh",
+        "file": "models/plane.obj",
+        "material": 1
+      }
+    },
+    {
+      "type": "transform",
+      "transform": {
+        "scale": [3.0, 1.0, 5.0],
+        "rotate": [0.0, 0.0, -90.0],
+        "translate": [-5.0, 2.0, 0.0]
+      },
+      "primitive": {
+        "type": "obj_mesh",
+        "file": "models/plane.obj",
+        "material": 1
+      }
+    },
+    {
+      "type": "transform",
+      "transform": {
+        "scale": [3.0, 1.0, 5.0],
+        "rotate": [0.0, 0.0, 90.0],
+        "translate": [5.0, 2.0, 0.0]
+      },
+      "primitive": {
+        "type": "obj_mesh",
+        "file": "models/plane.obj",
+        "material": 1
+      }
+    },
+    {
+      "type": "transform",
+      "transform": {
+        "scale": [5.0, 1.0, 5.0],
+        "rotate": [180.0, 0.0, 0.0],
+        "translate": [0.0, 5.0, 0.0]
+      },
+      "primitive": {
+        "type": "obj_mesh",
+        "file": "models/plane.obj",
+        "material": 1
       }
     }
   ],
-  "lights": [],
-  "environment": {
-    "type": "texture",
-    "file": "textures/exr/doge.exr",
-    "scale": [2.0, 2.0, 2.0]
-  }
+  "lights": [
+    {
+      "type": "rectangle",
+      "direction": [0.0, -1.0, 0.0],
+      "center": [0.0, 5.0, 0.0],
+      "up": [1.0, 0.0, 0.0],
+      "width": 0.5,
+      "height": 0.5,
+      "strength": [200.0, 200.0, 200.0]
+    }
+  ]
 }
