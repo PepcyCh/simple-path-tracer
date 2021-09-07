@@ -91,9 +91,9 @@ impl Bbox {
         self
     }
 
-    pub fn intersect_test(&self, ray: &Ray, t_max: f32) -> bool {
+    pub fn intersect_ray(&self, ray: &Ray) -> Option<(f32, f32)> {
         if self.is_empty() {
-            return false;
+            return None;
         }
 
         let x0 = (self.p_min.x - ray.origin.x) / ray.direction.x;
@@ -107,7 +107,20 @@ impl Bbox {
         let (z0, z1) = (z0.min(z1), z0.max(z1));
         let t0 = x0.max(y0.max(z0));
         let t1 = x1.min(y1.min(z1));
-        t0 <= t1 && t1 > ray.t_min && t0 < t_max
+
+        if t0 <= t1 {
+            Some((t0, t1))
+        } else {
+            None
+        }
+    }
+
+    pub fn intersect_test(&self, ray: &Ray, t_max: f32) -> bool {
+        if let Some((t0, t1)) = self.intersect_ray(ray) {
+            t1 > ray.t_min && t0 < t_max
+        } else {
+            false
+        }
     }
 
     pub fn surface_area(&self) -> f32 {

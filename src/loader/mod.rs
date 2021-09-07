@@ -13,7 +13,7 @@ use crate::material::{
     Dielectric, Glass, Lambert, Metal, PndfDielectric, PndfMetal, PseudoMaterial, Subsurface,
 };
 use crate::medium::Homogeneous;
-use crate::primitive::{BvhAccel, Group, MeshVertex, Sphere, Transform, TriangleMesh};
+use crate::primitive::{BvhAccel, CubicBezier, Group, MeshVertex, Sphere, Transform, TriangleMesh};
 use crate::renderer::PathTracer;
 use crate::texture::{ScalarTex, UvMap};
 use anyhow::*;
@@ -171,7 +171,7 @@ impl InputLoader {
                     fov,
                 )))
             }
-            _ => Err(LoadError::new(format!("camera: unknown type '{}'", ty)))?,
+            _ => bail!(format!("camera: unknown type '{}'", ty)),
         }
     }
 
@@ -182,7 +182,7 @@ impl InputLoader {
                 let radius = get_float_field(value, "filter-box", "radius")?;
                 Ok(Box::new(BoxFilter::new(radius)))
             }
-            _ => Err(LoadError::new(format!("filter: unknown type '{}'", ty)))?,
+            _ => bail!(format!("filter: unknown type '{}'", ty)),
         }
     }
 
@@ -229,7 +229,7 @@ impl InputLoader {
                             .into();
                             Arc::new(UvMap::new(value, tiling, offset)) as Arc<dyn Texture<f32>>
                         }
-                        _ => Err(LoadError::new(format!("texture: unknown type: '{}'", ty)))?,
+                        _ => bail!(format!("texture: unknown type: '{}'", ty)),
                     };
                     textures_indices.push(textures_float.len());
                     textures_float.push(tex);
@@ -260,15 +260,12 @@ impl InputLoader {
                             .into();
                             Arc::new(UvMap::new(value, tiling, offset)) as Arc<dyn Texture<Color>>
                         }
-                        _ => Err(LoadError::new(format!("texture: unknown type: '{}'", ty)))?,
+                        _ => bail!(format!("texture: unknown type: '{}'", ty)),
                     };
                     textures_indices.push(textures_color.len());
                     textures_color.push(tex);
                 }
-                _ => Err(LoadError::new(format!(
-                    "texture: unknown element type: '{}'",
-                    ele
-                )))?,
+                _ => bail!(format!("texture: unknown element type: '{}'", ele)),
             }
         }
         Ok((textures_float, textures_color, textures_indices))
@@ -452,7 +449,7 @@ impl InputLoader {
                         }),
                     )) as Arc<dyn Material>
                 }
-                _ => Err(LoadError::new(format!("material: unknown type '{}'", ty)))?,
+                _ => bail!(format!("material: unknown type '{}'", ty)),
             };
             materials.push(mat);
         }
@@ -476,7 +473,7 @@ impl InputLoader {
                     Arc::new(Homogeneous::new(sigma_a.into(), sigma_s.into(), asymmetric))
                         as Arc<dyn Medium>
                 }
-                _ => Err(LoadError::new(format!("medium: unknown type '{}'", ty)))?,
+                _ => bail!(format!("medium: unknown type '{}'", ty)),
             };
             mediums.push(med);
         }
@@ -569,7 +566,41 @@ impl InputLoader {
                 }
                 Ok(triangles)
             }
-            _ => Err(LoadError::new(format!("object: unknown type '{}'", ty)))?,
+            "cubic_bezier" => {
+                let material = get_int_field(value, "object-cubic_bezier", "material")? as usize;
+                let cp_value = value
+                    .get("control_points")
+                    .context("object-cubic_bezier: no 'control_points' field")?;
+                let error_info =
+                    "object-cubic_bezier: 'control_points' should be a 4x4 array of float3";
+                let cp_arr = cp_value.as_array().context(error_info)?;
+                if cp_arr.len() != 4 {
+                    bail!(error_info);
+                }
+                let mut control_points = [[Point3::new(0.0, 0.0, 0.0); 4]; 4];
+                for i in 0..4 {
+                    let cp_row_arr = cp_arr[i].as_array().context(error_info)?;
+                    if cp_row_arr.len() != 4 {
+                        bail!(error_info);
+                    }
+                    for j in 0..4 {
+                        let cp_point_arr = cp_row_arr[j].as_array().context(error_info)?;
+                        if cp_point_arr.len() != 3 {
+                            bail!(error_info);
+                        }
+                        control_points[i][j] = Point3::new(
+                            cp_point_arr[0].as_f64().context(error_info)? as f32,
+                            cp_point_arr[1].as_f64().context(error_info)? as f32,
+                            cp_point_arr[2].as_f64().context(error_info)? as f32,
+                        );
+                    }
+                }
+                Ok(vec![Box::new(CubicBezier::new(
+                    control_points,
+                    self.materials[material].clone(),
+                ))])
+            }
+            _ => bail!(format!("object: unknown type '{}'", ty)),
         }
     }
 
@@ -582,7 +613,7 @@ impl InputLoader {
             let error_info = format!("{}: 'matrix' should be an array with 16 floats", env);
             let mat_arr = mat_json.as_array().context(error_info.clone())?;
             if mat_arr.len() != 16 {
-                Err(LoadError::new(error_info.clone()))?
+                bail!(error_info.clone());
             }
             matrix.x.x = mat_arr[0].as_f64().context(error_info.clone())? as f32;
             matrix.x.y = mat_arr[1].as_f64().context(error_info.clone())? as f32;
@@ -668,7 +699,7 @@ impl InputLoader {
                         strength.into(),
                     )) as Arc<dyn Light>
                 }
-                _ => Err(LoadError::new(format!("light: unknown type '{}'", ty)))?,
+                _ => bail!(format!("light: unknown type '{}'", ty)),
             };
             lights.push(light)
         }
@@ -707,10 +738,7 @@ impl InputLoader {
                 .into();
                 Arc::new(EnvLight::new(image, scale))
             }
-            _ => Err(LoadError::new(format!(
-                "environment: unknown type '{}'",
-                ty
-            )))?,
+            _ => bail!(format!("environment: unknown type '{}'", ty)),
         };
         Ok(env)
     }
@@ -745,7 +773,7 @@ impl InputLoader {
                         as Box<dyn Aggregate>,
                 )
             }
-            _ => Err(LoadError::new(format!("aggregate: unknown type '{}'", ty)))?,
+            _ => bail!(format!("aggregate: unknown type '{}'", ty)),
         }
     }
 
@@ -823,7 +851,7 @@ fn get_float_array2_field(value: &serde_json::Value, env: &str, field: &str) -> 
         let arr1 = arr[1].as_f64().context(error_info.clone())? as f32;
         Ok([arr0, arr1])
     } else {
-        Err(LoadError::new(error_info.clone()))?
+        bail!(error_info)
     }
 }
 
@@ -852,7 +880,7 @@ fn get_float_array3_field(value: &serde_json::Value, env: &str, field: &str) -> 
         let arr2 = arr[2].as_f64().context(error_info.clone())? as f32;
         Ok([arr0, arr1, arr2])
     } else {
-        Err(LoadError::new(error_info.clone()))?
+        bail!(error_info)
     }
 }
 
@@ -861,7 +889,7 @@ fn get_sampler_type(value: &serde_json::Value) -> Result<&'static str> {
     match ty {
         "random" => Ok("random"),
         "jittered" => Ok("jittered"),
-        _ => Err(LoadError::new(format!("sampler: unknown type '{}'", ty)))?,
+        _ => bail!(format!("sampler: unknown type '{}'", ty)),
     }
 }
 
@@ -893,24 +921,3 @@ fn get_exr_image(path: &PathBuf) -> Result<Vec<Vec<Color>>> {
     .channel_data
     .pixels)
 }
-
-#[derive(Debug)]
-pub struct LoadError {
-    cause: String,
-}
-
-impl LoadError {
-    pub fn new<S: ToString>(cause: S) -> Self {
-        Self {
-            cause: cause.to_string(),
-        }
-    }
-}
-
-impl std::fmt::Display for LoadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", &self.cause)
-    }
-}
-
-impl std::error::Error for LoadError {}

@@ -17,3 +17,4 @@ Project structure is similar to that in pbrt.
 * Homogeneous medium with Henyey-Greenstein phase function
 * BSSRDF with normalized diffusion profile
 * Glinty surface material ([Position-Normal Distributions for Efficient Rendering of Specular Microstructure, Yan et al. 2016](https://sites.cs.ucsb.edu/~lingqi/publications/paper_glints2.pdf))
+* Cubic Bézier surface (Newton's iteration)

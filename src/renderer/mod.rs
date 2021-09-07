@@ -1,3 +1,4 @@
+use crate::core::camera::Camera;
 use crate::core::color::Color;
 use crate::core::coord::Coordinate;
 use crate::core::film::Film;
@@ -8,8 +9,8 @@ use crate::core::medium::Medium;
 use crate::core::primitive::{Aggregate, Primitive};
 use crate::core::ray::Ray;
 use crate::core::sampler::Sampler;
+use crate::light::EnvLight;
 use crate::sampler::sampler_from;
-use crate::{core::camera::Camera, light::EnvLight};
 use cgmath::{InnerSpace, Point3, Vector3};
 use image::RgbImage;
 use std::sync::{Arc, Mutex};
@@ -281,11 +282,6 @@ impl PathTracer {
                 let wi_world = coord_pi.to_world(wi);
                 ray = Ray::new(pi, wi_world);
                 color_coe *= bxdf * wi.z.abs() / pdf.max(0.00001);
-                // final_color = color_coe;
-                // if !final_color.is_finite() {
-                //     println!("color_cor = {:?}, pdf = {}, bxdf = {:?}", color_coe, pdf, bxdf);
-                //     final_color = Color::new(1.0, 1.0, 0.0);
-                // }
                 if !color_coe.is_finite() || color_coe.luminance() < Self::CUTOFF_LUMINANCE {
                     break;
                 }
