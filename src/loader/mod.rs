@@ -524,7 +524,10 @@ impl InputLoader {
                 let medium = get_int_field_option(value, "object-sphere", "medium")?
                     .map(|ind| self.mediums[ind as usize].clone());
                 let file = get_str_field(value, "object-obj_mesh", "file")?;
-                let (models, _) = tobj::load_obj(self.path.with_file_name(file), true)?;
+                let mut load_options = tobj::LoadOptions::default();
+                load_options.triangulate = true;
+                load_options.single_index = true;
+                let (models, _) = tobj::load_obj(self.path.with_file_name(file), &load_options)?;
                 let mut triangles = vec![];
                 for model in models {
                     let indices = model.mesh.indices;
