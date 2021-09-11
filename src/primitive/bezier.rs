@@ -147,7 +147,7 @@ impl CubicBezier {
             let diff = p - ray.origin;
             let cross = diff.cross(ray.direction);
             if cross.magnitude2() < CLIPPING_EPS {
-                let t = (diff.magnitude2() / ray.direction.magnitude2()).sqrt();
+                let t = diff.dot(ray.direction) / ray.direction.magnitude2();
                 if t > ray.t_min && t < t_min {
                     t_min = t;
                     result = Some((inter.x, inter.y, t));
@@ -161,7 +161,7 @@ impl CubicBezier {
 impl Primitive for CubicBezier {
     fn intersect_test(&self, ray: &Ray, t_max: f32) -> bool {
         if let Some((_, _, t)) = self.intersect_ray(ray) {
-            t < t_max
+            t > ray.t_min && t < t_max
         } else {
             false
         }
@@ -169,15 +169,12 @@ impl Primitive for CubicBezier {
 
     fn intersect<'a>(&'a self, ray: &Ray, inter: &mut Intersection<'a>) -> bool {
         if let Some((u, v, t)) = self.intersect_ray(ray) {
-            if t < inter.t {
+            if t > ray.t_min && t < inter.t {
                 inter.t = t;
                 inter.texcoords = cgmath::Point2::new(u, v);
                 inter.tangent = self.tangent_at(u, v);
                 inter.bitangent = self.bitangent_at(u, v);
                 inter.normal = (inter.tangent.cross(inter.bitangent)).normalize();
-                if ray.direction.dot(inter.normal) > 0.0 {
-                    inter.normal = inter.normal;
-                }
                 inter.primitive = Some(self);
                 return true;
             }

@@ -20,3 +20,6 @@ Project structure is similar to that in pbrt.
 * Cubic Bézier surface
   * Bézier clipping (default)
   * Newton's iteration (feature `bezier_ni`)
+* Catmull-Clark subdivision surface
+  * Use feature adaptive subdivision
+  * Boundary, creases, texture mapping are not supported

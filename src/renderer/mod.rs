@@ -209,6 +209,11 @@ impl PathTracer {
                     break;
                 }
 
+                // let normal_color = Color::new(inter.normal.x, inter.normal.y, inter.normal.z);
+                // let normal_color = normal_color * 0.5 + Color::gray(0.5);
+                // final_color = normal_color;
+                // break;
+
                 let po = ray.point_at(inter.t);
                 let mat = inter.primitive.unwrap().material().unwrap();
                 let scatter = mat.scatter(&inter);
@@ -241,7 +246,8 @@ impl PathTracer {
                     let wi = coord_pi.to_local(light_dir);
                     let bxdf = scatter.bxdf(po, wo, pi, wi);
                     let mat_pdf = scatter.pdf(po, wo, pi, wi);
-                    let shadow_ray = Ray::new(pi, light_dir);
+                    let mut shadow_ray = Ray::new(pi, light_dir);
+                    shadow_ray.t_min = Ray::T_MIN_EPS / wi.z.abs().max(0.00001);
                     if pdf != 0.0
                         && pdf.is_finite()
                         && !self.objects.intersect_test(&shadow_ray, dist - 0.001)
@@ -281,6 +287,7 @@ impl PathTracer {
                 let (wi, pdf, bxdf, ty) = scatter.sample_wi(po, wo, pi, sampler);
                 let wi_world = coord_pi.to_world(wi);
                 ray = Ray::new(pi, wi_world);
+                ray.t_min = Ray::T_MIN_EPS / wi.z.abs().max(0.00001);
                 color_coe *= bxdf * wi.z.abs() / pdf.max(0.00001);
                 if !color_coe.is_finite() || color_coe.luminance() < Self::CUTOFF_LUMINANCE {
                     break;

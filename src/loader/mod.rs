@@ -13,11 +13,12 @@ use crate::material::{
     Dielectric, Glass, Lambert, Metal, PndfDielectric, PndfMetal, PseudoMaterial, Subsurface,
 };
 use crate::medium::Homogeneous;
-use crate::primitive::{BvhAccel, CubicBezier, Group, MeshVertex, Sphere, Transform, TriangleMesh};
+use crate::primitive::{BvhAccel, CatmullClark, CubicBezier, Group, MeshVertex, Sphere, Transform, TriangleMesh};
 use crate::renderer::PathTracer;
 use crate::texture::{ScalarTex, UvMap};
 use anyhow::*;
 use cgmath::{Matrix4, Point3, SquareMatrix, Vector3};
+use pep_mesh::io::ply;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -602,6 +603,12 @@ impl InputLoader {
                     control_points,
                     self.materials[material].clone(),
                 ))])
+            }
+            "catmull_clark" => {
+                let material = get_int_field(value, "object-catmull_clark", "material")? as usize;
+                let file = get_str_field(value, "object-catmull_clark", "file")?;
+                let mesh = ply::load_to_halfedge(self.path.with_file_name(file))?;
+                Ok(vec![Box::new(CatmullClark::new(mesh, self.materials[material].clone()))])
             }
             _ => bail!(format!("object: unknown type '{}'", ty)),
         }
