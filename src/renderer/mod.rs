@@ -209,10 +209,12 @@ impl PathTracer {
                     break;
                 }
 
-                // let normal_color = Color::new(inter.normal.x, inter.normal.y, inter.normal.z);
-                // let normal_color = normal_color * 0.5 + Color::gray(0.5);
-                // final_color = normal_color;
-                // break;
+                if cfg!(feature = "debug_normal") {
+                    let normal_color = Color::new(inter.normal.x, inter.normal.y, inter.normal.z);
+                    let normal_color = normal_color * 0.5 + Color::gray(0.5);
+                    final_color = normal_color;
+                    break;
+                }
 
                 let po = ray.point_at(inter.t);
                 let mat = inter.primitive.unwrap().material().unwrap();

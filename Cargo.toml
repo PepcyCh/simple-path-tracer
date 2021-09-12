@@ -22,4 +22,5 @@ tobj = "3.2"
 pep-mesh = { git = "https://github.com/PepcyCh/pep-mesh/", branch = "master" }
 
 [features]
+debug_normal = []
 bezier_ni = []

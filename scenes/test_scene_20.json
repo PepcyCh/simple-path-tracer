@@ -22,7 +22,7 @@
     "radius": 0.5
   },
   "output": {
-    "file": "images/test_scene_19.jpg",
+    "file": "images/test_scene_20.jpg",
     "width": 400,
     "height": 400
   },
@@ -50,7 +50,7 @@
     {
       "type": "scalar",
       "ele": "color",
-      "value": [1.0, 0.6, 0.1]
+      "value": [0.8, 0.8, 1.0]
     },
     {
       "type": "scalar",
@@ -82,14 +82,13 @@
     {
       "type": "transform",
       "transform": {
-        "scale": [0.4, 0.4, 0.4],
-        "rotate": [0.0, -90.0, 0.0],
-        "translate": [-0.4, -0.2, 0.0]
+        "rotate": [0.0, 30.0, 0.0],
+        "translate": [0.0, 0.3, 0.0]
       },
       "primitive": {
         "type": "catmull_clark",
         "material": 2,
-        "file": "models/letter-p.ply"
+        "file": "models/cube_crease.ply"
       }
     },
     {

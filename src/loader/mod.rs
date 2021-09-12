@@ -10,10 +10,13 @@ use crate::core::texture::Texture;
 use crate::filter::BoxFilter;
 use crate::light::{DirLight, EnvLight, PointLight, RectangleLight};
 use crate::material::{
-    Dielectric, Glass, Lambert, Metal, PndfDielectric, PndfMetal, PseudoMaterial, Subsurface,
+    DebugMaterial, Dielectric, Glass, Lambert, Metal, PndfDielectric, PndfMetal, PseudoMaterial,
+    Subsurface,
 };
 use crate::medium::Homogeneous;
-use crate::primitive::{BvhAccel, CatmullClark, CubicBezier, Group, MeshVertex, Sphere, Transform, TriangleMesh};
+use crate::primitive::{
+    BvhAccel, CatmullClark, CubicBezier, Group, MeshVertex, Sphere, Transform, TriangleMesh,
+};
 use crate::renderer::PathTracer;
 use crate::texture::{ScalarTex, UvMap};
 use anyhow::*;
@@ -69,22 +72,14 @@ impl InputLoader {
         let spp;
         let sampler_type;
         if let Some(pixel_sampler_json) = json_value.get("pixel_sampler") {
-            spp = if let Some(spp_value) = pixel_sampler_json.get("spp") {
-                spp_value
-                    .as_u64()
-                    .context("pixel_sampler: 'spp' should be an int")? as u32
-            } else {
-                1_u32
-            };
+            spp = get_int_field_or(pixel_sampler_json, "pixel_sampler", "spp", 1)?;
             sampler_type = get_sampler_type(pixel_sampler_json)?;
         } else {
             spp = 1_u32;
             sampler_type = "random";
         }
 
-        let max_depth = get_int_field_option(&json_value, "top", "max_depth")?
-            .or(Some(1))
-            .unwrap();
+        let max_depth = get_int_field_or(&json_value, "top", "max_depth", 1)?;
 
         let filter = if let Some(filter_value) = json_value.get("filter") {
             self.load_filter(filter_value)?
@@ -214,14 +209,14 @@ impl InputLoader {
                         "uvmap" => {
                             let value =
                                 get_image_field(tex_json, "texture-uvmap", "value", &self.path)?;
-                            let tiling = get_float_array2_field_or_default(
+                            let tiling = get_float_array2_field_or(
                                 tex_json,
                                 "texture-uvmap",
                                 "tiling",
                                 [1.0, 1.0],
                             )?
                             .into();
-                            let offset = get_float_array2_field_or_default(
+                            let offset = get_float_array2_field_or(
                                 tex_json,
                                 "texture-uvmap",
                                 "offset",
@@ -245,14 +240,14 @@ impl InputLoader {
                         "uvmap" => {
                             let value =
                                 get_image_field(tex_json, "texture-uvmap", "value", &self.path)?;
-                            let tiling = get_float_array2_field_or_default(
+                            let tiling = get_float_array2_field_or(
                                 tex_json,
                                 "texture-uvmap",
                                 "tiling",
                                 [1.0, 1.0],
                             )?
                             .into();
-                            let offset = get_float_array2_field_or_default(
+                            let offset = get_float_array2_field_or(
                                 tex_json,
                                 "texture-uvmap",
                                 "offset",
@@ -283,6 +278,16 @@ impl InputLoader {
             let ty = get_str_field(mat_json, "material", "type")?;
             let mat = match ty {
                 "pseudo" => Arc::new(PseudoMaterial::new()) as Arc<dyn Material>,
+                "debug" => {
+                    let debug_color = get_int_field(mat_json, "material-debug", "color")? as usize;
+                    let normal = get_int_field_option(mat_json, "material-debug", "normal_map")?;
+                    Arc::new(DebugMaterial::new(
+                        self.get_texture_color(debug_color),
+                        normal.map_or(default_normal_map.clone(), |ind| {
+                            self.get_texture_color(ind as usize)
+                        }),
+                    )) as Arc<dyn Material>
+                }
                 "lambert" => {
                     let albedo = get_int_field(mat_json, "material-lambert", "albedo")? as usize;
                     let emissive =
@@ -378,14 +383,14 @@ impl InputLoader {
                     let sigma_r = get_float_field(mat_json, "material-pndf", "sigma_r")?;
                     let base_normal =
                         get_image_field(mat_json, "material-pndf", "base_normal", &self.path)?;
-                    let base_normal_tiling = get_float_array2_field_or_default(
+                    let base_normal_tiling = get_float_array2_field_or(
                         mat_json,
                         "material-pndf",
                         "base_normal_tiling",
                         [1.0, 1.0],
                     )?
                     .into();
-                    let base_normal_offset = get_float_array2_field_or_default(
+                    let base_normal_offset = get_float_array2_field_or(
                         mat_json,
                         "material-pndf",
                         "base_normal_offset",
@@ -417,14 +422,14 @@ impl InputLoader {
                     let sigma_r = get_float_field(mat_json, "material-pndf", "sigma_r")?;
                     let base_normal =
                         get_image_field(mat_json, "material-pndf", "base_normal", &self.path)?;
-                    let base_normal_tiling = get_float_array2_field_or_default(
+                    let base_normal_tiling = get_float_array2_field_or(
                         mat_json,
                         "material-pndf",
                         "base_normal_tiling",
                         [1.0, 1.0],
                     )?
                     .into();
-                    let base_normal_offset = get_float_array2_field_or_default(
+                    let base_normal_offset = get_float_array2_field_or(
                         mat_json,
                         "material-pndf",
                         "base_normal_offset",
@@ -608,7 +613,12 @@ impl InputLoader {
                 let material = get_int_field(value, "object-catmull_clark", "material")? as usize;
                 let file = get_str_field(value, "object-catmull_clark", "file")?;
                 let mesh = ply::load_to_halfedge(self.path.with_file_name(file))?;
-                Ok(vec![Box::new(CatmullClark::new(mesh, self.materials[material].clone()))])
+                let fas_times = get_int_field_or(value, "object-catmull_clark", "fas_times", 4)?;
+                Ok(vec![Box::new(CatmullClark::new(
+                    mesh,
+                    self.materials[material].clone(),
+                    fas_times,
+                ))])
             }
             _ => bail!(format!("object: unknown type '{}'", ty)),
         }
@@ -721,13 +731,9 @@ impl InputLoader {
         let env = match ty {
             "color" => {
                 let color: Color = get_float_array3_field(value, "environment", "color")?.into();
-                let scale: Color = get_float_array3_field_or_default(
-                    value,
-                    "environment",
-                    "scale",
-                    [1.0, 1.0, 1.0],
-                )?
-                .into();
+                let scale: Color =
+                    get_float_array3_field_or(value, "environment", "scale", [1.0, 1.0, 1.0])?
+                        .into();
                 Arc::new(EnvLight::new(vec![vec![color]], scale))
             }
             "texture" => {
@@ -739,13 +745,9 @@ impl InputLoader {
                     "environment: 'file', can't find image '{}'",
                     path_str
                 ))?;
-                let scale: Color = get_float_array3_field_or_default(
-                    value,
-                    "environment",
-                    "scale",
-                    [1.0, 1.0, 1.0],
-                )?
-                .into();
+                let scale: Color =
+                    get_float_array3_field_or(value, "environment", "scale", [1.0, 1.0, 1.0])?
+                        .into();
                 Arc::new(EnvLight::new(image, scale))
             }
             _ => bail!(format!("environment: unknown type '{}'", ty)),
@@ -762,26 +764,13 @@ impl InputLoader {
         match ty {
             "group" => Ok(Box::new(Group::new(primitives)) as Box<dyn Aggregate>),
             "bvh" => {
-                let max_leaf_size = if let Some(leaf_json) = value.get("max_leaf_size") {
-                    leaf_json
-                        .as_u64()
-                        .context("aggregate-bvh: 'max_leaf_size' should be an int")?
-                        as usize
-                } else {
-                    4_usize
-                };
-                let bucket_number = if let Some(bucket_json) = value.get("bucket_number") {
-                    bucket_json
-                        .as_u64()
-                        .context("aggregate-bvh: 'bucket_number' should be an int")?
-                        as usize
-                } else {
-                    16_usize
-                };
-                Ok(
-                    Box::new(BvhAccel::new(primitives, max_leaf_size, bucket_number))
-                        as Box<dyn Aggregate>,
-                )
+                let max_leaf_size = get_int_field_or(value, "aggregate-bvh", "max_leaf_size", 4)?;
+                let bucket_number = get_int_field_or(value, "aggregate-bvh", "bucket_number", 16)?;
+                Ok(Box::new(BvhAccel::new(
+                    primitives,
+                    max_leaf_size as _,
+                    bucket_number as _,
+                )) as Box<dyn Aggregate>)
             }
             _ => bail!(format!("aggregate: unknown type '{}'", ty)),
         }
@@ -827,6 +816,19 @@ fn get_int_field_option(value: &serde_json::Value, env: &str, field: &str) -> Re
     }
 }
 
+fn get_int_field_or(
+    value: &serde_json::Value,
+    env: &str,
+    field: &str,
+    default: u32,
+) -> Result<u32> {
+    if let Some(_) = value.get(field) {
+        get_int_field(value, env, field)
+    } else {
+        Ok(default)
+    }
+}
+
 fn get_int_field(value: &serde_json::Value, env: &str, field: &str) -> Result<u32> {
     let field_value = value
         .get(field)
@@ -837,7 +839,7 @@ fn get_int_field(value: &serde_json::Value, env: &str, field: &str) -> Result<u3
         .context(format!("{}: '{}' should be an int", env, field))
 }
 
-fn get_float_array2_field_or_default(
+fn get_float_array2_field_or(
     value: &serde_json::Value,
     env: &str,
     field: &str,
@@ -865,7 +867,7 @@ fn get_float_array2_field(value: &serde_json::Value, env: &str, field: &str) -> 
     }
 }
 
-fn get_float_array3_field_or_default(
+fn get_float_array3_field_or(
     value: &serde_json::Value,
     env: &str,
     field: &str,

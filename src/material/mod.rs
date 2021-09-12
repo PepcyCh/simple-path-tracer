@@ -1,3 +1,4 @@
+mod debug_matertial;
 mod dielectric;
 mod glass;
 mod lambert;
@@ -7,6 +8,7 @@ mod pndf_metal;
 mod pseudo;
 mod subsurface;
 
+pub use debug_matertial::*;
 pub use dielectric::*;
 pub use glass::*;
 pub use lambert::*;
