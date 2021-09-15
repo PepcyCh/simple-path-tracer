@@ -22,5 +22,5 @@ Project structure is similar to that in pbrt.
   * Newton's iteration (feature `bezier_ni`)
 * Catmull-Clark subdivision surface
   * Use feature adaptive subdivision
-  * Creases are partially supported
-  * Boundary, texture mapping are not supported
+  * Boundary, creases are partially supported
+  * Texture mapping are not supported

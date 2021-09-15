@@ -488,41 +488,48 @@ fn get_bezier_patch(
 ) -> Box<dyn Primitive> {
     let mut control_points = [[Point3::new(0.0, 0.0, 0.0); 4]; 4];
 
-    let he = face.halfedge(mesh);
-    control_points[1][1] = he.vertex(mesh).data(mesh).pos;
-    let he2 = he.twin(mesh).next(mesh).twin(mesh);
-    control_points[0][1] = he2.vertex(mesh).data(mesh).pos;
-    let he2 = he2.next(mesh).next(mesh);
-    control_points[1][0] = he2.vertex(mesh).data(mesh).pos;
-    let he2 = he2.next(mesh);
-    control_points[0][0] = he2.vertex(mesh).data(mesh).pos;
+    let order = [
+        [(1, 1), (0, 1), (1, 0), (0, 0)],
+        [(1, 2), (1, 3), (0, 2), (0, 3)],
+        [(2, 2), (3, 2), (2, 3), (3, 3)],
+        [(2, 1), (2, 0), (3, 1), (3, 0)],
+    ];
 
-    let he = he.next(mesh);
-    control_points[1][2] = he.vertex(mesh).data(mesh).pos;
-    let he2 = he.twin(mesh).next(mesh).twin(mesh);
-    control_points[1][3] = he2.vertex(mesh).data(mesh).pos;
-    let he2 = he2.next(mesh).next(mesh);
-    control_points[0][2] = he2.vertex(mesh).data(mesh).pos;
-    let he2 = he2.next(mesh);
-    control_points[0][3] = he2.vertex(mesh).data(mesh).pos;
+    let mut he = face.halfedge(mesh);
+    for order in &order {
+        let last = he;
+        he = he.next(mesh);
 
-    let he = he.next(mesh);
-    control_points[2][2] = he.vertex(mesh).data(mesh).pos;
-    let he2 = he.twin(mesh).next(mesh).twin(mesh);
-    control_points[3][2] = he2.vertex(mesh).data(mesh).pos;
-    let he2 = he2.next(mesh).next(mesh);
-    control_points[2][3] = he2.vertex(mesh).data(mesh).pos;
-    let he2 = he2.next(mesh);
-    control_points[3][3] = he2.vertex(mesh).data(mesh).pos;
+        let p0 = order[0];
+        let p1 = order[1];
+        let p2 = order[2];
+        let p3 = order[3];
 
-    let he = he.next(mesh);
-    control_points[2][1] = he.vertex(mesh).data(mesh).pos;
-    let he2 = he.twin(mesh).next(mesh).twin(mesh);
-    control_points[2][0] = he2.vertex(mesh).data(mesh).pos;
-    let he2 = he2.next(mesh).next(mesh);
-    control_points[3][1] = he2.vertex(mesh).data(mesh).pos;
-    let he2 = he2.next(mesh);
-    control_points[3][0] = he2.vertex(mesh).data(mesh).pos;
+        control_points[p0.0][p0.1] = he.vertex(mesh).data(mesh).pos;
+        if he.twin(mesh).on_boundary(mesh) {
+            let pos_temp = last.vertex(mesh).data(mesh).pos;
+            control_points[p1.0][p1.1] = control_points[p0.0][p0.1] + (control_points[p0.0][p0.1] - pos_temp);
+            let he2 = he.twin(mesh).next(mesh).twin(mesh);
+            control_points[p2.0][p2.1] = he2.vertex(mesh).data(mesh).pos;
+            let pos_temp = he2.last(mesh).vertex(mesh).data(mesh).pos;
+            control_points[p3.0][p3.1] = control_points[p2.0][p2.1] + (control_points[p2.0][p2.1] - pos_temp);
+        } else if last.twin(mesh).on_boundary(mesh) {
+            let he2 = he.twin(mesh).next(mesh).twin(mesh);
+            control_points[p1.0][p1.1] = he2.vertex(mesh).data(mesh).pos;
+            let pos_temp = he.twin(mesh).vertex(mesh).data(mesh).pos;
+            control_points[p2.0][p2.1] = control_points[p0.0][p0.1] + (control_points[p0.0][p0.1] - pos_temp);
+            let pos_temp = he2.twin(mesh).next(mesh).twin(mesh).vertex(mesh).data(mesh).pos;
+            control_points[p3.0][p3.1] = control_points[p1.0][p1.1] + (control_points[p1.0][p1.1] - pos_temp);
+        } else {
+            let he2 = he.twin(mesh).next(mesh).twin(mesh);
+            control_points[p1.0][p1.1] = he2.vertex(mesh).data(mesh).pos;
+            let he2 = he2.next(mesh).next(mesh);
+            control_points[p2.0][p2.1] = he2.vertex(mesh).data(mesh).pos;
+            let he2 = he2.next(mesh);
+            control_points[p3.0][p3.1] = he2.vertex(mesh).data(mesh).pos;
+        }
+
+    }
 
     let trans_mat = [
         [1.0 / 6.0, 4.0 / 6.0, 1.0 / 6.0, 0.0],
