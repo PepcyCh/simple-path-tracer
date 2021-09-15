@@ -1,11 +1,12 @@
-use crate::core::color::Color;
-use crate::core::coord::Coordinate;
-use crate::core::intersection::Intersection;
-use crate::core::primitive::Aggregate;
-use crate::core::ray::Ray;
-use crate::core::sampler::Sampler;
-use crate::core::scatter::{Scatter, ScatterType, SsReflect};
-use cgmath::{MetricSpace, Point3, Vector3};
+use crate::core::{
+    color::Color,
+    coord::Coordinate,
+    intersection::Intersection,
+    primitive::Aggregate,
+    ray::Ray,
+    sampler::Sampler,
+    scatter::{Scatter, ScatterType, SsReflect},
+};
 
 pub struct SubsurfaceReflect {
     albedo: Color,
@@ -50,19 +51,19 @@ impl SubsurfaceReflect {
 impl Scatter for SubsurfaceReflect {
     fn sample_pi(
         &self,
-        po: Point3<f32>,
-        _wo: Vector3<f32>,
+        po: glam::Vec3A,
+        _wo: glam::Vec3A,
         coord_po: Coordinate,
         sampler: &mut dyn Sampler,
         scene: &dyn Aggregate,
-    ) -> (Point3<f32>, Coordinate, f32, Color) {
+    ) -> (glam::Vec3A, Coordinate, f32, Color) {
         let mut rand_u = sampler.uniform_1d();
         let (rand_x, rand_y) = sampler.uniform_2d();
 
         // p for primitive
-        let pt = coord_po.to_world(Vector3::unit_x());
-        let pb = coord_po.to_world(Vector3::unit_y());
-        let pn = coord_po.to_world(Vector3::unit_z());
+        let pt = coord_po.to_world(glam::Vec3A::X);
+        let pb = coord_po.to_world(glam::Vec3A::Y);
+        let pn = coord_po.to_world(glam::Vec3A::Z);
         // s for sampled
         let (st, sb, sn) = if rand_u < 0.5 {
             rand_u = rand_u * 2.0;
@@ -95,7 +96,7 @@ impl Scatter for SubsurfaceReflect {
         let pihi_sin = pihi.sin();
         let sample_l = (r_max * r_max + sample_r * sample_r).sqrt();
 
-        let start_p: Point3<f32> =
+        let start_p: glam::Vec3A =
             po + st * pihi_cos * sample_r + sb * pihi_sin * sample_r + sn * sample_l;
         let mut ray = Ray::new(start_p, -sn);
         let mut inter = Intersection::with_t_max(2.0 * sample_l);
@@ -139,11 +140,11 @@ impl Scatter for SubsurfaceReflect {
 
     fn sample_wi(
         &self,
-        po: Point3<f32>,
-        wo: Vector3<f32>,
-        pi: Point3<f32>,
+        po: glam::Vec3A,
+        wo: glam::Vec3A,
+        pi: glam::Vec3A,
         sampler: &mut dyn Sampler,
-    ) -> (Vector3<f32>, f32, Color, ScatterType) {
+    ) -> (glam::Vec3A, f32, Color, ScatterType) {
         let mut wi = sampler.cosine_weighted_on_hemisphere();
         if wo.z < 0.0 {
             wi.z = -wi.z;
@@ -156,7 +157,7 @@ impl Scatter for SubsurfaceReflect {
         )
     }
 
-    fn pdf(&self, _po: Point3<f32>, wo: Vector3<f32>, _pi: Point3<f32>, wi: Vector3<f32>) -> f32 {
+    fn pdf(&self, _po: glam::Vec3A, wo: glam::Vec3A, _pi: glam::Vec3A, wi: glam::Vec3A) -> f32 {
         if wo.z * wi.z >= 0.0 {
             wi.z.abs() * std::f32::consts::FRAC_1_PI
         } else {
@@ -164,13 +165,7 @@ impl Scatter for SubsurfaceReflect {
         }
     }
 
-    fn bxdf(
-        &self,
-        _po: Point3<f32>,
-        wo: Vector3<f32>,
-        _pi: Point3<f32>,
-        wi: Vector3<f32>,
-    ) -> Color {
+    fn bxdf(&self, _po: glam::Vec3A, wo: glam::Vec3A, _pi: glam::Vec3A, wi: glam::Vec3A) -> Color {
         let fresnel_wo = crate::scatter::util::fresnel(self.ior, wo);
         let fresnel_wi = crate::scatter::util::fresnel(self.ior, wi);
         let value = (1.0 - fresnel_wo) * (1.0 - fresnel_wi) * std::f32::consts::FRAC_1_PI;

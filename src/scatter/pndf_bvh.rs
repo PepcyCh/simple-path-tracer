@@ -1,15 +1,13 @@
 use std::ptr::NonNull;
 
-use cgmath::{InnerSpace, Matrix, Matrix2, SquareMatrix, Vector2};
-
 #[derive(Clone, Copy)]
 pub struct PndfGaussTerm {
-    pub u: Vector2<f32>,
-    pub s: Vector2<f32>,
-    pub jacobian: Matrix2<f32>,
-    mat_a: Matrix2<f32>,
-    mat_s: Matrix2<f32>,
-    mat_mu: Matrix2<f32>,
+    pub u: glam::Vec2,
+    pub s: glam::Vec2,
+    pub jacobian: glam::Mat2,
+    mat_a: glam::Mat2,
+    mat_s: glam::Mat2,
+    mat_mu: glam::Mat2,
 }
 
 struct Tuple4fBbox {
@@ -100,8 +98,8 @@ impl PndfAccel {
         sigma_hy: f32,
         sigma_r: f32,
         term_coe: f32,
-        u: Vector2<f32>,
-        s: Vector2<f32>,
+        u: glam::Vec2,
+        s: glam::Vec2,
     ) -> f32 {
         let sx_temp = (s.x + 1.0) * 0.5;
         let sy_temp = (s.y + 1.0) * 0.5;
@@ -113,7 +111,7 @@ impl PndfAccel {
 
     pub fn find_terms(
         &self,
-        u: Vector2<f32>,
+        u: glam::Vec2,
         sigma_p: f32,
         sigma_hx: f32,
         sigma_hy: f32,
@@ -203,8 +201,8 @@ impl PndfBvh {
         sigma_hy: f32,
         sigma_r: f32,
         term_coe: f32,
-        u: Vector2<f32>,
-        s: Vector2<f32>,
+        u: glam::Vec2,
+        s: glam::Vec2,
     ) -> f32 {
         if self.bvh_root.is_none() {
             return 0.0;
@@ -338,7 +336,7 @@ impl PndfUvBvh {
 
     fn find_terms(
         &self,
-        u: Vector2<f32>,
+        u: glam::Vec2,
         sigma_p: f32,
         sigma_hx: f32,
         sigma_hy: f32,
@@ -364,7 +362,7 @@ impl PndfUvBvh {
                 for i in curr.start..curr.end {
                     let term = unsafe { self.terms[i].as_ref() };
                     let delta_u = u - term.u;
-                    let value = (-delta_u.magnitude2() * inv * 0.5).exp() * coe;
+                    let value = (-delta_u.length_squared() * inv * 0.5).exp() * coe;
                     terms.push((*term, value));
                     sum += value;
                 }
@@ -406,9 +404,9 @@ unsafe impl Sync for PndfUvBvh {}
 
 impl PndfGaussTerm {
     pub fn new(
-        u: Vector2<f32>,
-        s: Vector2<f32>,
-        jacobian: Matrix2<f32>,
+        u: glam::Vec2,
+        s: glam::Vec2,
+        jacobian: glam::Mat2,
         sigma_hx: f32,
         sigma_hy: f32,
         sigma_r: f32,
@@ -419,15 +417,16 @@ impl PndfGaussTerm {
         let sigma_r_sqr_inv = 1.0 / sigma_r_sqr;
 
         let jacobian_t = jacobian.transpose();
-        let mat_a = sigma_h_sqr_inv * Matrix2::identity() + sigma_r_sqr_inv * jacobian_t * jacobian;
-        let mat_a_inv = mat_a.invert().unwrap();
+        let mat_a =
+            sigma_h_sqr_inv * glam::Mat2::IDENTITY + sigma_r_sqr_inv * jacobian_t * jacobian;
+        let mat_a_inv = mat_a.inverse();
         let mat_b = sigma_r_sqr_inv * jacobian_t;
         let mat_b_t = sigma_r_sqr_inv * jacobian;
 
         let mat_mu = mat_a_inv * mat_b;
 
-        let mat_s: Matrix2<f32> =
-            sigma_r_sqr_inv * Matrix2::identity() - mat_b_t * mat_a_inv * mat_b;
+        let mat_s: glam::Mat2 =
+            sigma_r_sqr_inv * glam::Mat2::IDENTITY - mat_b_t * mat_a_inv * mat_b;
 
         Self {
             u,
@@ -447,7 +446,7 @@ impl PndfGaussTerm {
         (self.u.x, self.u.y)
     }
 
-    fn calc(&self, sigma_p: f32, term_coe: f32, u: Vector2<f32>, s: Vector2<f32>) -> f32 {
+    fn calc(&self, sigma_p: f32, term_coe: f32, u: glam::Vec2, s: glam::Vec2) -> f32 {
         let sigma_p_sqr = sigma_p * sigma_p;
         let sigma_p_sqr_inv = 1.0 / sigma_p_sqr;
 
@@ -459,7 +458,7 @@ impl PndfGaussTerm {
         let c1 = term_coe * (-0.5 * delta_s.dot(self.mat_s * delta_s)).exp();
         let res = integrate_gaussian_multiplication_2d(
             u,
-            sigma_p_sqr_inv * Matrix2::identity(),
+            sigma_p_sqr_inv * glam::Mat2::IDENTITY,
             c0,
             self.u + mu,
             self.mat_a,
@@ -520,15 +519,15 @@ fn max_tuple2f((a0, a1): (f32, f32), (b0, b1): (f32, f32)) -> (f32, f32) {
 }
 
 fn integrate_gaussian_multiplication_2d(
-    mu0: Vector2<f32>,
-    sigma_sqr_inv0: Matrix2<f32>,
+    mu0: glam::Vec2,
+    sigma_sqr_inv0: glam::Mat2,
     c0: f32,
-    mu1: Vector2<f32>,
-    sigma_sqr_inv1: Matrix2<f32>,
+    mu1: glam::Vec2,
+    sigma_sqr_inv1: glam::Mat2,
     c1: f32,
 ) -> f32 {
     let sigma_sqr_inv = sigma_sqr_inv0 + sigma_sqr_inv1;
-    let sigma_sqr = sigma_sqr_inv.invert().unwrap();
+    let sigma_sqr = sigma_sqr_inv.inverse();
     let mu = sigma_sqr * (sigma_sqr_inv0 * mu0 + sigma_sqr_inv1 * mu1);
 
     let mu_diff0 = mu - mu0;

@@ -1,5 +1,3 @@
-use cgmath::{InnerSpace, Vector3};
-
 pub fn henyey_greenstein(asymmetric: f32, cos: f32) -> f32 {
     let g = asymmetric;
     let g2 = g * g;
@@ -20,14 +18,14 @@ pub fn henyey_greenstein_cdf_inverse(asymmetric: f32, rand: f32) -> f32 {
     }
 }
 
-pub fn local_to_world(wo_world: Vector3<f32>, wi_local: Vector3<f32>) -> Vector3<f32> {
+pub fn local_to_world(wo_world: glam::Vec3A, wi_local: glam::Vec3A) -> glam::Vec3A {
     let v = if wo_world.y.abs() < 0.99 {
-        cgmath::Vector3::unit_y()
+        glam::Vec3A::Y
     } else {
-        cgmath::Vector3::unit_x()
+        glam::Vec3A::X
     };
     let u = (v.cross(wo_world)).normalize();
     let v = wo_world.cross(u);
-    let local_to_world = cgmath::Matrix3::from_cols(u, v, wo_world);
+    let local_to_world = glam::Mat3A::from_cols(u, v, wo_world);
     local_to_world * wi_local
 }

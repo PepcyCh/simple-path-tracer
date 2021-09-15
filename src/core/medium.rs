@@ -1,6 +1,4 @@
-use crate::core::color::Color;
-use crate::core::sampler::Sampler;
-use cgmath::{Point3, Vector3};
+use crate::core::{color::Color, sampler::Sampler};
 
 pub trait Medium: Send + Sync {
     /// return (
@@ -10,19 +8,19 @@ pub trait Medium: Send + Sync {
     /// )
     fn sample_pi(
         &self,
-        po: Point3<f32>,
-        wo: Vector3<f32>,
+        po: glam::Vec3A,
+        wo: glam::Vec3A,
         t_max: f32,
         sampler: &mut dyn Sampler,
-    ) -> (Point3<f32>, bool, Color);
+    ) -> (glam::Vec3A, bool, Color);
 
     /// return (
     ///   sample direction wi,
     ///   phase pdf
     /// )
-    fn sample_wi(&self, wo: Vector3<f32>, sampler: &mut dyn Sampler) -> (Vector3<f32>, f32);
+    fn sample_wi(&self, wo: glam::Vec3A, sampler: &mut dyn Sampler) -> (glam::Vec3A, f32);
 
     fn transport_attenuation(&self, dist: f32) -> Color;
 
-    fn phase(&self, wo: Vector3<f32>, wi: Vector3<f32>) -> f32;
+    fn phase(&self, wo: glam::Vec3A, wi: glam::Vec3A) -> f32;
 }

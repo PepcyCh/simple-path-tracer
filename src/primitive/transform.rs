@@ -1,23 +1,20 @@
-use crate::core::bbox::Bbox;
-use crate::core::intersection::Intersection;
-use crate::core::material::Material;
-use crate::core::medium::Medium;
-use crate::core::primitive::Primitive;
-use crate::core::ray::Ray;
-use cgmath::{InnerSpace, Matrix, SquareMatrix};
+use crate::core::{
+    bbox::Bbox, intersection::Intersection, material::Material, medium::Medium,
+    primitive::Primitive, ray::Ray,
+};
 
 pub struct Transform {
     primitive: Box<dyn Primitive>,
-    trans: cgmath::Matrix4<f32>,
-    trans_inv: cgmath::Matrix4<f32>,
-    trans_it: cgmath::Matrix4<f32>,
+    trans: glam::Affine3A,
+    trans_inv: glam::Affine3A,
+    trans_it: glam::Mat3A,
     bbox: Bbox,
 }
 
 impl Transform {
-    pub fn new(primitive: Box<dyn Primitive>, trans: cgmath::Matrix4<f32>) -> Self {
-        let trans_inv = trans.invert().unwrap();
-        let trans_it = trans_inv.transpose();
+    pub fn new(primitive: Box<dyn Primitive>, trans: glam::Affine3A) -> Self {
+        let trans_inv = trans.inverse();
+        let trans_it = trans_inv.matrix3.transpose();
         let bbox = primitive.bbox().transformed_by(trans);
         Self {
             primitive,
@@ -38,10 +35,9 @@ impl Primitive for Transform {
     fn intersect<'a>(&'a self, ray: &Ray, inter: &mut Intersection<'a>) -> bool {
         let transformed_ray = ray.transformed_by(self.trans_inv);
         if self.primitive.intersect(&transformed_ray, inter) {
-            inter.normal =
-                cgmath::Transform::transform_vector(&self.trans_it, inter.normal).normalize();
-            inter.tangent = cgmath::Transform::transform_vector(&self.trans, inter.tangent);
-            inter.bitangent = cgmath::Transform::transform_vector(&self.trans, inter.bitangent);
+            inter.normal = (self.trans_it * inter.normal).normalize();
+            inter.tangent = self.trans.transform_vector3a(inter.tangent);
+            inter.bitangent = self.trans.transform_vector3a(inter.bitangent);
             true
         } else {
             false

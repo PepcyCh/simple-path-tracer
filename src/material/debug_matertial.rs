@@ -1,11 +1,16 @@
-use crate::core::color::Color;
-use crate::core::intersection::Intersection;
-use crate::core::material::Material;
-use crate::core::scatter::Scatter;
-use crate::core::texture::{self, Texture};
-use crate::scatter::LambertReflect;
-use crate::texture::ScalarTex;
 use std::sync::Arc;
+
+use crate::{
+    core::{
+        color::Color,
+        intersection::Intersection,
+        material::Material,
+        scatter::Scatter,
+        texture::{self, Texture},
+    },
+    scatter::LambertReflect,
+    texture::ScalarTex,
+};
 
 pub struct DebugMaterial {
     debug_color: Arc<dyn Texture<Color>>,
@@ -30,7 +35,7 @@ impl DebugMaterial {
 }
 
 impl Material for DebugMaterial {
-    fn apply_normal_map(&self, inter: &Intersection<'_>) -> cgmath::Vector3<f32> {
+    fn apply_normal_map(&self, inter: &Intersection<'_>) -> glam::Vec3A {
         if let Some(map) = &self.normal_map {
             texture::get_normal_at(map, inter)
         } else {

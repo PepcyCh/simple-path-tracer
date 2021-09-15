@@ -1,16 +1,20 @@
 use std::sync::Arc;
 
-use cgmath::{ElementWise, InnerSpace, Matrix2, Vector2};
 use image::GenericImageView;
 
-use crate::core::color::Color;
-use crate::core::intersection::Intersection;
-use crate::core::material::Material;
-use crate::core::scatter::Scatter;
-use crate::core::texture::{self, Texture};
-use crate::scatter::MicrofacetReflect;
-use crate::scatter::SpecularReflect;
-use crate::scatter::{FresnelDielectricRR, LambertReflect, PndfAccel, PndfGaussTerm, PndfReflect};
+use crate::{
+    core::{
+        color::Color,
+        intersection::Intersection,
+        material::Material,
+        scatter::Scatter,
+        texture::{self, Texture},
+    },
+    scatter::{
+        FresnelDielectricRR, LambertReflect, MicrofacetReflect, PndfAccel, PndfGaussTerm,
+        PndfReflect, SpecularReflect,
+    },
+};
 
 pub struct PndfDielectric {
     ior: f32,
@@ -18,8 +22,8 @@ pub struct PndfDielectric {
     sigma_r: f32,
     sigma_hx: f32,
     sigma_hy: f32,
-    base_normal_tiling: Vector2<f32>,
-    base_normal_offset: Vector2<f32>,
+    base_normal_tiling: glam::Vec2,
+    base_normal_offset: glam::Vec2,
     fallback_roughness: Arc<dyn Texture<f32>>,
     emissive: Arc<dyn Texture<Color>>,
     normal_map: Arc<dyn Texture<Color>>,
@@ -34,8 +38,8 @@ impl PndfDielectric {
         albedo: Arc<dyn Texture<Color>>,
         sigma_r: f32,
         base_normal: image::DynamicImage,
-        base_normal_tiling: Vector2<f32>,
-        base_normal_offset: Vector2<f32>,
+        base_normal_tiling: glam::Vec2,
+        base_normal_offset: glam::Vec2,
         fallback_roughness: Arc<dyn Texture<f32>>,
         h: f32,
         emissive: Arc<dyn Texture<Color>>,
@@ -67,10 +71,10 @@ impl PndfDielectric {
                 let s_vp = get_normal_bilinear(&base_normal, u, v + 0.5 * hy);
                 let s_vn = get_normal_bilinear(&base_normal, u, v - 0.5 * hy);
                 let dsdv = (s_vp - s_vn) * hy_inv;
-                let jacobian = Matrix2::from_cols(dsdu, dsdv);
+                let jacobian = glam::Mat2::from_cols(dsdu, dsdv);
 
                 let term = PndfGaussTerm::new(
-                    Vector2::new(u, v),
+                    glam::Vec2::new(u, v),
                     s,
                     jacobian,
                     sigma_hx,
@@ -103,19 +107,18 @@ impl PndfDielectric {
 }
 
 impl Material for PndfDielectric {
-    fn apply_normal_map(&self, inter: &Intersection<'_>) -> cgmath::Vector3<f32> {
+    fn apply_normal_map(&self, inter: &Intersection<'_>) -> glam::Vec3A {
         texture::get_normal_at(&self.normal_map, inter)
     }
 
     fn scatter(&self, inter: &Intersection<'_>) -> Box<dyn Scatter> {
         let albedo = self.albedo.value_at(inter);
-        let u = Vector2::new(inter.texcoords.x, inter.texcoords.y)
-            .mul_element_wise(self.base_normal_tiling)
+        let u = glam::Vec2::new(inter.texcoords.x, inter.texcoords.y) * self.base_normal_tiling
             + self.base_normal_offset;
         let (u_new, v_new) = crate::texture::util::wrap_uv(u.x, u.y);
-        let duvdx = inter.duvdx.mul_element_wise(self.base_normal_tiling);
-        let duvdy = inter.duvdy.mul_element_wise(self.base_normal_tiling);
-        let sigma_p = duvdx.magnitude().max(duvdy.magnitude()) / 3.0;
+        let duvdx = inter.duvdx * self.base_normal_tiling;
+        let duvdy = inter.duvdy * self.base_normal_tiling;
+        let sigma_p = duvdx.length().max(duvdy.length()) / 3.0;
         let bvh: *const PndfAccel = &self.bvh;
 
         if sigma_p > 0.0 {
@@ -123,7 +126,7 @@ impl Material for PndfDielectric {
                 self.ior,
                 PndfReflect::new(
                     Color::WHITE,
-                    Vector2::new(u_new, v_new),
+                    glam::Vec2::new(u_new, v_new),
                     sigma_p,
                     self.sigma_hx,
                     self.sigma_hy,
@@ -155,9 +158,9 @@ impl Material for PndfDielectric {
     }
 }
 
-fn get_normal_bilinear(image: &image::DynamicImage, u: f32, v: f32) -> Vector2<f32> {
+fn get_normal_bilinear(image: &image::DynamicImage, u: f32, v: f32) -> glam::Vec2 {
     let normal_color = crate::texture::util::sample_blinear(image, u, v);
     let normal_color = normal_color * 2.0 - Color::WHITE;
-    let normal = cgmath::Vector3::new(normal_color.r, normal_color.g, normal_color.b).normalize();
-    Vector2::new(normal.x, normal.y)
+    let normal = glam::Vec3A::new(normal_color.r, normal_color.g, normal_color.b).normalize();
+    glam::Vec2::new(normal.x, normal.y)
 }

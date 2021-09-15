@@ -1,19 +1,24 @@
-use crate::core::camera::Camera;
-use crate::core::color::Color;
-use crate::core::coord::Coordinate;
-use crate::core::film::Film;
-use crate::core::filter::Filter;
-use crate::core::intersection::Intersection;
-use crate::core::light::Light;
-use crate::core::medium::Medium;
-use crate::core::primitive::{Aggregate, Primitive};
-use crate::core::ray::Ray;
-use crate::core::sampler::Sampler;
-use crate::light::EnvLight;
-use crate::sampler::sampler_from;
-use cgmath::{InnerSpace, Point3, Vector3};
-use image::RgbImage;
 use std::sync::{Arc, Mutex};
+
+use image::RgbImage;
+
+use crate::{
+    core::{
+        camera::Camera,
+        color::Color,
+        coord::Coordinate,
+        film::Film,
+        filter::Filter,
+        intersection::Intersection,
+        light::Light,
+        medium::Medium,
+        primitive::{Aggregate, Primitive},
+        ray::Ray,
+        sampler::Sampler,
+    },
+    light::EnvLight,
+    sampler::sampler_from,
+};
 
 pub struct PathTracer {
     camera: Box<dyn Camera>,
@@ -137,6 +142,19 @@ impl PathTracer {
                 inter.apply_normal_map();
             }
             curr_primitive = inter.primitive;
+            if curr_medium.is_some() {
+                println!(
+                    "depth = {}, inter.t = {}, prim ?= {}, med ?= {}",
+                    curr_depth,
+                    inter.t,
+                    inter.primitive.is_some(),
+                    curr_medium.is_some()
+                );
+            }
+            if curr_primitive.is_none() && curr_medium.is_some() {
+                final_color = Color::new(1.0, 0.0, 0.0);
+                break;
+            }
 
             if let Some(medium) = curr_medium {
                 let wo = -ray.direction;
@@ -318,8 +336,8 @@ impl PathTracer {
 
     fn shadow_ray_from_medium(
         &self,
-        p: Point3<f32>,
-        light_dir: Vector3<f32>,
+        p: glam::Vec3A,
+        light_dir: glam::Vec3A,
         light_dist: f32,
         medium_primitive: &dyn Primitive,
     ) -> (Ray, f32) {

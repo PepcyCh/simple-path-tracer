@@ -1,27 +1,24 @@
-use crate::core::color::Color;
-use crate::core::light::Light;
-use crate::core::sampler::Sampler;
-use cgmath::{InnerSpace, Point3, Vector3};
+use crate::core::{color::Color, light::Light, sampler::Sampler};
 
 pub struct RectangleLight {
     strength: Color,
-    center: Point3<f32>,
-    direction: Vector3<f32>,
+    center: glam::Vec3A,
+    direction: glam::Vec3A,
     width: f32,
     height: f32,
-    right: Vector3<f32>,
-    up: Vector3<f32>,
+    right: glam::Vec3A,
+    up: glam::Vec3A,
     _area: f32,
     area_inv: f32,
 }
 
 impl RectangleLight {
     pub fn new(
-        center: Point3<f32>,
-        direction: Vector3<f32>,
+        center: glam::Vec3A,
+        direction: glam::Vec3A,
         width: f32,
         height: f32,
-        up: Vector3<f32>,
+        up: glam::Vec3A,
         strength: Color,
     ) -> Self {
         let direction = direction.normalize();
@@ -45,15 +42,15 @@ impl RectangleLight {
 impl Light for RectangleLight {
     fn sample(
         &self,
-        position: Point3<f32>,
+        position: glam::Vec3A,
         sampler: &mut dyn Sampler,
-    ) -> (Vector3<f32>, f32, Color, f32) {
+    ) -> (glam::Vec3A, f32, Color, f32) {
         let (offset_x, offset_y) = sampler.uniform_2d();
         let sample_pos = self.center
             + (offset_x - 0.5) * self.width * self.right
             + (offset_y - 0.5) * self.height * self.up;
         let sample = sample_pos - position;
-        let dist_sqr = sample.magnitude2();
+        let dist_sqr = sample.length_squared();
         let dist = dist_sqr.sqrt();
         let sample = sample / dist;
         let cos = -sample.dot(self.direction);
@@ -65,7 +62,7 @@ impl Light for RectangleLight {
         (sample, pdf, strength, dist)
     }
 
-    fn strength_dist_pdf(&self, position: Point3<f32>, wi: Vector3<f32>) -> (Color, f32, f32) {
+    fn strength_dist_pdf(&self, position: glam::Vec3A, wi: glam::Vec3A) -> (Color, f32, f32) {
         let cos = self.direction.dot(wi);
         if cos < 0.0 {
             let t = (self.center - position).dot(self.direction) / cos;

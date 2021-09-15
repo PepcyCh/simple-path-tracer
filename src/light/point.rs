@@ -1,15 +1,12 @@
-use crate::core::color::Color;
-use crate::core::light::Light;
-use crate::core::sampler::Sampler;
-use cgmath::{InnerSpace, Point3, Vector3};
+use crate::core::{color::Color, light::Light, sampler::Sampler};
 
 pub struct PointLight {
-    position: Point3<f32>,
+    position: glam::Vec3A,
     strength: Color,
 }
 
 impl PointLight {
-    pub fn new(position: Point3<f32>, strength: Color) -> Self {
+    pub fn new(position: glam::Vec3A, strength: Color) -> Self {
         Self { position, strength }
     }
 }
@@ -17,19 +14,19 @@ impl PointLight {
 impl Light for PointLight {
     fn sample(
         &self,
-        position: Point3<f32>,
+        position: glam::Vec3A,
         _sampler: &mut dyn Sampler,
-    ) -> (Vector3<f32>, f32, Color, f32) {
+    ) -> (glam::Vec3A, f32, Color, f32) {
         let sample = self.position - position;
-        let dist_sqr = sample.magnitude2();
+        let dist_sqr = sample.length_squared();
         let dist = dist_sqr.sqrt();
         let sample = sample / dist;
         (sample, 1.0, self.strength / dist_sqr, dist)
     }
 
-    fn strength_dist_pdf(&self, position: Point3<f32>, wi: Vector3<f32>) -> (Color, f32, f32) {
+    fn strength_dist_pdf(&self, position: glam::Vec3A, wi: glam::Vec3A) -> (Color, f32, f32) {
         let dir = self.position - position;
-        let dist_sqr = dir.magnitude2();
+        let dist_sqr = dir.length_squared();
         let dist = dist_sqr.sqrt();
         let dir = dir / dist;
         if dir.dot(wi) >= 0.99 {

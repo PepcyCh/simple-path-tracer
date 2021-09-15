@@ -1,15 +1,14 @@
 use crate::core::color::Color;
-use cgmath::{InnerSpace, Vector3};
 
-pub fn reflect(i: Vector3<f32>) -> Vector3<f32> {
-    Vector3::new(-i.x, -i.y, i.z)
+pub fn reflect(i: glam::Vec3A) -> glam::Vec3A {
+    glam::Vec3A::new(-i.x, -i.y, i.z)
 }
 
-pub fn reflect_n(i: Vector3<f32>, n: Vector3<f32>) -> Vector3<f32> {
+pub fn reflect_n(i: glam::Vec3A, n: glam::Vec3A) -> glam::Vec3A {
     2.0 * i.dot(n) * n - i
 }
 
-pub fn refract(i: Vector3<f32>, ior: f32) -> Option<Vector3<f32>> {
+pub fn refract(i: glam::Vec3A, ior: f32) -> Option<glam::Vec3A> {
     let ior_ratio = if i.z >= 0.0 { 1.0 / ior } else { ior };
     let o_z_sqr = 1.0 - (1.0 - i.z * i.z) * ior_ratio * ior_ratio;
     if o_z_sqr >= 0.0 {
@@ -18,13 +17,13 @@ pub fn refract(i: Vector3<f32>, ior: f32) -> Option<Vector3<f32>> {
         } else {
             o_z_sqr.sqrt()
         };
-        Some(Vector3::new(-i.x * ior_ratio, -i.y * ior_ratio, o_z))
+        Some(glam::Vec3A::new(-i.x * ior_ratio, -i.y * ior_ratio, o_z))
     } else {
         None
     }
 }
 
-pub fn refract_n(i: Vector3<f32>, n: Vector3<f32>, ior: f32) -> Option<Vector3<f32>> {
+pub fn refract_n(i: glam::Vec3A, n: glam::Vec3A, ior: f32) -> Option<glam::Vec3A> {
     let cos_i = i.dot(n);
     if cos_i >= 0.0 {
         let ior_ratio = 1.0 / ior;
@@ -50,11 +49,11 @@ pub fn fresnel_r0(ior: f32) -> f32 {
     pow2((1.0 - ior) / (1.0 + ior))
 }
 
-pub fn fresnel(ior: f32, i: Vector3<f32>) -> f32 {
-    fresnel_n(ior, i, Vector3::unit_z())
+pub fn fresnel(ior: f32, i: glam::Vec3A) -> f32 {
+    fresnel_n(ior, i, glam::Vec3A::Z)
 }
 
-pub fn fresnel_n(ior: f32, i: Vector3<f32>, n: Vector3<f32>) -> f32 {
+pub fn fresnel_n(ior: f32, i: glam::Vec3A, n: glam::Vec3A) -> f32 {
     let (i_ior, o_ior) = if i.dot(n) >= 0.0 {
         (1.0, ior)
     } else {
@@ -81,11 +80,11 @@ pub fn fresnel_n(ior: f32, i: Vector3<f32>, n: Vector3<f32>) -> f32 {
     }
 }
 
-pub fn fresnel_conductor(ior: Color, ior_k: Color, i: Vector3<f32>) -> Color {
-    fresnel_conductor_n(ior, ior_k, i, Vector3::unit_z())
+pub fn fresnel_conductor(ior: Color, ior_k: Color, i: glam::Vec3A) -> Color {
+    fresnel_conductor_n(ior, ior_k, i, glam::Vec3A::Z)
 }
 
-pub fn fresnel_conductor_n(ior: Color, ior_k: Color, i: Vector3<f32>, n: Vector3<f32>) -> Color {
+pub fn fresnel_conductor_n(ior: Color, ior_k: Color, i: glam::Vec3A, n: glam::Vec3A) -> Color {
     let cos = i.dot(n);
     let (ior_ratio, k_ratio) = if cos >= 0.0 {
         (ior, ior_k)
@@ -123,7 +122,7 @@ pub fn schlick_fresnel_with_r0(r0: Color, cos: f32) -> Color {
     r0 + (Color::WHITE - r0) * pow5(1.0 - cos)
 }
 
-pub fn half_from_reflect(i: Vector3<f32>, o: Vector3<f32>) -> Vector3<f32> {
+pub fn half_from_reflect(i: glam::Vec3A, o: glam::Vec3A) -> glam::Vec3A {
     if i.z >= 0.0 {
         (i + o).normalize()
     } else {
@@ -131,7 +130,7 @@ pub fn half_from_reflect(i: Vector3<f32>, o: Vector3<f32>) -> Vector3<f32> {
     }
 }
 
-pub fn half_from_refract(i: Vector3<f32>, o: Vector3<f32>, ior: f32) -> Vector3<f32> {
+pub fn half_from_refract(i: glam::Vec3A, o: glam::Vec3A, ior: f32) -> glam::Vec3A {
     let mut half = if i.z >= 0.0 {
         (i + ior * o).normalize()
     } else {

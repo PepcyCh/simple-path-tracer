@@ -1,29 +1,34 @@
-use crate::camera::PerspectiveCamera;
-use crate::core::camera::Camera;
-use crate::core::color::Color;
-use crate::core::filter::Filter;
-use crate::core::light::Light;
-use crate::core::material::Material;
-use crate::core::medium::Medium;
-use crate::core::primitive::{Aggregate, Primitive};
-use crate::core::texture::Texture;
-use crate::filter::BoxFilter;
-use crate::light::{DirLight, EnvLight, PointLight, RectangleLight};
-use crate::material::{
-    DebugMaterial, Dielectric, Glass, Lambert, Metal, PndfDielectric, PndfMetal, PseudoMaterial,
-    Subsurface,
-};
-use crate::medium::Homogeneous;
-use crate::primitive::{
-    BvhAccel, CatmullClark, CubicBezier, Group, MeshVertex, Sphere, Transform, TriangleMesh,
-};
-use crate::renderer::PathTracer;
-use crate::texture::{ScalarTex, UvMap};
-use anyhow::*;
-use cgmath::{Matrix4, Point3, SquareMatrix, Vector3};
-use pep_mesh::io::ply;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+
+use anyhow::*;
+use pep_mesh::io::ply;
+
+use crate::{
+    camera::PerspectiveCamera,
+    core::{
+        camera::Camera,
+        color::Color,
+        filter::Filter,
+        light::Light,
+        material::Material,
+        medium::Medium,
+        primitive::{Aggregate, Primitive},
+        texture::Texture,
+    },
+    filter::BoxFilter,
+    light::{DirLight, EnvLight, PointLight, RectangleLight},
+    material::{
+        DebugMaterial, Dielectric, Glass, Lambert, Metal, PndfDielectric, PndfMetal,
+        PseudoMaterial, Subsurface,
+    },
+    medium::Homogeneous,
+    primitive::{
+        BvhAccel, CatmullClark, CubicBezier, Group, MeshVertex, Sphere, Transform, TriangleMesh,
+    },
+    renderer::PathTracer,
+    texture::{ScalarTex, UvMap},
+};
 
 pub struct OutputConfig {
     pub file: String,
@@ -544,21 +549,21 @@ impl InputLoader {
                         let i1 = 3 * i + 1;
                         let i2 = 3 * i + 2;
                         if i2 < model.mesh.positions.len() {
-                            vertices[i].position = Point3::new(
+                            vertices[i].position = glam::Vec3A::new(
                                 model.mesh.positions[i0],
                                 model.mesh.positions[i1],
                                 model.mesh.positions[i2],
                             );
                         }
                         if i2 < model.mesh.normals.len() {
-                            vertices[i].normal = Vector3::new(
+                            vertices[i].normal = glam::Vec3A::new(
                                 model.mesh.normals[i0],
                                 model.mesh.normals[i1],
                                 model.mesh.normals[i2],
                             );
                         }
                         if 2 * i + 1 < model.mesh.texcoords.len() {
-                            vertices[i].texcoords = cgmath::Point2::new(
+                            vertices[i].texcoords = glam::Vec2::new(
                                 model.mesh.texcoords[2 * i],
                                 model.mesh.texcoords[2 * i + 1],
                             );
@@ -586,7 +591,7 @@ impl InputLoader {
                 if cp_arr.len() != 4 {
                     bail!(error_info);
                 }
-                let mut control_points = [[Point3::new(0.0, 0.0, 0.0); 4]; 4];
+                let mut control_points = [[glam::Vec3A::new(0.0, 0.0, 0.0); 4]; 4];
                 for i in 0..4 {
                     let cp_row_arr = cp_arr[i].as_array().context(error_info)?;
                     if cp_row_arr.len() != 4 {
@@ -597,7 +602,7 @@ impl InputLoader {
                         if cp_point_arr.len() != 3 {
                             bail!(error_info);
                         }
-                        control_points[i][j] = Point3::new(
+                        control_points[i][j] = glam::Vec3A::new(
                             cp_point_arr[0].as_f64().context(error_info)? as f32,
                             cp_point_arr[1].as_f64().context(error_info)? as f32,
                             cp_point_arr[2].as_f64().context(error_info)? as f32,
@@ -624,55 +629,60 @@ impl InputLoader {
         }
     }
 
-    fn load_transform(&self, value: &serde_json::Value, env: &str) -> Result<Matrix4<f32>> {
+    fn load_transform(&self, value: &serde_json::Value, env: &str) -> Result<glam::Affine3A> {
         let trans_json = value
             .get("transform")
             .context(format!("{}: no field 'transform'", env))?;
-        let mut matrix = Matrix4::identity();
+        let mut trans = glam::Affine3A::IDENTITY;
         if let Some(mat_json) = trans_json.get("matrix") {
             let error_info = format!("{}: 'matrix' should be an array with 16 floats", env);
             let mat_arr = mat_json.as_array().context(error_info.clone())?;
             if mat_arr.len() != 16 {
                 bail!(error_info.clone());
             }
-            matrix.x.x = mat_arr[0].as_f64().context(error_info.clone())? as f32;
-            matrix.x.y = mat_arr[1].as_f64().context(error_info.clone())? as f32;
-            matrix.x.z = mat_arr[2].as_f64().context(error_info.clone())? as f32;
-            matrix.x.w = mat_arr[3].as_f64().context(error_info.clone())? as f32;
-            matrix.y.x = mat_arr[4].as_f64().context(error_info.clone())? as f32;
-            matrix.y.y = mat_arr[5].as_f64().context(error_info.clone())? as f32;
-            matrix.y.z = mat_arr[6].as_f64().context(error_info.clone())? as f32;
-            matrix.y.w = mat_arr[7].as_f64().context(error_info.clone())? as f32;
-            matrix.z.x = mat_arr[8].as_f64().context(error_info.clone())? as f32;
-            matrix.z.y = mat_arr[9].as_f64().context(error_info.clone())? as f32;
-            matrix.z.z = mat_arr[10].as_f64().context(error_info.clone())? as f32;
-            matrix.z.w = mat_arr[11].as_f64().context(error_info.clone())? as f32;
-            matrix.w.x = mat_arr[12].as_f64().context(error_info.clone())? as f32;
-            matrix.w.y = mat_arr[13].as_f64().context(error_info.clone())? as f32;
-            matrix.w.z = mat_arr[14].as_f64().context(error_info.clone())? as f32;
-            matrix.w.w = mat_arr[15].as_f64().context(error_info.clone())? as f32;
+            let mut matrix = glam::Mat4::IDENTITY;
+            matrix.col_mut(0).x = mat_arr[0].as_f64().context(error_info.clone())? as f32;
+            matrix.col_mut(0).y = mat_arr[1].as_f64().context(error_info.clone())? as f32;
+            matrix.col_mut(0).z = mat_arr[2].as_f64().context(error_info.clone())? as f32;
+            matrix.col_mut(0).w = mat_arr[3].as_f64().context(error_info.clone())? as f32;
+            matrix.col_mut(1).x = mat_arr[4].as_f64().context(error_info.clone())? as f32;
+            matrix.col_mut(1).y = mat_arr[5].as_f64().context(error_info.clone())? as f32;
+            matrix.col_mut(1).z = mat_arr[6].as_f64().context(error_info.clone())? as f32;
+            matrix.col_mut(1).w = mat_arr[7].as_f64().context(error_info.clone())? as f32;
+            matrix.col_mut(2).x = mat_arr[8].as_f64().context(error_info.clone())? as f32;
+            matrix.col_mut(2).y = mat_arr[9].as_f64().context(error_info.clone())? as f32;
+            matrix.col_mut(2).z = mat_arr[10].as_f64().context(error_info.clone())? as f32;
+            matrix.col_mut(2).w = mat_arr[11].as_f64().context(error_info.clone())? as f32;
+            matrix.col_mut(3).x = mat_arr[12].as_f64().context(error_info.clone())? as f32;
+            matrix.col_mut(3).y = mat_arr[13].as_f64().context(error_info.clone())? as f32;
+            matrix.col_mut(3).z = mat_arr[14].as_f64().context(error_info.clone())? as f32;
+            matrix.col_mut(3).w = mat_arr[15].as_f64().context(error_info.clone())? as f32;
+            trans = glam::Affine3A::from_mat4(matrix);
         }
         if let Some(_) = trans_json.get("scale") {
             let scale = get_float_array3_field(trans_json, env, "scale")?;
-            matrix = Matrix4::from_nonuniform_scale(scale[0], scale[1], scale[2]) * matrix;
+            trans =
+                glam::Affine3A::from_scale(glam::Vec3::new(scale[0], scale[1], scale[2])) * trans;
         }
         if let Some(_) = trans_json.get("rotate") {
             let rotate = get_float_array3_field(trans_json, env, "rotate")?;
-            matrix = Matrix4::from_angle_z(cgmath::Deg(rotate[2]))
-                * Matrix4::from_angle_x(cgmath::Deg(rotate[0]))
-                * Matrix4::from_angle_y(cgmath::Deg(rotate[1]))
-                * matrix;
+            trans = glam::Affine3A::from_rotation_z(rotate[2] * std::f32::consts::PI / 180.0)
+                * glam::Affine3A::from_rotation_x(rotate[0] * std::f32::consts::PI / 180.0)
+                * glam::Affine3A::from_rotation_y(rotate[1] * std::f32::consts::PI / 180.0)
+                * trans;
         }
         if let Some(_) = trans_json.get("translate") {
             let translate = get_float_array3_field(trans_json, env, "translate")?;
-            matrix =
-                Matrix4::from_translation(Vector3::new(translate[0], translate[1], translate[2]))
-                    * matrix;
+            trans = glam::Affine3A::from_translation(glam::Vec3::new(
+                translate[0],
+                translate[1],
+                translate[2],
+            )) * trans;
         }
-        if !matrix.is_invertible() {
+        if trans.matrix3.determinant() == 0.0 {
             println!("WARNING: singular transform matrix found");
         }
-        Ok(matrix)
+        Ok(trans)
     }
 
     fn load_lights(&self, value: &serde_json::Value) -> Result<Vec<Arc<dyn Light>>> {
@@ -687,7 +697,7 @@ impl InputLoader {
                     let position = get_float_array3_field(light_json, "light-point", "position")?;
                     let strength = get_float_array3_field(light_json, "light-point", "strength")?;
                     Arc::new(PointLight::new(
-                        Point3::new(position[0], position[1], position[2]),
+                        glam::Vec3A::new(position[0], position[1], position[2]),
                         strength.into(),
                     )) as Arc<dyn Light>
                 }
@@ -697,7 +707,7 @@ impl InputLoader {
                     let strength =
                         get_float_array3_field(light_json, "light-directional", "strength")?;
                     Arc::new(DirLight::new(
-                        Vector3::new(direction[0], direction[1], direction[2]),
+                        glam::Vec3A::new(direction[0], direction[1], direction[2]),
                         strength.into(),
                     )) as Arc<dyn Light>
                 }
@@ -711,11 +721,11 @@ impl InputLoader {
                     let width = get_float_field(light_json, "light-rectangle", "width")?;
                     let height = get_float_field(light_json, "light-rectangle", "height")?;
                     Arc::new(RectangleLight::new(
-                        Point3::new(center[0], center[1], center[2]),
-                        Vector3::new(direction[0], direction[1], direction[2]),
+                        glam::Vec3A::new(center[0], center[1], center[2]),
+                        glam::Vec3A::new(direction[0], direction[1], direction[2]),
                         width,
                         height,
-                        Vector3::new(up[0], up[1], up[2]),
+                        glam::Vec3A::new(up[0], up[1], up[2]),
                         strength.into(),
                     )) as Arc<dyn Light>
                 }

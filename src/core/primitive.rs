@@ -1,8 +1,6 @@
-use crate::core::bbox::Bbox;
-use crate::core::intersection::Intersection;
-use crate::core::material::Material;
-use crate::core::medium::Medium;
-use crate::core::ray::Ray;
+use crate::core::{
+    bbox::Bbox, intersection::Intersection, material::Material, medium::Medium, ray::Ray,
+};
 
 pub trait Primitive: Send + Sync {
     fn intersect_test(&self, ray: &Ray, t_max: f32) -> bool;

@@ -1,25 +1,23 @@
-use cgmath::Transform;
-
 #[derive(Debug, Copy, Clone)]
 pub struct Ray {
-    pub origin: cgmath::Point3<f32>,
-    pub direction: cgmath::Vector3<f32>,
+    pub origin: glam::Vec3A,
+    pub direction: glam::Vec3A,
     pub t_min: f32,
     pub aux_ray: Option<AuxiliaryRay>,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct AuxiliaryRay {
-    pub x_origin: cgmath::Point3<f32>,
-    pub x_direction: cgmath::Vector3<f32>,
-    pub y_origin: cgmath::Point3<f32>,
-    pub y_direction: cgmath::Vector3<f32>,
+    pub x_origin: glam::Vec3A,
+    pub x_direction: glam::Vec3A,
+    pub y_origin: glam::Vec3A,
+    pub y_direction: glam::Vec3A,
 }
 
 impl Ray {
     pub const T_MIN_EPS: f32 = 0.0001;
 
-    pub fn new(origin: cgmath::Point3<f32>, direction: cgmath::Vector3<f32>) -> Self {
+    pub fn new(origin: glam::Vec3A, direction: glam::Vec3A) -> Self {
         Self {
             origin,
             direction,
@@ -28,13 +26,13 @@ impl Ray {
         }
     }
 
-    pub fn point_at(&self, t: f32) -> cgmath::Point3<f32> {
+    pub fn point_at(&self, t: f32) -> glam::Vec3A {
         self.origin + self.direction * t
     }
 
-    pub fn transformed_by(self, trans: cgmath::Matrix4<f32>) -> Self {
-        let origin = trans.transform_point(self.origin);
-        let direction = trans.transform_vector(self.direction);
+    pub fn transformed_by(self, trans: glam::Affine3A) -> Self {
+        let origin = trans.transform_point3a(self.origin);
+        let direction = trans.transform_vector3a(self.direction);
         Self {
             origin,
             direction,
@@ -53,11 +51,11 @@ impl AuxiliaryRay {
         }
     }
 
-    pub fn point_x_at(&self, t: f32) -> cgmath::Point3<f32> {
+    pub fn point_x_at(&self, t: f32) -> glam::Vec3A {
         self.x_origin + self.x_direction * t
     }
 
-    pub fn point_y_at(&self, t: f32) -> cgmath::Point3<f32> {
+    pub fn point_y_at(&self, t: f32) -> glam::Vec3A {
         self.y_origin + self.y_direction * t
     }
 }

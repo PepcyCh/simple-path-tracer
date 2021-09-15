@@ -44,28 +44,28 @@ pub trait Sampler: Send + Sync {
         }
     }
 
-    fn uniform_on_sphere(&mut self) -> cgmath::Vector3<f32> {
+    fn uniform_on_sphere(&mut self) -> glam::Vec3A {
         let (rand_x, rand_y) = self.uniform_2d();
         let phi = rand_x * 2.0 * std::f32::consts::PI;
         let (sin_phi, cos_phi) = phi.sin_cos();
         let cos_theta = 1.0 - 2.0 * rand_y;
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
-        cgmath::Vector3::new(sin_theta * cos_phi, sin_theta * sin_phi, cos_theta)
+        glam::Vec3A::new(sin_theta * cos_phi, sin_theta * sin_phi, cos_theta)
     }
 
-    fn uniform_on_hemisphere(&mut self) -> cgmath::Vector3<f32> {
+    fn uniform_on_hemisphere(&mut self) -> glam::Vec3A {
         let mut sample = self.uniform_on_sphere();
         sample.z = sample.z.abs();
         sample
     }
 
-    fn cosine_weighted_on_hemisphere(&mut self) -> cgmath::Vector3<f32> {
+    fn cosine_weighted_on_hemisphere(&mut self) -> glam::Vec3A {
         let (rand_x, rand_y) = self.uniform_2d();
         let phi = rand_x * 2.0 * std::f32::consts::PI;
         let (sin_phi, cos_phi) = phi.sin_cos();
         let sin_theta_sqr = rand_y;
         let sin_theta = sin_theta_sqr.sqrt();
         let cos_theta = (1.0 - sin_theta_sqr).sqrt();
-        cgmath::Vector3::new(sin_theta * cos_phi, sin_theta * sin_phi, cos_theta)
+        glam::Vec3A::new(sin_theta * cos_phi, sin_theta * sin_phi, cos_theta)
     }
 }

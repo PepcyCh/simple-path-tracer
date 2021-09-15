@@ -1,10 +1,15 @@
-use crate::core::color::Color;
-use crate::core::intersection::Intersection;
-use crate::core::material::Material;
-use crate::core::scatter::Scatter;
-use crate::core::texture::{self, Texture};
-use crate::scatter::{FresnelConductor, MicrofacetReflect, SpecularReflect};
 use std::sync::Arc;
+
+use crate::{
+    core::{
+        color::Color,
+        intersection::Intersection,
+        material::Material,
+        scatter::Scatter,
+        texture::{self, Texture},
+    },
+    scatter::{FresnelConductor, MicrofacetReflect, SpecularReflect},
+};
 
 pub struct Metal {
     ior: Arc<dyn Texture<Color>>,
@@ -33,7 +38,7 @@ impl Metal {
 }
 
 impl Material for Metal {
-    fn apply_normal_map(&self, inter: &Intersection<'_>) -> cgmath::Vector3<f32> {
+    fn apply_normal_map(&self, inter: &Intersection<'_>) -> glam::Vec3A {
         texture::get_normal_at(&self.normal_map, inter)
     }
 

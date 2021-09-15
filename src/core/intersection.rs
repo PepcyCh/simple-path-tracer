@@ -1,20 +1,18 @@
-use crate::core::primitive::Primitive;
-use crate::core::ray::Ray;
-use cgmath::{EuclideanSpace, InnerSpace, SquareMatrix, Zero};
+use crate::core::{primitive::Primitive, ray::Ray};
 
 pub struct Intersection<'a> {
     pub t: f32,
     /// tangent - dpdu
-    pub tangent: cgmath::Vector3<f32>,
+    pub tangent: glam::Vec3A,
     /// bitangent - dpdv
-    pub bitangent: cgmath::Vector3<f32>,
-    pub normal: cgmath::Vector3<f32>,
+    pub bitangent: glam::Vec3A,
+    pub normal: glam::Vec3A,
     /// shade_normal - normal from normal map (in world space)
-    pub shade_normal: cgmath::Vector3<f32>,
-    pub texcoords: cgmath::Point2<f32>,
+    pub shade_normal: glam::Vec3A,
+    pub texcoords: glam::Vec2,
     pub primitive: Option<&'a dyn Primitive>,
-    pub duvdx: cgmath::Vector2<f32>,
-    pub duvdy: cgmath::Vector2<f32>,
+    pub duvdx: glam::Vec2,
+    pub duvdy: glam::Vec2,
 }
 
 impl Intersection<'_> {
@@ -39,9 +37,9 @@ impl Intersection<'_> {
 
             let dpdx = px - p;
             let dpdy = py - p;
-            let mut bx = cgmath::Vector2::zero();
-            let mut by = cgmath::Vector2::zero();
-            let mut a = cgmath::Matrix2::zero();
+            let mut bx = glam::Vec2::ZERO;
+            let mut by = glam::Vec2::ZERO;
+            let mut a = glam::Mat2::ZERO;
             if self.normal.x.abs() >= self.normal.y.abs()
                 && self.normal.x.abs() >= self.normal.z.abs()
             {
@@ -49,35 +47,35 @@ impl Intersection<'_> {
                 bx.y = dpdx.z;
                 by.x = dpdy.y;
                 by.y = dpdy.z;
-                a.x.x = self.tangent.y;
-                a.x.y = self.tangent.z;
-                a.y.x = self.bitangent.y;
-                a.y.y = self.bitangent.z;
+                a.col_mut(0).x = self.tangent.y;
+                a.col_mut(0).y = self.tangent.z;
+                a.col_mut(1).x = self.bitangent.y;
+                a.col_mut(1).y = self.bitangent.z;
             } else if self.normal.y.abs() >= self.normal.z.abs() {
                 bx.x = dpdx.z;
                 bx.y = dpdx.x;
                 by.x = dpdy.z;
                 by.y = dpdy.x;
-                a.x.x = self.tangent.z;
-                a.x.y = self.tangent.x;
-                a.y.x = self.bitangent.z;
-                a.y.y = self.bitangent.x;
+                a.col_mut(0).x = self.tangent.z;
+                a.col_mut(0).y = self.tangent.x;
+                a.col_mut(1).x = self.bitangent.z;
+                a.col_mut(1).y = self.bitangent.x;
             } else {
                 bx.x = dpdx.x;
                 bx.y = dpdx.y;
                 by.x = dpdy.x;
                 by.y = dpdy.y;
-                a.x.x = self.tangent.x;
-                a.x.y = self.tangent.y;
-                a.y.x = self.bitangent.x;
-                a.y.y = self.bitangent.y;
+                a.col_mut(0).x = self.tangent.x;
+                a.col_mut(0).y = self.tangent.y;
+                a.col_mut(1).x = self.bitangent.x;
+                a.col_mut(1).y = self.bitangent.y;
             }
 
             if let Some((x1, x2)) = solve_linear_system_2x2(a, bx) {
-                self.duvdx = cgmath::Vector2::new(x1, x2);
+                self.duvdx = glam::Vec2::new(x1, x2);
             }
             if let Some((x1, x2)) = solve_linear_system_2x2(a, by) {
-                self.duvdy = cgmath::Vector2::new(x1, x2);
+                self.duvdy = glam::Vec2::new(x1, x2);
             }
         }
     }
@@ -99,27 +97,27 @@ impl Default for Intersection<'_> {
     fn default() -> Self {
         Self {
             t: f32::MAX,
-            tangent: cgmath::Vector3::unit_x(),
-            bitangent: cgmath::Vector3::unit_y(),
-            normal: cgmath::Vector3::unit_z(),
-            shade_normal: cgmath::Vector3::unit_z(),
-            texcoords: cgmath::Point2::new(0.0, 0.0),
+            tangent: glam::Vec3A::X,
+            bitangent: glam::Vec3A::Y,
+            normal: glam::Vec3A::Z,
+            shade_normal: glam::Vec3A::Z,
+            texcoords: glam::Vec2::ZERO,
             primitive: None,
-            duvdx: cgmath::Vector2::zero(),
-            duvdy: cgmath::Vector2::zero(),
+            duvdx: glam::Vec2::ZERO,
+            duvdy: glam::Vec2::ZERO,
         }
     }
 }
 
-fn solve_linear_system_2x2(a: cgmath::Matrix2<f32>, b: cgmath::Vector2<f32>) -> Option<(f32, f32)> {
+fn solve_linear_system_2x2(a: glam::Mat2, b: glam::Vec2) -> Option<(f32, f32)> {
     let det = a.determinant();
     if det != 0.0 {
-        let temp = b.y * a.x.x - b.x * a.x.y;
+        let temp = b.y * a.col(0).x - b.x * a.col(0).y;
         let x2 = temp / det;
-        let x1 = if a.x.x.abs() > a.x.y.abs() {
-            (b.x - a.y.x * x2) / a.x.x
+        let x1 = if a.col(0).x.abs() > a.col(0).y.abs() {
+            (b.x - a.col(1).x * x2) / a.col(0).x
         } else {
-            (b.y - a.y.y * x2) / a.x.y
+            (b.y - a.col(1).y * x2) / a.col(0).y
         };
         Some((x1, x2))
     } else {

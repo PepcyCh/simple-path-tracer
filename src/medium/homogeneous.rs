@@ -1,7 +1,4 @@
-use crate::core::color::Color;
-use crate::core::medium::Medium;
-use crate::core::sampler::Sampler;
-use cgmath::{InnerSpace, Point3, Vector3};
+use crate::core::{color::Color, medium::Medium, sampler::Sampler};
 
 pub struct Homogeneous {
     sigma_t: Color,
@@ -23,11 +20,11 @@ impl Homogeneous {
 impl Medium for Homogeneous {
     fn sample_pi(
         &self,
-        po: Point3<f32>,
-        wo: Vector3<f32>,
+        po: glam::Vec3A,
+        wo: glam::Vec3A,
         t_max: f32,
         sampler: &mut dyn Sampler,
-    ) -> (Point3<f32>, bool, Color) {
+    ) -> (glam::Vec3A, bool, Color) {
         let (rand_x, rand_y) = sampler.uniform_2d();
         let sample_sigma_t = {
             if rand_x < 1.0 / 3.0 {
@@ -52,12 +49,12 @@ impl Medium for Homogeneous {
         }
     }
 
-    fn sample_wi(&self, wo: Vector3<f32>, sampler: &mut dyn Sampler) -> (Vector3<f32>, f32) {
+    fn sample_wi(&self, wo: glam::Vec3A, sampler: &mut dyn Sampler) -> (glam::Vec3A, f32) {
         let (rand_x, rand_y) = sampler.uniform_2d();
         let cos_theta = crate::medium::util::henyey_greenstein_cdf_inverse(self.asymmetric, rand_x);
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
         let phi = 2.0 * std::f32::consts::PI * rand_y;
-        let wi = Vector3::new(sin_theta * phi.cos(), sin_theta * phi.sin(), cos_theta);
+        let wi = glam::Vec3A::new(sin_theta * phi.cos(), sin_theta * phi.sin(), cos_theta);
         let wi = crate::medium::util::local_to_world(wo, wi);
 
         (
@@ -70,7 +67,7 @@ impl Medium for Homogeneous {
         (-self.sigma_t * dist).exp()
     }
 
-    fn phase(&self, wo: Vector3<f32>, wi: Vector3<f32>) -> f32 {
+    fn phase(&self, wo: glam::Vec3A, wi: glam::Vec3A) -> f32 {
         let cos = wo.dot(wi);
         crate::medium::util::henyey_greenstein(self.asymmetric, cos)
     }

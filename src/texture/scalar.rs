@@ -1,5 +1,4 @@
-use crate::core::intersection::Intersection;
-use crate::core::texture::Texture;
+use crate::core::{intersection::Intersection, texture::Texture};
 
 pub struct ScalarTex<T> {
     value: T,

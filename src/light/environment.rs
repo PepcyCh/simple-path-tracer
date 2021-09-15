@@ -1,7 +1,3 @@
-use std::usize;
-
-use cgmath::{Point3, Vector3};
-
 use crate::core::{color::Color, light::Light, sampler::Sampler};
 
 pub struct EnvLight {
@@ -87,9 +83,9 @@ impl EnvLight {
 impl Light for EnvLight {
     fn sample(
         &self,
-        _position: Point3<f32>,
+        _position: glam::Vec3A,
         sampler: &mut dyn Sampler,
-    ) -> (cgmath::Vector3<f32>, f32, Color, f32) {
+    ) -> (glam::Vec3A, f32, Color, f32) {
         let rand = sampler.uniform_1d();
         let (ind, _) = self.atlas_table.sample(rand);
         let x = ind % self.width;
@@ -99,14 +95,14 @@ impl Light for EnvLight {
         let theta = (y as f32 + rand_y) / self.height as f32 * std::f32::consts::PI;
         let phi = (x as f32 + rand_x) / self.width as f32 * 2.0 * std::f32::consts::PI;
         let sin_theta = theta.sin();
-        let wi = Vector3::new(sin_theta * phi.sin(), theta.cos(), sin_theta * phi.cos());
+        let wi = glam::Vec3A::new(sin_theta * phi.sin(), theta.cos(), sin_theta * phi.cos());
 
         let (strength, dist, pdf) = self.strength_dist_pdf(theta, phi);
 
         (wi, pdf, strength, dist)
     }
 
-    fn strength_dist_pdf(&self, _position: Point3<f32>, wi: Vector3<f32>) -> (Color, f32, f32) {
+    fn strength_dist_pdf(&self, _position: glam::Vec3A, wi: glam::Vec3A) -> (Color, f32, f32) {
         let theta = wi.y.acos();
         let phi = wi.x.atan2(wi.z) + std::f32::consts::PI;
 

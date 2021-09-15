@@ -1,12 +1,15 @@
-use crate::core::color::Color;
-use crate::core::intersection::Intersection;
-use crate::core::material::Material;
-use crate::core::scatter::Scatter;
-use crate::core::texture::{self, Texture};
-use crate::scatter::{
-    FresnelDielectricRSsr, MicrofacetReflect, SpecularReflect, SubsurfaceReflect,
-};
 use std::sync::Arc;
+
+use crate::{
+    core::{
+        color::Color,
+        intersection::Intersection,
+        material::Material,
+        scatter::Scatter,
+        texture::{self, Texture},
+    },
+    scatter::{FresnelDielectricRSsr, MicrofacetReflect, SpecularReflect, SubsurfaceReflect},
+};
 
 pub struct Subsurface {
     ior: f32,
@@ -38,7 +41,7 @@ impl Subsurface {
 }
 
 impl Material for Subsurface {
-    fn apply_normal_map(&self, inter: &Intersection<'_>) -> cgmath::Vector3<f32> {
+    fn apply_normal_map(&self, inter: &Intersection<'_>) -> glam::Vec3A {
         texture::get_normal_at(&self.normal_map, inter)
     }
 

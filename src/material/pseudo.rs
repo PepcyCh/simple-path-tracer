@@ -1,8 +1,7 @@
-use crate::core::color::Color;
-use crate::core::intersection::Intersection;
-use crate::core::material::Material;
-use crate::core::scatter::Scatter;
-use crate::scatter::SpecularTransmit;
+use crate::{
+    core::{color::Color, intersection::Intersection, material::Material, scatter::Scatter},
+    scatter::SpecularTransmit,
+};
 
 pub struct PseudoMaterial {}
 

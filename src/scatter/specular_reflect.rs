@@ -1,7 +1,8 @@
-use crate::core::color::Color;
-use crate::core::sampler::Sampler;
-use crate::core::scatter::{Reflect, Scatter, ScatterType};
-use cgmath::{InnerSpace, Point3, Vector3};
+use crate::core::{
+    color::Color,
+    sampler::Sampler,
+    scatter::{Reflect, Scatter, ScatterType},
+};
 
 pub struct SpecularReflect {
     reflectance: Color,
@@ -16,11 +17,11 @@ impl SpecularReflect {
 impl Scatter for SpecularReflect {
     fn sample_wi(
         &self,
-        _po: Point3<f32>,
-        wo: Vector3<f32>,
-        _pi: Point3<f32>,
+        _po: glam::Vec3A,
+        wo: glam::Vec3A,
+        _pi: glam::Vec3A,
         _sampler: &mut dyn Sampler,
-    ) -> (Vector3<f32>, f32, Color, ScatterType) {
+    ) -> (glam::Vec3A, f32, Color, ScatterType) {
         let wi = crate::scatter::util::reflect(wo);
         (
             wi,
@@ -30,17 +31,11 @@ impl Scatter for SpecularReflect {
         )
     }
 
-    fn pdf(&self, _po: Point3<f32>, _wo: Vector3<f32>, _pi: Point3<f32>, _wi: Vector3<f32>) -> f32 {
+    fn pdf(&self, _po: glam::Vec3A, _wo: glam::Vec3A, _pi: glam::Vec3A, _wi: glam::Vec3A) -> f32 {
         1.0
     }
 
-    fn bxdf(
-        &self,
-        _po: Point3<f32>,
-        wo: Vector3<f32>,
-        _pi: Point3<f32>,
-        wi: Vector3<f32>,
-    ) -> Color {
+    fn bxdf(&self, _po: glam::Vec3A, wo: glam::Vec3A, _pi: glam::Vec3A, wi: glam::Vec3A) -> Color {
         let expected_wi = crate::scatter::util::reflect(wo);
         if expected_wi.dot(wi) >= 0.99 {
             self.reflectance / wi.z.abs()

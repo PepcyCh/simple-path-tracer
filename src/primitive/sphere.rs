@@ -1,14 +1,12 @@
-use crate::core::bbox::Bbox;
-use crate::core::intersection::Intersection;
-use crate::core::material::Material;
-use crate::core::medium::Medium;
-use crate::core::primitive::Primitive;
-use crate::core::ray::Ray;
-use cgmath::InnerSpace;
 use std::sync::Arc;
 
+use crate::core::{
+    bbox::Bbox, intersection::Intersection, material::Material, medium::Medium,
+    primitive::Primitive, ray::Ray,
+};
+
 pub struct Sphere {
-    center: cgmath::Point3<f32>,
+    center: glam::Vec3A,
     radius: f32,
     material: Arc<dyn Material>,
     inside_medium: Option<Arc<dyn Medium>>,
@@ -17,12 +15,12 @@ pub struct Sphere {
 
 impl Sphere {
     pub fn new(
-        center: cgmath::Point3<f32>,
+        center: glam::Vec3A,
         radius: f32,
         material: Arc<dyn Material>,
         inside_medium: Option<Arc<dyn Medium>>,
     ) -> Self {
-        let delta = cgmath::Vector3::new(radius, radius, radius);
+        let delta = glam::Vec3A::new(radius, radius, radius);
         let bbox = Bbox::new(center - delta, center + delta);
         Self {
             center,
@@ -35,9 +33,9 @@ impl Sphere {
 
     fn intersect_ray(&self, ray: &Ray) -> Option<(f32, f32)> {
         let oc = ray.origin - self.center;
-        let a = ray.direction.magnitude2();
+        let a = ray.direction.length_squared();
         let b = ray.direction.dot(oc);
-        let c = oc.magnitude2() - self.radius * self.radius;
+        let c = oc.length_squared() - self.radius * self.radius;
         let delta = b * b - a * c;
         if delta >= 0.0 {
             let delta = delta.sqrt();
@@ -72,11 +70,11 @@ impl Primitive for Sphere {
                     inter.bitangent.y = sin_theta;
                     inter.tangent = inter.bitangent.cross(inter.normal);
                 } else if norm.y > 0.0 {
-                    inter.bitangent = cgmath::Vector3::unit_x();
-                    inter.tangent = cgmath::Vector3::unit_z();
+                    inter.bitangent = glam::Vec3A::X;
+                    inter.tangent = glam::Vec3A::Z;
                 } else {
-                    inter.bitangent = -cgmath::Vector3::unit_x();
-                    inter.tangent = -cgmath::Vector3::unit_z();
+                    inter.bitangent = -glam::Vec3A::X;
+                    inter.tangent = -glam::Vec3A::Z;
                 }
                 inter.texcoords = sphere_normal_to_texcoords(norm);
                 inter.primitive = Some(self);
@@ -99,10 +97,10 @@ impl Primitive for Sphere {
     }
 }
 
-fn sphere_normal_to_texcoords(p: cgmath::Vector3<f32>) -> cgmath::Point2<f32> {
+fn sphere_normal_to_texcoords(p: glam::Vec3A) -> glam::Vec2 {
     let theta = p.y.acos();
     let phi = p.x.atan2(p.z) + std::f32::consts::PI;
-    cgmath::Point2::new(
+    glam::Vec2::new(
         phi * 0.5 * std::f32::consts::FRAC_1_PI,
         theta * std::f32::consts::FRAC_1_PI,
     )

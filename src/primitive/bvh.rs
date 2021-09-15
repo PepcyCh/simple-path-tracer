@@ -1,10 +1,13 @@
-use crate::core::bbox::Bbox;
-use crate::core::intersection::Intersection;
-use crate::core::material::Material;
-use crate::core::medium::Medium;
-use crate::core::primitive::{Aggregate, Primitive};
-use crate::core::ray::Ray;
 use std::collections::HashSet;
+
+use crate::core::{
+    bbox::Bbox,
+    intersection::Intersection,
+    material::Material,
+    medium::Medium,
+    primitive::{Aggregate, Primitive},
+    ray::Ray,
+};
 
 pub struct BvhAccel {
     bvh_root: Option<Box<BvhNode>>,

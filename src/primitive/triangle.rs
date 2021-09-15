@@ -1,19 +1,17 @@
-use crate::core::bbox::Bbox;
-use crate::core::intersection::Intersection;
-use crate::core::material::Material;
-use crate::core::medium::Medium;
-use crate::core::primitive::Primitive;
-use crate::core::ray::Ray;
-use cgmath::{InnerSpace, Zero};
 use std::sync::Arc;
+
+use crate::core::{
+    bbox::Bbox, intersection::Intersection, material::Material, medium::Medium,
+    primitive::Primitive, ray::Ray,
+};
 
 #[derive(Copy, Clone)]
 pub struct MeshVertex {
-    pub position: cgmath::Point3<f32>,
-    pub normal: cgmath::Vector3<f32>,
-    pub texcoords: cgmath::Point2<f32>,
-    pub tangent: cgmath::Vector3<f32>,
-    pub bitangent: cgmath::Vector3<f32>,
+    pub position: glam::Vec3A,
+    pub normal: glam::Vec3A,
+    pub texcoords: glam::Vec2,
+    pub tangent: glam::Vec3A,
+    pub bitangent: glam::Vec3A,
 }
 
 pub struct TriangleMesh {
@@ -32,11 +30,11 @@ pub struct Triangle {
 impl Default for MeshVertex {
     fn default() -> Self {
         Self {
-            position: cgmath::Point3::new(0.0, 0.0, 0.0),
-            normal: cgmath::Vector3::unit_z(),
-            texcoords: cgmath::Point2::new(0.0, 0.0),
-            tangent: cgmath::Vector3::unit_x(),
-            bitangent: cgmath::Vector3::unit_y(),
+            position: glam::Vec3A::ZERO,
+            normal: glam::Vec3A::Z,
+            texcoords: glam::Vec2::ZERO,
+            tangent: glam::Vec3A::X,
+            bitangent: glam::Vec3A::Y,
         }
     }
 }
@@ -58,23 +56,23 @@ impl TriangleMesh {
         mesh
     }
 
-    pub fn position(&self, index: usize) -> cgmath::Point3<f32> {
+    pub fn position(&self, index: usize) -> glam::Vec3A {
         self.vertices[index].position
     }
 
-    pub fn normal(&self, index: usize) -> cgmath::Vector3<f32> {
+    pub fn normal(&self, index: usize) -> glam::Vec3A {
         self.vertices[index].normal
     }
 
-    pub fn texcoords(&self, index: usize) -> cgmath::Point2<f32> {
+    pub fn texcoords(&self, index: usize) -> glam::Vec2 {
         self.vertices[index].texcoords
     }
 
-    pub fn tangent(&self, index: usize) -> cgmath::Vector3<f32> {
+    pub fn tangent(&self, index: usize) -> glam::Vec3A {
         self.vertices[index].tangent
     }
 
-    pub fn bitangent(&self, index: usize) -> cgmath::Vector3<f32> {
+    pub fn bitangent(&self, index: usize) -> glam::Vec3A {
         self.vertices[index].bitangent
     }
 
@@ -191,9 +189,9 @@ impl Primitive for Triangle {
 impl TriangleMesh {
     fn calc_tangents(&mut self) {
         let vertex_count = self.vertices.len();
-        let mut tangents_sum = vec![cgmath::Vector3::zero(); vertex_count];
+        let mut tangents_sum = vec![glam::Vec3A::ZERO; vertex_count];
         let mut tangents_cnt = vec![0; vertex_count];
-        let mut bitangents_sum = vec![cgmath::Vector3::zero(); vertex_count];
+        let mut bitangents_sum = vec![glam::Vec3A::ZERO; vertex_count];
         let mut bitangents_cnt = vec![0; vertex_count];
 
         let triangle_count = self.indices.len() / 3;
@@ -246,14 +244,14 @@ impl TriangleMesh {
 }
 
 fn lerp_point2(
-    p0: cgmath::Point2<f32>,
-    p1: cgmath::Point2<f32>,
-    p2: cgmath::Point2<f32>,
+    p0: glam::Vec2,
+    p1: glam::Vec2,
+    p2: glam::Vec2,
     u: f32,
     v: f32,
     w: f32,
-) -> cgmath::Point2<f32> {
+) -> glam::Vec2 {
     let x = p0.x * u + p1.x * v + p2.x * w;
     let y = p0.y * u + p1.y * v + p2.y * w;
-    cgmath::Point2::new(x, y)
+    glam::Vec2::new(x, y)
 }

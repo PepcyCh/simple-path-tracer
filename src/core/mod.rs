@@ -8,7 +8,6 @@ pub mod intersection;
 pub mod light;
 pub mod material;
 pub mod medium;
-pub mod path_tracer;
 pub mod primitive;
 pub mod ray;
 pub mod sampler;

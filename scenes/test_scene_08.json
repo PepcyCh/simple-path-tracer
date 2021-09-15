@@ -129,7 +129,7 @@
       },
       "primitive": {
         "type": "obj_mesh",
-        "file": "plane.obj",
+        "file": "models/plane.obj",
         "material": 2
       }
     },

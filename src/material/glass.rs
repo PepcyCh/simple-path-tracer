@@ -1,12 +1,18 @@
-use crate::core::color::Color;
-use crate::core::intersection::Intersection;
-use crate::core::material::Material;
-use crate::core::scatter::Scatter;
-use crate::core::texture::{self, Texture};
-use crate::scatter::{
-    FresnelDielectricRT, MicrofacetReflect, MicrofacetTransmit, SpecularReflect, SpecularTransmit,
-};
 use std::sync::Arc;
+
+use crate::{
+    core::{
+        color::Color,
+        intersection::Intersection,
+        material::Material,
+        scatter::Scatter,
+        texture::{self, Texture},
+    },
+    scatter::{
+        FresnelDielectricRT, MicrofacetReflect, MicrofacetTransmit, SpecularReflect,
+        SpecularTransmit,
+    },
+};
 
 pub struct Glass {
     ior: f32,
@@ -35,7 +41,7 @@ impl Glass {
 }
 
 impl Material for Glass {
-    fn apply_normal_map(&self, inter: &Intersection<'_>) -> cgmath::Vector3<f32> {
+    fn apply_normal_map(&self, inter: &Intersection<'_>) -> glam::Vec3A {
         texture::get_normal_at(&self.normal_map, inter)
     }
 

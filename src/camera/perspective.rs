@@ -1,23 +1,16 @@
-use crate::core::camera::Camera;
-use crate::core::ray::Ray;
-use cgmath::InnerSpace;
+use crate::core::{camera::Camera, ray::Ray};
 
 pub struct PerspectiveCamera {
-    eye: cgmath::Point3<f32>,
-    forward: cgmath::Vector3<f32>,
-    up: cgmath::Vector3<f32>,
-    right: cgmath::Vector3<f32>,
+    eye: glam::Vec3A,
+    forward: glam::Vec3A,
+    up: glam::Vec3A,
+    right: glam::Vec3A,
     _fov: f32,
     half_cot_half_fov: f32,
 }
 
 impl PerspectiveCamera {
-    pub fn new(
-        eye: cgmath::Point3<f32>,
-        forward: cgmath::Vector3<f32>,
-        up: cgmath::Vector3<f32>,
-        fov_deg: f32,
-    ) -> Self {
+    pub fn new(eye: glam::Vec3A, forward: glam::Vec3A, up: glam::Vec3A, fov_deg: f32) -> Self {
         let forward = forward.normalize();
         let right = forward.cross(up).normalize();
         let up = right.cross(forward);

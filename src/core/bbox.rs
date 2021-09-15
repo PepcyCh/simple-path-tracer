@@ -1,31 +1,30 @@
 use crate::core::ray::Ray;
-use cgmath::{EuclideanSpace, Transform};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Bbox {
-    pub p_min: cgmath::Point3<f32>,
-    pub p_max: cgmath::Point3<f32>,
+    pub p_min: glam::Vec3A,
+    pub p_max: glam::Vec3A,
 }
 
 impl Bbox {
-    pub fn new(p_min: cgmath::Point3<f32>, p_max: cgmath::Point3<f32>) -> Self {
+    pub fn new(p_min: glam::Vec3A, p_max: glam::Vec3A) -> Self {
         Self { p_min, p_max }
     }
 
-    pub fn from_points(points: &[cgmath::Point3<f32>]) -> Self {
+    pub fn from_points(points: &[glam::Vec3A]) -> Self {
         let mut p_min = points[0];
         let mut p_max = points[0];
         points.iter().skip(1).for_each(|p| {
-            p_min = min_point3(p_min, *p);
-            p_max = max_point3(p_max, *p);
+            p_min = p_min.min(*p);
+            p_max = p_max.max(*p);
         });
         Self { p_min, p_max }
     }
 
     pub fn empty() -> Self {
         Self {
-            p_min: cgmath::Point3::new(f32::MAX, f32::MAX, f32::MAX),
-            p_max: cgmath::Point3::new(f32::MIN, f32::MIN, f32::MIN),
+            p_min: glam::Vec3A::new(f32::MAX, f32::MAX, f32::MAX),
+            p_max: glam::Vec3A::new(f32::MIN, f32::MIN, f32::MIN),
         }
     }
 
@@ -34,60 +33,30 @@ impl Bbox {
     }
 
     pub fn merge(mut self, another: Bbox) -> Self {
-        self.p_min = min_point3(self.p_min, another.p_min);
-        self.p_max = max_point3(self.p_max, another.p_max);
+        self.p_min = self.p_min.min(another.p_min);
+        self.p_max = self.p_max.max(another.p_max);
         self
     }
 
-    pub fn transformed_by(mut self, trans: cgmath::Matrix4<f32>) -> Self {
-        let p0 = trans.transform_point(cgmath::Point3::new(
-            self.p_min.x,
-            self.p_min.y,
-            self.p_min.z,
-        ));
-        let p1 = trans.transform_point(cgmath::Point3::new(
-            self.p_min.x,
-            self.p_min.y,
-            self.p_max.z,
-        ));
-        let p2 = trans.transform_point(cgmath::Point3::new(
-            self.p_min.x,
-            self.p_max.y,
-            self.p_min.z,
-        ));
-        let p3 = trans.transform_point(cgmath::Point3::new(
-            self.p_min.x,
-            self.p_max.y,
-            self.p_max.z,
-        ));
-        let p4 = trans.transform_point(cgmath::Point3::new(
-            self.p_max.x,
-            self.p_min.y,
-            self.p_min.z,
-        ));
-        let p5 = trans.transform_point(cgmath::Point3::new(
-            self.p_max.x,
-            self.p_min.y,
-            self.p_max.z,
-        ));
-        let p6 = trans.transform_point(cgmath::Point3::new(
-            self.p_max.x,
-            self.p_max.y,
-            self.p_min.z,
-        ));
-        let p7 = trans.transform_point(cgmath::Point3::new(
-            self.p_max.x,
-            self.p_max.y,
-            self.p_max.z,
-        ));
-        self.p_min = min_point3(
-            min_point3(min_point3(p0, p1), min_point3(p2, p3)),
-            min_point3(min_point3(p4, p5), min_point3(p6, p7)),
-        );
-        self.p_max = max_point3(
-            max_point3(max_point3(p0, p1), max_point3(p2, p3)),
-            max_point3(max_point3(p4, p5), max_point3(p6, p7)),
-        );
+    pub fn transformed_by(mut self, trans: glam::Affine3A) -> Self {
+        let p0 =
+            trans.transform_point3a(glam::Vec3A::new(self.p_min.x, self.p_min.y, self.p_min.z));
+        let p1 =
+            trans.transform_point3a(glam::Vec3A::new(self.p_min.x, self.p_min.y, self.p_max.z));
+        let p2 =
+            trans.transform_point3a(glam::Vec3A::new(self.p_min.x, self.p_max.y, self.p_min.z));
+        let p3 =
+            trans.transform_point3a(glam::Vec3A::new(self.p_min.x, self.p_max.y, self.p_max.z));
+        let p4 =
+            trans.transform_point3a(glam::Vec3A::new(self.p_max.x, self.p_min.y, self.p_min.z));
+        let p5 =
+            trans.transform_point3a(glam::Vec3A::new(self.p_max.x, self.p_min.y, self.p_max.z));
+        let p6 =
+            trans.transform_point3a(glam::Vec3A::new(self.p_max.x, self.p_max.y, self.p_min.z));
+        let p7 =
+            trans.transform_point3a(glam::Vec3A::new(self.p_max.x, self.p_max.y, self.p_max.z));
+        self.p_min = p0.min(p1).min(p2).min(p3).min(p4).min(p5).min(p6).min(p7);
+        self.p_max = p0.max(p1).max(p2).max(p3).max(p4).max(p5).max(p6).max(p7);
         self
     }
 
@@ -132,15 +101,7 @@ impl Bbox {
         }
     }
 
-    pub fn centroid(&self) -> cgmath::Point3<f32> {
-        self.p_min.midpoint(self.p_max)
+    pub fn centroid(&self) -> glam::Vec3A {
+        (self.p_min + self.p_max) * 0.5
     }
-}
-
-fn min_point3(a: cgmath::Point3<f32>, b: cgmath::Point3<f32>) -> cgmath::Point3<f32> {
-    cgmath::Point3::new(a.x.min(b.x), a.y.min(b.y), a.z.min(b.z))
-}
-
-fn max_point3(a: cgmath::Point3<f32>, b: cgmath::Point3<f32>) -> cgmath::Point3<f32> {
-    cgmath::Point3::new(a.x.max(b.x), a.y.max(b.y), a.z.max(b.z))
 }

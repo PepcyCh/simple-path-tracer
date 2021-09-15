@@ -1,8 +1,4 @@
-use crate::core::color::Color;
-use crate::core::coord::Coordinate;
-use crate::core::primitive::Aggregate;
-use crate::core::sampler::Sampler;
-use cgmath::{Point3, Vector3};
+use crate::core::{color::Color, coord::Coordinate, primitive::Aggregate, sampler::Sampler};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScatterLobeType {
@@ -28,12 +24,12 @@ pub trait Scatter {
     /// return (pi, coord_pi, pdf, sp)
     fn sample_pi(
         &self,
-        po: Point3<f32>,
-        _wo: Vector3<f32>,
+        po: glam::Vec3A,
+        _wo: glam::Vec3A,
         coord_po: Coordinate,
         _sampler: &mut dyn Sampler,
         _scene: &dyn Aggregate,
-    ) -> (Point3<f32>, Coordinate, f32, Color) {
+    ) -> (glam::Vec3A, Coordinate, f32, Color) {
         (po, coord_po, 1.0, Color::WHITE)
     }
 
@@ -41,17 +37,17 @@ pub trait Scatter {
     /// return (wi, pdf, bxdf, scatter type)
     fn sample_wi(
         &self,
-        po: Point3<f32>,
-        wo: Vector3<f32>,
-        pi: Point3<f32>,
+        po: glam::Vec3A,
+        wo: glam::Vec3A,
+        pi: glam::Vec3A,
         sampler: &mut dyn Sampler,
-    ) -> (Vector3<f32>, f32, Color, ScatterType);
+    ) -> (glam::Vec3A, f32, Color, ScatterType);
 
     /// only wo -> wi, no po -> wi
-    fn pdf(&self, po: Point3<f32>, wo: Vector3<f32>, pi: Point3<f32>, wi: Vector3<f32>) -> f32;
+    fn pdf(&self, po: glam::Vec3A, wo: glam::Vec3A, pi: glam::Vec3A, wi: glam::Vec3A) -> f32;
 
     /// only wo -> wi, no po -> wi
-    fn bxdf(&self, po: Point3<f32>, wo: Vector3<f32>, pi: Point3<f32>, wi: Vector3<f32>) -> Color;
+    fn bxdf(&self, po: glam::Vec3A, wo: glam::Vec3A, pi: glam::Vec3A, wi: glam::Vec3A) -> Color;
 
     fn is_delta(&self) -> bool;
 }

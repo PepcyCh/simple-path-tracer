@@ -1,7 +1,8 @@
-use crate::core::color::Color;
-use crate::core::sampler::Sampler;
-use crate::core::scatter::{Scatter, ScatterType, Transmit};
-use cgmath::{Point3, Vector3};
+use crate::core::{
+    color::Color,
+    sampler::Sampler,
+    scatter::{Scatter, ScatterType, Transmit},
+};
 
 pub struct LambertTransmit {
     transmittance: Color,
@@ -17,11 +18,11 @@ impl LambertTransmit {
 impl Scatter for LambertTransmit {
     fn sample_wi(
         &self,
-        _po: Point3<f32>,
-        wo: Vector3<f32>,
-        _pi: Point3<f32>,
+        _po: glam::Vec3A,
+        wo: glam::Vec3A,
+        _pi: glam::Vec3A,
         sampler: &mut dyn Sampler,
-    ) -> (Vector3<f32>, f32, Color, ScatterType) {
+    ) -> (glam::Vec3A, f32, Color, ScatterType) {
         let mut wi = sampler.cosine_weighted_on_hemisphere();
         if wo.z > 0.0 {
             wi.z = -wi.z;
@@ -34,7 +35,7 @@ impl Scatter for LambertTransmit {
         )
     }
 
-    fn pdf(&self, _po: Point3<f32>, wo: Vector3<f32>, _pi: Point3<f32>, wi: Vector3<f32>) -> f32 {
+    fn pdf(&self, _po: glam::Vec3A, wo: glam::Vec3A, _pi: glam::Vec3A, wi: glam::Vec3A) -> f32 {
         if wo.z * wi.z <= 0.0 {
             wi.z.abs() * std::f32::consts::FRAC_1_PI
         } else {
@@ -42,13 +43,7 @@ impl Scatter for LambertTransmit {
         }
     }
 
-    fn bxdf(
-        &self,
-        _po: Point3<f32>,
-        wo: Vector3<f32>,
-        _pi: Point3<f32>,
-        wi: Vector3<f32>,
-    ) -> Color {
+    fn bxdf(&self, _po: glam::Vec3A, wo: glam::Vec3A, _pi: glam::Vec3A, wi: glam::Vec3A) -> Color {
         if wo.z * wi.z <= 0.0 {
             self.transmittance * std::f32::consts::FRAC_1_PI
         } else {

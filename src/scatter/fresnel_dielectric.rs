@@ -1,9 +1,10 @@
-use crate::core::color::Color;
-use crate::core::coord::Coordinate;
-use crate::core::primitive::Aggregate;
-use crate::core::sampler::Sampler;
-use crate::core::scatter::{Reflect, Scatter, ScatterType, SsReflect, Transmit};
-use cgmath::{Point3, Vector3};
+use crate::core::{
+    color::Color,
+    coord::Coordinate,
+    primitive::Aggregate,
+    sampler::Sampler,
+    scatter::{Reflect, Scatter, ScatterType, SsReflect, Transmit},
+};
 
 struct FresnelDielectric<R, T> {
     ior: f32,
@@ -52,11 +53,11 @@ impl<R: Reflect, T: SsReflect> FresnelDielectricRSsr<R, T> {
 impl<R: Reflect, T: Transmit> Scatter for FresnelDielectricRT<R, T> {
     fn sample_wi(
         &self,
-        po: Point3<f32>,
-        wo: Vector3<f32>,
-        pi: Point3<f32>,
+        po: glam::Vec3A,
+        wo: glam::Vec3A,
+        pi: glam::Vec3A,
         sampler: &mut dyn Sampler,
-    ) -> (Vector3<f32>, f32, Color, ScatterType) {
+    ) -> (glam::Vec3A, f32, Color, ScatterType) {
         // TODO - half vector fresnel ?
         let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
         let rand = sampler.uniform_1d();
@@ -69,7 +70,7 @@ impl<R: Reflect, T: Transmit> Scatter for FresnelDielectricRT<R, T> {
         }
     }
 
-    fn pdf(&self, po: Point3<f32>, wo: Vector3<f32>, pi: Point3<f32>, wi: Vector3<f32>) -> f32 {
+    fn pdf(&self, po: glam::Vec3A, wo: glam::Vec3A, pi: glam::Vec3A, wi: glam::Vec3A) -> f32 {
         let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
         if wo.z * wi.z >= 0.0 {
             fresnel * self.0.reflect.pdf(po, wo, pi, wi)
@@ -78,7 +79,7 @@ impl<R: Reflect, T: Transmit> Scatter for FresnelDielectricRT<R, T> {
         }
     }
 
-    fn bxdf(&self, po: Point3<f32>, wo: Vector3<f32>, pi: Point3<f32>, wi: Vector3<f32>) -> Color {
+    fn bxdf(&self, po: glam::Vec3A, wo: glam::Vec3A, pi: glam::Vec3A, wi: glam::Vec3A) -> Color {
         let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
         if wo.z * wi.z >= 0.0 {
             fresnel * self.0.reflect.bxdf(po, wo, pi, wi)
@@ -95,11 +96,11 @@ impl<R: Reflect, T: Transmit> Scatter for FresnelDielectricRT<R, T> {
 impl<R: Reflect, T: Reflect> Scatter for FresnelDielectricRR<R, T> {
     fn sample_wi(
         &self,
-        po: Point3<f32>,
-        wo: Vector3<f32>,
-        pi: Point3<f32>,
+        po: glam::Vec3A,
+        wo: glam::Vec3A,
+        pi: glam::Vec3A,
         sampler: &mut dyn Sampler,
-    ) -> (Vector3<f32>, f32, Color, ScatterType) {
+    ) -> (glam::Vec3A, f32, Color, ScatterType) {
         let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
         let rand = sampler.uniform_1d();
         if rand <= fresnel {
@@ -120,7 +121,7 @@ impl<R: Reflect, T: Reflect> Scatter for FresnelDielectricRR<R, T> {
         }
     }
 
-    fn pdf(&self, po: Point3<f32>, wo: Vector3<f32>, pi: Point3<f32>, wi: Vector3<f32>) -> f32 {
+    fn pdf(&self, po: glam::Vec3A, wo: glam::Vec3A, pi: glam::Vec3A, wi: glam::Vec3A) -> f32 {
         if wo.z * wi.z >= 0.0 {
             let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
             let reflect_pdf = self.0.reflect.pdf(po, wo, pi, wi);
@@ -131,7 +132,7 @@ impl<R: Reflect, T: Reflect> Scatter for FresnelDielectricRR<R, T> {
         }
     }
 
-    fn bxdf(&self, po: Point3<f32>, wo: Vector3<f32>, pi: Point3<f32>, wi: Vector3<f32>) -> Color {
+    fn bxdf(&self, po: glam::Vec3A, wo: glam::Vec3A, pi: glam::Vec3A, wi: glam::Vec3A) -> Color {
         if wo.z * wi.z >= 0.0 {
             let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
             let reflect_bxdf = self.0.reflect.bxdf(po, wo, pi, wi);
@@ -150,12 +151,12 @@ impl<R: Reflect, T: Reflect> Scatter for FresnelDielectricRR<R, T> {
 impl<R: Reflect, T: SsReflect> Scatter for FresnelDielectricRSsr<R, T> {
     fn sample_pi(
         &self,
-        po: Point3<f32>,
-        wo: Vector3<f32>,
+        po: glam::Vec3A,
+        wo: glam::Vec3A,
         coord_po: Coordinate,
         sampler: &mut dyn Sampler,
         scene: &dyn Aggregate,
-    ) -> (Point3<f32>, Coordinate, f32, Color) {
+    ) -> (glam::Vec3A, Coordinate, f32, Color) {
         let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
         let rand = sampler.uniform_1d();
         if rand <= fresnel {
@@ -167,11 +168,11 @@ impl<R: Reflect, T: SsReflect> Scatter for FresnelDielectricRSsr<R, T> {
 
     fn sample_wi(
         &self,
-        po: Point3<f32>,
-        wo: Vector3<f32>,
-        pi: Point3<f32>,
+        po: glam::Vec3A,
+        wo: glam::Vec3A,
+        pi: glam::Vec3A,
         sampler: &mut dyn Sampler,
-    ) -> (Vector3<f32>, f32, Color, ScatterType) {
+    ) -> (glam::Vec3A, f32, Color, ScatterType) {
         let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
         if po == pi {
             let (wi, pdf, bxdf, ty) = self.0.reflect.sample_wi(po, wo, pi, sampler);
@@ -182,7 +183,7 @@ impl<R: Reflect, T: SsReflect> Scatter for FresnelDielectricRSsr<R, T> {
         }
     }
 
-    fn pdf(&self, po: Point3<f32>, wo: Vector3<f32>, pi: Point3<f32>, wi: Vector3<f32>) -> f32 {
+    fn pdf(&self, po: glam::Vec3A, wo: glam::Vec3A, pi: glam::Vec3A, wi: glam::Vec3A) -> f32 {
         let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
         if po == pi {
             fresnel * self.0.reflect.pdf(po, wo, pi, wi)
@@ -191,7 +192,7 @@ impl<R: Reflect, T: SsReflect> Scatter for FresnelDielectricRSsr<R, T> {
         }
     }
 
-    fn bxdf(&self, po: Point3<f32>, wo: Vector3<f32>, pi: Point3<f32>, wi: Vector3<f32>) -> Color {
+    fn bxdf(&self, po: glam::Vec3A, wo: glam::Vec3A, pi: glam::Vec3A, wi: glam::Vec3A) -> Color {
         let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
         if po == pi {
             fresnel * self.0.reflect.bxdf(po, wo, pi, wi)

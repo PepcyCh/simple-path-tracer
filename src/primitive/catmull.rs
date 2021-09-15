@@ -1,6 +1,5 @@
 use std::{collections::HashSet, sync::Arc};
 
-use cgmath::{ElementWise, EuclideanSpace, Point3, Vector3, Zero};
 use pep_mesh::{halfedge, io::ply};
 
 use crate::{
@@ -18,14 +17,14 @@ use crate::{
 use super::CubicBezier;
 
 pub struct VData {
-    pos: Point3<f32>,
-    new_pos: Option<Point3<f32>>,
+    pos: glam::Vec3A,
+    new_pos: Option<glam::Vec3A>,
 }
 
 impl Default for VData {
     fn default() -> Self {
         Self {
-            pos: Point3::new(0.0, 0.0, 0.0),
+            pos: glam::Vec3A::new(0.0, 0.0, 0.0),
             new_pos: None,
         }
     }
@@ -48,7 +47,7 @@ impl From<ply::PropertyMap> for VData {
             ply::Property::F64(val) => *val as f32,
             _ => 0.0,
         });
-        let pos = Point3::new(x, y, z);
+        let pos = glam::Vec3A::new(x, y, z);
 
         Self {
             pos,
@@ -59,7 +58,7 @@ impl From<ply::PropertyMap> for VData {
 
 #[derive(Default)]
 pub struct EData {
-    new_pos: Option<Point3<f32>>,
+    new_pos: Option<glam::Vec3A>,
     new_vert: Option<halfedge::VertexRef>,
     sharpness: f32,
 }
@@ -80,7 +79,7 @@ impl From<ply::PropertyMap> for EData {
 
 #[derive(Default)]
 pub struct FData {
-    new_pos: Option<Point3<f32>>,
+    new_pos: Option<glam::Vec3A>,
     is_regular: bool,
 }
 
@@ -187,11 +186,11 @@ fn feature_adaptive_subdivision(
         // calc position of face point
         for face in &to_be_subdivided {
             let mut count = 0.0;
-            let mut sum = Point3::new(0.0, 0.0, 0.0);
+            let mut sum = glam::Vec3A::new(0.0, 0.0, 0.0);
             let mut he = face.halfedge(mesh);
             loop {
                 count += 1.0;
-                sum.add_assign_element_wise(he.vertex(mesh).data(mesh).pos);
+                sum += he.vertex(mesh).data(mesh).pos;
                 he = he.next(mesh);
                 if he == face.halfedge(mesh) {
                     break;
@@ -211,30 +210,24 @@ fn feature_adaptive_subdivision(
 
                     let sharpness = he.data(mesh).sharpness;
 
-                    let pos_crease = pos_v1.midpoint(pos_v2);
+                    let pos_crease = (pos_v1 + pos_v2) * 0.5;
                     let pos_smooth = {
                         let pos_f1 = he.face(mesh).data(mesh).new_pos;
                         let pos_f2 = twin.face(mesh).data(mesh).new_pos;
                         if pos_f1.is_some() && pos_f2.is_some() {
                             let pos_f1 = pos_f1.unwrap();
                             let pos_f2 = pos_f2.unwrap();
-                            pos_v1
-                                .add_element_wise(pos_v2)
-                                .add_element_wise(pos_f1)
-                                .add_element_wise(pos_f2)
-                                / 4.0
+                            (pos_v1 + pos_v2 + pos_f1 + pos_f2) * 0.25
                         } else {
-                            pos_v1.midpoint(pos_v2)
+                            (pos_v1 + pos_v2) * 0.5
                         }
                     };
 
                     if he.on_boundary(mesh) || twin.on_boundary(mesh) || sharpness >= 1.0 {
                         he.data_mut(mesh).new_pos = Some(pos_crease);
                     } else if sharpness > 0.0 {
-                        he.data_mut(mesh).new_pos = Some(
-                            (pos_crease * sharpness)
-                                .add_element_wise(pos_smooth * (1.0 - sharpness)),
-                        );
+                        he.data_mut(mesh).new_pos =
+                            Some(pos_crease * sharpness + pos_smooth * (1.0 - sharpness));
                     } else {
                         he.data_mut(mesh).new_pos = Some(pos_smooth);
                     }
@@ -286,24 +279,22 @@ fn feature_adaptive_subdivision(
                             assert!(crease_he_pos1.is_some() && crease_he_pos2.is_some());
                             let pos1 = crease_he_pos1.unwrap();
                             let pos2 = crease_he_pos2.unwrap();
-                            (0.75 * pos_v)
-                                .add_element_wise(0.125 * pos1)
-                                .add_element_wise(0.125 * pos2)
+                            0.75 * pos_v + 0.125 * pos1 + 0.125 * pos2
                         };
                         v.data_mut(mesh).new_pos = Some(pos_crease);
                     } else {
                         let pos_smooth = {
                             let mut n = 0.0;
-                            let mut sum = Point3::new(0.0, 0.0, 0.0);
+                            let mut sum = glam::Vec3A::new(0.0, 0.0, 0.0);
                             let mut vhe = he;
                             loop {
                                 let twin = vhe.twin(mesh);
                                 n += 1.0;
-                                sum.add_assign_element_wise(twin.vertex(mesh).data(mesh).pos);
+                                sum += twin.vertex(mesh).data(mesh).pos;
                                 if let Some(pos_f) = vhe.face(mesh).data(mesh).new_pos {
-                                    sum.add_assign_element_wise(pos_f);
+                                    sum += pos_f;
                                 } else {
-                                    sum.add_assign_element_wise(pos_v);
+                                    sum += pos_v;
                                 }
                                 vhe = twin.next(mesh);
                                 if vhe == he {
@@ -311,7 +302,7 @@ fn feature_adaptive_subdivision(
                                 }
                             }
                             let n_inv = 1.0 / n;
-                            ((n - 2.0) * pos_v).add_element_wise(sum * n_inv) * n_inv
+                            ((n - 2.0) * pos_v + sum * n_inv) * n_inv
                         };
                         v.data_mut(mesh).new_pos = Some(pos_smooth);
                     }
@@ -486,7 +477,7 @@ fn get_bezier_patch(
     mesh: &Mesh,
     material: &Arc<dyn Material>,
 ) -> Box<dyn Primitive> {
-    let mut control_points = [[Point3::new(0.0, 0.0, 0.0); 4]; 4];
+    let mut control_points = [[glam::Vec3A::new(0.0, 0.0, 0.0); 4]; 4];
 
     let order = [
         [(1, 1), (0, 1), (1, 0), (0, 0)],
@@ -508,18 +499,28 @@ fn get_bezier_patch(
         control_points[p0.0][p0.1] = he.vertex(mesh).data(mesh).pos;
         if he.twin(mesh).on_boundary(mesh) {
             let pos_temp = last.vertex(mesh).data(mesh).pos;
-            control_points[p1.0][p1.1] = control_points[p0.0][p0.1] + (control_points[p0.0][p0.1] - pos_temp);
+            control_points[p1.0][p1.1] =
+                control_points[p0.0][p0.1] + (control_points[p0.0][p0.1] - pos_temp);
             let he2 = he.twin(mesh).next(mesh).twin(mesh);
             control_points[p2.0][p2.1] = he2.vertex(mesh).data(mesh).pos;
             let pos_temp = he2.last(mesh).vertex(mesh).data(mesh).pos;
-            control_points[p3.0][p3.1] = control_points[p2.0][p2.1] + (control_points[p2.0][p2.1] - pos_temp);
+            control_points[p3.0][p3.1] =
+                control_points[p2.0][p2.1] + (control_points[p2.0][p2.1] - pos_temp);
         } else if last.twin(mesh).on_boundary(mesh) {
             let he2 = he.twin(mesh).next(mesh).twin(mesh);
             control_points[p1.0][p1.1] = he2.vertex(mesh).data(mesh).pos;
             let pos_temp = he.twin(mesh).vertex(mesh).data(mesh).pos;
-            control_points[p2.0][p2.1] = control_points[p0.0][p0.1] + (control_points[p0.0][p0.1] - pos_temp);
-            let pos_temp = he2.twin(mesh).next(mesh).twin(mesh).vertex(mesh).data(mesh).pos;
-            control_points[p3.0][p3.1] = control_points[p1.0][p1.1] + (control_points[p1.0][p1.1] - pos_temp);
+            control_points[p2.0][p2.1] =
+                control_points[p0.0][p0.1] + (control_points[p0.0][p0.1] - pos_temp);
+            let pos_temp = he2
+                .twin(mesh)
+                .next(mesh)
+                .twin(mesh)
+                .vertex(mesh)
+                .data(mesh)
+                .pos;
+            control_points[p3.0][p3.1] =
+                control_points[p1.0][p1.1] + (control_points[p1.0][p1.1] - pos_temp);
         } else {
             let he2 = he.twin(mesh).next(mesh).twin(mesh);
             control_points[p1.0][p1.1] = he2.vertex(mesh).data(mesh).pos;
@@ -528,7 +529,6 @@ fn get_bezier_patch(
             let he2 = he2.next(mesh);
             control_points[p3.0][p3.1] = he2.vertex(mesh).data(mesh).pos;
         }
-
     }
 
     let trans_mat = [
@@ -538,22 +538,20 @@ fn get_bezier_patch(
         [0.0, 1.0 / 6.0, 4.0 / 6.0, 1.0 / 6.0],
     ];
 
-    let mut control_points_temp = [[Point3::new(0.0, 0.0, 0.0); 4]; 4];
+    let mut control_points_temp = [[glam::Vec3A::new(0.0, 0.0, 0.0); 4]; 4];
     for i in 0..4 {
         for j in 0..4 {
             for k in 0..4 {
-                control_points_temp[i][j]
-                    .add_assign_element_wise(control_points[i][k] * trans_mat[j][k]);
+                control_points_temp[i][j] += control_points[i][k] * trans_mat[j][k];
             }
         }
     }
 
     for i in 0..4 {
         for j in 0..4 {
-            control_points[j][i] = Point3::new(0.0, 0.0, 0.0);
+            control_points[j][i] = glam::Vec3A::new(0.0, 0.0, 0.0);
             for k in 0..4 {
-                control_points[j][i]
-                    .add_assign_element_wise(control_points_temp[k][i] * trans_mat[j][k]);
+                control_points[j][i] += control_points_temp[k][i] * trans_mat[j][k];
             }
         }
     }
@@ -566,7 +564,7 @@ fn get_gregory_patch(
     mesh: &Mesh,
     material: &Arc<dyn Material>,
 ) -> Box<dyn Primitive> {
-    let mut control_points = [[Point3::new(0.0, 0.0, 0.0); 4]; 4];
+    let mut control_points = [[glam::Vec3A::new(0.0, 0.0, 0.0); 4]; 4];
 
     let he = face.halfedge(mesh);
     let vert = he.vertex(mesh);
@@ -613,25 +611,25 @@ fn get_gregory_patch(
         calc_face_control_points_pos(pos0, e0_pos, e1_neg, &edge_points0, &face_points0, n0, n1);
     let f0_neg =
         calc_face_control_points_neg(pos0, e0_neg, e3_pos, &edge_points0, &face_points0, n0, n3);
-    control_points[1][1] = f0_pos.midpoint(f0_neg);
+    control_points[1][1] = (f0_pos + f0_neg) * 0.5;
 
     let f1_pos =
         calc_face_control_points_pos(pos1, e1_pos, e2_neg, &edge_points1, &face_points1, n1, n2);
     let f1_neg =
         calc_face_control_points_neg(pos1, e1_neg, e0_pos, &edge_points1, &face_points1, n1, n0);
-    control_points[1][2] = f1_pos.midpoint(f1_neg);
+    control_points[1][2] = (f1_pos + f1_neg) * 0.5;
 
     let f2_pos =
         calc_face_control_points_pos(pos2, e2_pos, e3_neg, &edge_points2, &face_points2, n2, n3);
     let f2_neg =
         calc_face_control_points_neg(pos2, e2_neg, e1_pos, &edge_points2, &face_points2, n2, n1);
-    control_points[2][2] = f2_pos.midpoint(f2_neg);
+    control_points[2][2] = (f2_pos + f2_neg) * 0.5;
 
     let f3_pos =
         calc_face_control_points_pos(pos3, e3_pos, e0_neg, &edge_points3, &face_points3, n3, n0);
     let f3_neg =
         calc_face_control_points_neg(pos3, e3_neg, e2_pos, &edge_points3, &face_points3, n3, n2);
-    control_points[2][1] = f3_pos.midpoint(f3_neg);
+    control_points[2][1] = (f3_pos + f3_neg) * 0.5;
 
     Box::new(CubicBezier::new(control_points, material.clone()))
 }
@@ -640,7 +638,7 @@ fn get_edge_points_and_face_points(
     vert: &halfedge::VertexRef,
     face: &halfedge::FaceRef,
     mesh: &Mesh,
-) -> (Vec<Point3<f32>>, Vec<Point3<f32>>) {
+) -> (Vec<glam::Vec3A>, Vec<glam::Vec3A>) {
     let mut edge_points = vec![];
     let mut face_points = vec![];
 
@@ -654,14 +652,14 @@ fn get_edge_points_and_face_points(
     let pos_v = vert.data(mesh).pos;
     loop {
         let twin = he.twin(mesh);
-        let pos_e = twin.vertex(mesh).data(mesh).pos.midpoint(pos_v);
+        let pos_e = (twin.vertex(mesh).data(mesh).pos + pos_v) * 0.5;
         edge_points.push(pos_e);
 
-        let mut pos_f = Point3::new(0.0, 0.0, 0.0);
+        let mut pos_f = glam::Vec3A::new(0.0, 0.0, 0.0);
         let mut fhe = he;
         let mut count_f = 0.0;
         loop {
-            pos_f.add_assign_element_wise(fhe.vertex(mesh).data(mesh).pos);
+            pos_f += fhe.vertex(mesh).data(mesh).pos;
             count_f += 1.0;
             fhe = fhe.next(mesh);
             if fhe == he {
@@ -684,31 +682,31 @@ fn get_edge_points_and_face_points(
 }
 
 fn calc_vertex_control_point(
-    pos_v: Point3<f32>,
-    edge_points: &[Point3<f32>],
-    face_points: &[Point3<f32>],
-) -> Point3<f32> {
-    let mut sum_ef = Point3::new(0.0, 0.0, 0.0);
+    pos_v: glam::Vec3A,
+    edge_points: &[glam::Vec3A],
+    face_points: &[glam::Vec3A],
+) -> glam::Vec3A {
+    let mut sum_ef = glam::Vec3A::new(0.0, 0.0, 0.0);
     for pos_e in edge_points {
-        sum_ef.add_assign_element_wise(*pos_e);
+        sum_ef += *pos_e;
     }
     for pos_f in face_points {
-        sum_ef.add_assign_element_wise(*pos_f);
+        sum_ef += *pos_f;
     }
 
     let n = edge_points.len() as f32;
     let n_inv = 1.0 / n;
     let n5_inv = 1.0 / (n + 5.0);
 
-    let pos = ((n - 3.0) * n5_inv * pos_v).add_element_wise(4.0 * n_inv * n5_inv * sum_ef);
+    let pos = (n - 3.0) * n5_inv * pos_v + 4.0 * n_inv * n5_inv * sum_ef;
     pos
 }
 
 fn calc_edge_control_points(
-    pos_v: Point3<f32>,
-    edge_points: &[Point3<f32>],
-    face_points: &[Point3<f32>],
-) -> (Point3<f32>, Point3<f32>) {
+    pos_v: glam::Vec3A,
+    edge_points: &[glam::Vec3A],
+    face_points: &[glam::Vec3A],
+) -> (glam::Vec3A, glam::Vec3A) {
     let n = edge_points.len() as f32;
     let n_inv = 1.0 / n;
 
@@ -720,21 +718,20 @@ fn calc_edge_control_points(
     let temp = frac_2pi_n.cos();
     let lambda = (5.0 + temp + frac_pi_n_cos * (18.0 + 2.0 * temp).sqrt()) / 24.0;
 
-    let mut tangent = Vector3::zero();
-    let mut bitangent = Vector3::zero();
+    let mut tangent = glam::Vec3A::ZERO;
+    let mut bitangent = glam::Vec3A::ZERO;
     let ka_common = 1.0 - sigma * frac_pi_n_cos;
     let kb_common = 2.0 * sigma;
     for i in 0..edge_points.len() {
         let ti = i as f32;
         let ka = ka_common * (frac_2pi_n * ti).cos();
         let kb = kb_common * (frac_2pi_n * ti + frac_pi_n).cos();
-        tangent += ka * point3_as_vector3(edge_points[i]) + kb * point3_as_vector3(face_points[i]);
+        tangent += ka * edge_points[i] + kb * face_points[i];
 
         let bi = ti - 1.0;
         let ka = ka_common * (frac_2pi_n * bi).cos();
         let kb = kb_common * (frac_2pi_n * bi + frac_pi_n).cos();
-        bitangent +=
-            ka * point3_as_vector3(edge_points[i]) + kb * point3_as_vector3(face_points[i]);
+        bitangent += ka * edge_points[i] + kb * face_points[i];
     }
     let tangent = tangent * 2.0 * n_inv;
     let bitangent = bitangent * 2.0 * n_inv;
@@ -746,45 +743,33 @@ fn calc_edge_control_points(
 }
 
 fn calc_face_control_points_pos(
-    pos0: Point3<f32>,
-    e0_pos: Point3<f32>,
-    e1_neg: Point3<f32>,
-    edge_points0: &[Point3<f32>],
-    face_points0: &[Point3<f32>],
+    pos0: glam::Vec3A,
+    e0_pos: glam::Vec3A,
+    e1_neg: glam::Vec3A,
+    edge_points0: &[glam::Vec3A],
+    face_points0: &[glam::Vec3A],
     n0: f32,
     n1: f32,
-) -> Point3<f32> {
+) -> glam::Vec3A {
     let r = (edge_points0[edge_points0.len() - 1] - edge_points0[1]) / 3.0
         + 2.0 * (face_points0[0] - face_points0[face_points0.len() - 1]) / 3.0;
     let c0 = (2.0 * std::f32::consts::PI / n0).cos();
     let c1 = (2.0 * std::f32::consts::PI / n1).cos();
-    ((c1 * pos0)
-        .add_element_wise((3.0 - 2.0 * c0 - c1) * e0_pos)
-        .add_element_wise(2.0 * c0 * e1_neg)
-        + r)
-        / 3.0
+    (c1 * pos0 + (3.0 - 2.0 * c0 - c1) * e0_pos + 2.0 * c0 * e1_neg + r) / 3.0
 }
 
 fn calc_face_control_points_neg(
-    pos0: Point3<f32>,
-    e0_neg: Point3<f32>,
-    e3_pos: Point3<f32>,
-    edge_points0: &[Point3<f32>],
-    face_points0: &[Point3<f32>],
+    pos0: glam::Vec3A,
+    e0_neg: glam::Vec3A,
+    e3_pos: glam::Vec3A,
+    edge_points0: &[glam::Vec3A],
+    face_points0: &[glam::Vec3A],
     n0: f32,
     n3: f32,
-) -> Point3<f32> {
+) -> glam::Vec3A {
     let r =
         (edge_points0[0] - edge_points0[2]) / 3.0 + 2.0 * (face_points0[0] - face_points0[1]) / 3.0;
     let c0 = (2.0 * std::f32::consts::PI / n0).cos();
     let c1 = (2.0 * std::f32::consts::PI / n3).cos();
-    ((c1 * pos0)
-        .add_element_wise((3.0 - 2.0 * c0 - c1) * e0_neg)
-        .add_element_wise(2.0 * c0 * e3_pos)
-        + r)
-        / 3.0
-}
-
-fn point3_as_vector3(p: Point3<f32>) -> Vector3<f32> {
-    Vector3::new(p.x, p.y, p.z)
+    (c1 * pos0 + (3.0 - 2.0 * c0 - c1) * e0_neg + 2.0 * c0 * e3_pos + r) / 3.0
 }

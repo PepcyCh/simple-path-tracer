@@ -1,12 +1,8 @@
 use std::sync::Arc;
 
-use cgmath::{ElementWise, EuclideanSpace, InnerSpace, Point2, Point3, Vector2, Vector3};
-
-use crate::core::bbox::Bbox;
-use crate::core::intersection::Intersection;
-use crate::core::material::Material;
-use crate::core::primitive::Primitive;
-use crate::core::ray::Ray;
+use crate::core::{
+    bbox::Bbox, intersection::Intersection, material::Material, primitive::Primitive, ray::Ray,
+};
 
 // Newton's iteration
 #[cfg(feature = "bezier_ni")]
@@ -20,30 +16,19 @@ const CLIPPING_MAX_TIMES: u32 = 16;
 const CLIPPING_EPS: f32 = 0.00001;
 
 pub struct CubicBezier {
-    control_points: [[Point3<f32>; 4]; 4],
+    control_points: [[glam::Vec3A; 4]; 4],
     material: Arc<dyn Material>,
     bbox: Bbox,
 }
 
 impl CubicBezier {
-    pub fn new(control_points: [[Point3<f32>; 4]; 4], material: Arc<dyn Material>) -> Self {
-        let (p_min, p_max) = control_points.iter().flatten().fold(
-            (control_points[0][0], control_points[0][0]),
-            |acc, curr| {
-                (
-                    Point3::new(
-                        acc.0.x.min(curr.x),
-                        acc.0.y.min(curr.y),
-                        acc.0.z.min(curr.z),
-                    ),
-                    Point3::new(
-                        acc.1.x.max(curr.x),
-                        acc.1.y.max(curr.y),
-                        acc.1.z.max(curr.z),
-                    ),
-                )
-            },
-        );
+    pub fn new(control_points: [[glam::Vec3A; 4]; 4], material: Arc<dyn Material>) -> Self {
+        let (p_min, p_max) = control_points
+            .iter()
+            .flatten()
+            .fold((control_points[0][0], control_points[0][0]), |acc, curr| {
+                (acc.0.min(*curr), acc.1.max(*curr))
+            });
         let bbox = Bbox::new(p_min, p_max);
 
         Self {
@@ -53,30 +38,22 @@ impl CubicBezier {
         }
     }
 
-    fn point_at(&self, u: f32, v: f32) -> Point3<f32> {
+    fn point_at(&self, u: f32, v: f32) -> glam::Vec3A {
         let bezier_u = cubic_bezier_at(u);
         let bezier_v = cubic_bezier_at(v);
         cubic_bezier_sum(&self.control_points, &bezier_u, &bezier_v)
     }
 
-    fn tangent_at(&self, u: f32, v: f32) -> Vector3<f32> {
+    fn tangent_at(&self, u: f32, v: f32) -> glam::Vec3A {
         let bezier_du = cubic_bezier_du_at(u);
         let bezier_v = cubic_bezier_at(v);
-        point3_as_vector3(cubic_bezier_sum(
-            &self.control_points,
-            &bezier_du,
-            &bezier_v,
-        ))
+        cubic_bezier_sum(&self.control_points, &bezier_du, &bezier_v)
     }
 
-    fn bitangent_at(&self, u: f32, v: f32) -> Vector3<f32> {
+    fn bitangent_at(&self, u: f32, v: f32) -> glam::Vec3A {
         let bezier_u = cubic_bezier_at(u);
         let bezier_dv = cubic_bezier_du_at(v);
-        point3_as_vector3(cubic_bezier_sum(
-            &self.control_points,
-            &bezier_u,
-            &bezier_dv,
-        ))
+        cubic_bezier_sum(&self.control_points, &bezier_u, &bezier_dv)
     }
 
     /// returns (u, v, t) of intersected point if exists, using Newton's iteration
@@ -95,7 +72,7 @@ impl CubicBezier {
                     break;
                 }
 
-                if diff.magnitude2() < NEWTON_ITERATION_EPS {
+                if diff.length_squared() < NEWTON_ITERATION_EPS {
                     if u >= 0.0 && u <= 1.0 && v >= 0.0 && v <= 1.0 && t > ray.t_min {
                         return Some((u, v, t));
                     }
@@ -128,13 +105,13 @@ impl CubicBezier {
     /// returns (u, v, t) of intersected point if exists, using Bezier clipping
     #[cfg(not(feature = "bezier_ni"))]
     fn intersect_ray(&self, ray: &Ray) -> Option<(f32, f32, f32)> {
-        let mut patch = [[Point2::new(0.0, 0.0); 4]; 4];
-        let n1 = Vector3::new(-ray.direction.y, ray.direction.x, 0.0).normalize();
-        let n2 = Vector3::new(0.0, -ray.direction.z, ray.direction.y).normalize();
+        let mut patch = [[glam::Vec2::new(0.0, 0.0); 4]; 4];
+        let n1 = glam::Vec3A::new(-ray.direction.y, ray.direction.x, 0.0).normalize();
+        let n2 = glam::Vec3A::new(0.0, -ray.direction.z, ray.direction.y).normalize();
         for i in 0..4 {
             for j in 0..4 {
                 let diff = self.control_points[i][j] - ray.origin;
-                patch[i][j] = Point2::new(diff.dot(n1), diff.dot(n2));
+                patch[i][j] = glam::Vec2::new(diff.dot(n1), diff.dot(n2));
             }
         }
         let lu = ((patch[3][0] - patch[0][0]) + (patch[3][3] - patch[0][3])).normalize();
@@ -146,8 +123,8 @@ impl CubicBezier {
             let p = self.point_at(inter.x, inter.y);
             let diff = p - ray.origin;
             let cross = diff.cross(ray.direction);
-            if cross.magnitude2() < CLIPPING_EPS {
-                let t = diff.dot(ray.direction) / ray.direction.magnitude2();
+            if cross.length_squared() < CLIPPING_EPS {
+                let t = diff.dot(ray.direction) / ray.direction.length_squared();
                 if t > ray.t_min && t < t_min {
                     t_min = t;
                     result = Some((inter.x, inter.y, t));
@@ -171,7 +148,7 @@ impl Primitive for CubicBezier {
         if let Some((u, v, t)) = self.intersect_ray(ray) {
             if t > ray.t_min && t < inter.t {
                 inter.t = t;
-                inter.texcoords = cgmath::Point2::new(u, v);
+                inter.texcoords = glam::Vec2::new(u, v);
                 inter.tangent = self.tangent_at(u, v);
                 inter.bitangent = self.bitangent_at(u, v);
                 inter.normal = (inter.tangent.cross(inter.bitangent)).normalize();
@@ -211,14 +188,14 @@ fn cubic_bezier_du_at(u: f32) -> [f32; 4] {
 }
 
 fn cubic_bezier_sum(
-    points: &[[Point3<f32>; 4]; 4],
+    points: &[[glam::Vec3A; 4]; 4],
     basic_u: &[f32; 4],
     basic_v: &[f32; 4],
-) -> Point3<f32> {
-    let mut result = Point3::new(0.0, 0.0, 0.0);
+) -> glam::Vec3A {
+    let mut result = glam::Vec3A::ZERO;
     for i in 0..4 {
         for j in 0..4 {
-            result.add_assign_element_wise(basic_u[j] * basic_v[i] * points[i][j]);
+            result += basic_u[j] * basic_v[i] * points[i][j];
         }
     }
     result
@@ -226,15 +203,15 @@ fn cubic_bezier_sum(
 
 #[cfg(not(feature = "bezier_ni"))]
 fn bezier_clipping(
-    patch: [[Point2<f32>; 4]; 4],
-    lu: Vector2<f32>,
-    lv: Vector2<f32>,
+    patch: [[glam::Vec2; 4]; 4],
+    lu: glam::Vec2,
+    lv: glam::Vec2,
     affine_u: (f32, f32),
     affine_v: (f32, f32),
     real_u: bool,
     mut calculated: Option<f32>,
     times: u32,
-) -> Vec<Point2<f32>> {
+) -> Vec<glam::Vec2> {
     if times == CLIPPING_MAX_TIMES {
         let u = 0.5 * affine_u.0 + affine_u.1;
         let v = if let Some(calculated) = calculated {
@@ -243,9 +220,9 @@ fn bezier_clipping(
             0.5 * affine_v.0 + affine_v.1
         };
         return if real_u {
-            vec![Point2::new(u, v)]
+            vec![glam::Vec2::new(u, v)]
         } else {
-            vec![Point2::new(v, u)]
+            vec![glam::Vec2::new(v, u)]
         };
     }
 
@@ -383,9 +360,9 @@ fn bezier_clipping(
             let u = 0.5 * (u_max + u_min) * affine_u.0 + affine_u.1;
             if let Some(calculated) = calculated {
                 return if real_u {
-                    vec![Point2::new(u, calculated)]
+                    vec![glam::Vec2::new(u, calculated)]
                 } else {
-                    vec![Point2::new(calculated, u)]
+                    vec![glam::Vec2::new(calculated, u)]
                 };
             }
             calculated = Some(u);
@@ -429,30 +406,30 @@ fn bezier_clipping(
 }
 
 #[cfg(not(feature = "bezier_ni"))]
-fn clip_bezier_by(points: [Point2<f32>; 4], u_min: f32, u_max: f32) -> [Point2<f32>; 4] {
+fn clip_bezier_by(points: [glam::Vec2; 4], u_min: f32, u_max: f32) -> [glam::Vec2; 4] {
     let bezier_u_min = cubic_bezier_at(u_min);
-    let p_min = (points[0] * bezier_u_min[0])
-        .add_element_wise(points[1] * bezier_u_min[1])
-        .add_element_wise(points[2] * bezier_u_min[2])
-        .add_element_wise(points[3] * bezier_u_min[3]);
+    let p_min = points[0] * bezier_u_min[0]
+        + points[1] * bezier_u_min[1]
+        + points[2] * bezier_u_min[2]
+        + points[3] * bezier_u_min[3];
     let bezier_du_min = cubic_bezier_du_at(u_min);
-    let d_min = (points[0] * bezier_du_min[0])
-        .add_element_wise(points[1] * bezier_du_min[1])
-        .add_element_wise(points[2] * bezier_du_min[2])
-        .add_element_wise(points[3] * bezier_du_min[3]);
-    let d_min = point2_as_vector2(d_min) * (u_max - u_min);
+    let d_min = points[0] * bezier_du_min[0]
+        + points[1] * bezier_du_min[1]
+        + points[2] * bezier_du_min[2]
+        + points[3] * bezier_du_min[3];
+    let d_min = d_min * (u_max - u_min);
 
     let bezier_u_max = cubic_bezier_at(u_max);
-    let p_max = (points[0] * bezier_u_max[0])
-        .add_element_wise(points[1] * bezier_u_max[1])
-        .add_element_wise(points[2] * bezier_u_max[2])
-        .add_element_wise(points[3] * bezier_u_max[3]);
+    let p_max = points[0] * bezier_u_max[0]
+        + points[1] * bezier_u_max[1]
+        + points[2] * bezier_u_max[2]
+        + points[3] * bezier_u_max[3];
     let bezier_du_max = cubic_bezier_du_at(u_max);
-    let d_max = (points[0] * bezier_du_max[0])
-        .add_element_wise(points[1] * bezier_du_max[1])
-        .add_element_wise(points[2] * bezier_du_max[2])
-        .add_element_wise(points[3] * bezier_du_max[3]);
-    let d_max = point2_as_vector2(d_max) * (u_max - u_min);
+    let d_max = points[0] * bezier_du_max[0]
+        + points[1] * bezier_du_max[1]
+        + points[2] * bezier_du_max[2]
+        + points[3] * bezier_du_max[3];
+    let d_max = d_max * (u_max - u_min);
 
     let p1 = p_min + d_min / 3.0;
     let p2 = p_max - d_max / 3.0;
@@ -461,40 +438,31 @@ fn clip_bezier_by(points: [Point2<f32>; 4], u_min: f32, u_max: f32) -> [Point2<f
 }
 
 #[cfg(not(feature = "bezier_ni"))]
-fn clip_bezier_at_midpoint(points: [Point2<f32>; 4]) -> ([Point2<f32>; 4], [Point2<f32>; 4]) {
+fn clip_bezier_at_midpoint(points: [glam::Vec2; 4]) -> ([glam::Vec2; 4], [glam::Vec2; 4]) {
     let bezier_u_mid = cubic_bezier_at(0.5);
-    let p_mid = (points[0] * bezier_u_mid[0])
-        .add_element_wise(points[1] * bezier_u_mid[1])
-        .add_element_wise(points[2] * bezier_u_mid[2])
-        .add_element_wise(points[3] * bezier_u_mid[3]);
+    let p_mid = points[0] * bezier_u_mid[0]
+        + points[1] * bezier_u_mid[1]
+        + points[2] * bezier_u_mid[2]
+        + points[3] * bezier_u_mid[3];
     let bezier_du_mid = cubic_bezier_du_at(0.5);
-    let d_mid = (points[0] * bezier_du_mid[0])
-        .add_element_wise(points[1] * bezier_du_mid[1])
-        .add_element_wise(points[2] * bezier_du_mid[2])
-        .add_element_wise(points[3] * bezier_du_mid[3]);
-    let d_mid = point2_as_vector2(d_mid) * 0.5 / 3.0;
+    let d_mid = points[0] * bezier_du_mid[0]
+        + points[1] * bezier_du_mid[1]
+        + points[2] * bezier_du_mid[2]
+        + points[3] * bezier_du_mid[3];
+    let d_mid = d_mid * 0.5 / 3.0;
 
     (
         [
             points[0],
-            points[0].midpoint(points[1]),
+            (points[0] + points[1]) * 0.5,
             p_mid - d_mid,
             p_mid,
         ],
         [
             p_mid,
             p_mid + d_mid,
-            points[2].midpoint(points[3]),
+            (points[2] + points[3]) * 0.5,
             points[3],
         ],
     )
-}
-
-#[cfg(not(feature = "bezier_ni"))]
-fn point2_as_vector2(p: Point2<f32>) -> Vector2<f32> {
-    Vector2::new(p.x, p.y)
-}
-
-fn point3_as_vector3(p: Point3<f32>) -> Vector3<f32> {
-    Vector3::new(p.x, p.y, p.z)
 }

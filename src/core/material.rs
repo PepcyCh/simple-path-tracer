@@ -1,9 +1,7 @@
-use crate::core::color::Color;
-use crate::core::intersection::Intersection;
-use crate::core::scatter::Scatter;
+use crate::core::{color::Color, intersection::Intersection, scatter::Scatter};
 
 pub trait Material: Send + Sync {
-    fn apply_normal_map(&self, inter: &Intersection<'_>) -> cgmath::Vector3<f32> {
+    fn apply_normal_map(&self, inter: &Intersection<'_>) -> glam::Vec3A {
         inter.normal
     }
 

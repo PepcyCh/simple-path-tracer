@@ -1,6 +1,6 @@
-use crate::core::color::Color;
-use crate::core::filter::Filter;
 use image::{Rgb, RgbImage};
+
+use crate::core::{color::Color, filter::Filter};
 
 #[derive(Copy, Clone)]
 struct SampleData {
