@@ -9,13 +9,23 @@ pub struct Coordinate {
 
 impl Coordinate {
     pub fn from_z(z_world: glam::Vec3A, hemisphere: glam::Vec3A) -> Self {
-        let y_world = if z_world.y.abs() < 0.99 {
-            glam::Vec3A::Y
-        } else {
-            glam::Vec3A::X
-        };
-        let x_world = (y_world.cross(z_world)).normalize();
-        let y_world = z_world.cross(x_world);
+        // let y_world = if z_world.y.abs() < 0.99 {
+        //     glam::Vec3A::Y
+        // } else {
+        //     glam::Vec3A::X
+        // };
+        // let x_world = (y_world.cross(z_world)).normalize();
+        // let y_world = z_world.cross(x_world);
+
+        let sign = if z_world.z >= 0.0 { 1.0 } else { -1.0 };
+        let a = -1.0 / (sign + z_world.z);
+        let b = z_world.x * z_world.y * a;
+        let x_world = glam::Vec3A::new(
+            1.0 + sign * z_world.x * z_world.x * a,
+            sign * b,
+            -sign * z_world.x,
+        );
+        let y_world = glam::Vec3A::new(b, sign + z_world.y * z_world.y * a, -z_world.y);
 
         let local_to_world = glam::Mat3A::from_cols(x_world, y_world, z_world);
         let world_to_local = local_to_world.transpose();
