@@ -142,19 +142,6 @@ impl PathTracer {
                 inter.apply_normal_map();
             }
             curr_primitive = inter.primitive;
-            if curr_medium.is_some() {
-                println!(
-                    "depth = {}, inter.t = {}, prim ?= {}, med ?= {}",
-                    curr_depth,
-                    inter.t,
-                    inter.primitive.is_some(),
-                    curr_medium.is_some()
-                );
-            }
-            if curr_primitive.is_none() && curr_medium.is_some() {
-                final_color = Color::new(1.0, 0.0, 0.0);
-                break;
-            }
 
             if let Some(medium) = curr_medium {
                 let wo = -ray.direction;
@@ -316,7 +303,7 @@ impl PathTracer {
                     break;
                 }
 
-                if wi.z < 0.0 {
+                if wi_world.dot(inter.normal) < 0.0 {
                     curr_medium = inter.primitive.unwrap().inside_medium();
                 }
             }
