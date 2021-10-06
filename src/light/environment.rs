@@ -5,7 +5,7 @@ pub struct EnvLight {
     scale: Color,
     height: usize,
     width: usize,
-    atlas_table: AliasTable,
+    alias_table: AliasTable,
 }
 
 struct AliasTable {
@@ -35,13 +35,13 @@ impl EnvLight {
             *prop /= sum;
         }
 
-        let atlas_table = AliasTable::new(props);
+        let alias_table = AliasTable::new(props);
         Self {
             texture,
             scale,
             height,
             width,
-            atlas_table,
+            alias_table,
         }
     }
 
@@ -68,10 +68,10 @@ impl EnvLight {
         let c1 = c10 * (1.0 - yt) + c11 * yt;
         let c = c0 * (1.0 - xt) + c1 * xt;
 
-        let p00 = self.atlas_table.props[y0 * self.width + x0];
-        let p01 = self.atlas_table.props[y1 * self.width + x0];
-        let p10 = self.atlas_table.props[y0 * self.width + x1];
-        let p11 = self.atlas_table.props[y1 * self.width + x1];
+        let p00 = self.alias_table.props[y0 * self.width + x0];
+        let p01 = self.alias_table.props[y1 * self.width + x0];
+        let p10 = self.alias_table.props[y0 * self.width + x1];
+        let p11 = self.alias_table.props[y1 * self.width + x1];
         let p0 = p00 * (1.0 - yt) + p01 * yt;
         let p1 = p10 * (1.0 - yt) + p11 * yt;
         let p = p0 * (1.0 - xt) * p1 * xt;
@@ -87,7 +87,7 @@ impl Light for EnvLight {
         sampler: &mut dyn Sampler,
     ) -> (glam::Vec3A, f32, Color, f32) {
         let rand = sampler.uniform_1d();
-        let (ind, _) = self.atlas_table.sample(rand);
+        let (ind, _) = self.alias_table.sample(rand);
         let x = ind % self.width;
         let y = ind / self.width;
 
