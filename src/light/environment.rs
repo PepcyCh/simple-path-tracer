@@ -5,10 +5,10 @@ pub struct EnvLight {
     scale: Color,
     height: usize,
     width: usize,
-    atlas_table: AtlasTable,
+    atlas_table: AliasTable,
 }
 
-struct AtlasTable {
+struct AliasTable {
     props: Vec<f32>,
     u: Vec<f32>,
     k: Vec<usize>,
@@ -35,7 +35,7 @@ impl EnvLight {
             *prop /= sum;
         }
 
-        let atlas_table = AtlasTable::new(props);
+        let atlas_table = AliasTable::new(props);
         Self {
             texture,
             scale,
@@ -114,7 +114,7 @@ impl Light for EnvLight {
     }
 }
 
-impl AtlasTable {
+impl AliasTable {
     fn new(props: Vec<f32>) -> Self {
         let n = props.len();
         let mut u: Vec<f32> = props.iter().map(|prop| *prop * n as f32).collect();
