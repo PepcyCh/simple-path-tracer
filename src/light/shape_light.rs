@@ -1,18 +1,17 @@
 use std::sync::Arc;
 
-use crate::{core::{color::Color, intersection::Intersection, light::Light, primitive::Primitive, ray::Ray, sampler::Sampler, scene::Instance, transform::Transform}};
+use crate::core::{
+    color::Color, intersection::Intersection, light::Light, primitive::Primitive, ray::Ray,
+    sampler::Sampler, scene::Instance, transform::Transform,
+};
 
 pub struct ShapeLight {
     shape: Arc<Instance>,
 }
 
 impl ShapeLight {
-    pub fn new(
-        shape: Arc<Instance>,
-    ) -> Self {
-        Self {
-            shape,
-        }
+    pub fn new(shape: Arc<Instance>) -> Self {
+        Self { shape }
     }
 }
 
@@ -41,7 +40,7 @@ impl Light for ShapeLight {
             }
         };
         let pdf = pdf * light_dist_sqr / cos.max(0.001);
-        
+
         (light_dir, pdf, emissive, light_dist)
     }
 
@@ -67,7 +66,7 @@ impl Light for ShapeLight {
                 }
             };
             let pdf = pdf * light_dist_sqr / cos.max(0.001);
-            
+
             (emissive, light_dist, pdf)
         } else {
             (Color::BLACK, 0.0, 1.0)

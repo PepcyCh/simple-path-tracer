@@ -1,6 +1,12 @@
 use std::sync::Arc;
 
-use crate::{core::{bbox::Bbox, intersection::Intersection, primitive::Primitive, ray::Ray, sampler::Sampler, scene::Scene, transform::Transform}, loader::{self, JsonObject, Loadable}};
+use crate::{
+    core::{
+        bbox::Bbox, intersection::Intersection, primitive::Primitive, ray::Ray, sampler::Sampler,
+        scene::Scene, transform::Transform,
+    },
+    loader::{self, JsonObject, Loadable},
+};
 
 use super::BvhAccel;
 
@@ -157,7 +163,11 @@ impl Primitive for TriMesh {
         self.triangles.bbox()
     }
 
-    fn sample<'a>(&'a self, trans: Transform, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+    fn sample<'a>(
+        &'a self,
+        trans: Transform,
+        sampler: &mut dyn Sampler,
+    ) -> (Intersection<'a>, f32) {
         self.triangles.sample(trans, sampler)
     }
 
@@ -214,7 +224,11 @@ impl Primitive for Triangle {
         self.bbox
     }
 
-    fn sample<'a>(&'a self, trans: Transform, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+    fn sample<'a>(
+        &'a self,
+        trans: Transform,
+        sampler: &mut dyn Sampler,
+    ) -> (Intersection<'a>, f32) {
         let rand = sampler.uniform_2d();
         let r0_sqrt = rand.0.sqrt();
         let u = 1.0 - r0_sqrt;

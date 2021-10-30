@@ -2,7 +2,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Context;
 
-use crate::{core::{
+use crate::{
+    core::{
         bbox::Bbox,
         camera::Camera,
         color::Color,
@@ -16,7 +17,10 @@ use crate::{core::{
         surface::Surface,
         texture::Texture,
         transform::Transform,
-    }, light::{EnvLight, ShapeLight}, loader::{self, JsonObject, Loadable}};
+    },
+    light::{EnvLight, ShapeLight},
+    loader::{self, JsonObject, Loadable},
+};
 
 pub struct Instance {
     primitive: Arc<dyn Primitive>,
@@ -110,7 +114,11 @@ impl Primitive for Instance {
         self.bbox
     }
 
-    fn sample<'a>(&'a self, trans: Transform, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+    fn sample<'a>(
+        &'a self,
+        trans: Transform,
+        sampler: &mut dyn Sampler,
+    ) -> (Intersection<'a>, f32) {
         let (mut inter, pdf) = self.primitive.sample(trans * self.trans, sampler);
         inter.surface = Some(self.surface.as_ref());
         (inter, pdf)
@@ -195,12 +203,27 @@ impl Loadable for Instance {
             let mat_name = loader::get_str_field(json_value, &env, "material")?;
             if let Some(mat) = scene.materials.get(mat_name) {
                 let surf_name = format!("${}", mat_name);
-                scene.surfaces.entry(surf_name).or_insert(Arc::new(Surface::new(mat.clone(), None, None, Color::BLACK, None, false, None))).clone()
+                scene
+                    .surfaces
+                    .entry(surf_name)
+                    .or_insert(Arc::new(Surface::new(
+                        mat.clone(),
+                        None,
+                        None,
+                        Color::BLACK,
+                        None,
+                        false,
+                        None,
+                    )))
+                    .clone()
             } else {
                 anyhow::bail!(format!("{}: material '{}' not found", env, mat_name))
             }
         } else {
-            anyhow::bail!(format!("{}: neither 'surface' nor 'material' is found", env))
+            anyhow::bail!(format!(
+                "{}: neither 'surface' nor 'material' is found",
+                env
+            ))
         };
 
         let prim_name = loader::get_str_field(json_value, &env, "primitive")?;
@@ -210,9 +233,10 @@ impl Loadable for Instance {
             anyhow::bail!(format!("{}: primitive '{}' not found", env, prim_name))
         };
 
-        scene
-            .instances
-            .insert(name.to_owned(), Arc::new(Self::new(primitive, trans, surface)));
+        scene.instances.insert(
+            name.to_owned(),
+            Arc::new(Self::new(primitive, trans, surface)),
+        );
 
         Ok(())
     }

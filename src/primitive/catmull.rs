@@ -2,7 +2,19 @@ use std::{collections::HashSet, sync::Arc};
 
 use pep_mesh::{halfedge, io::ply};
 
-use crate::{core::{bbox::Bbox, intersection::Intersection, primitive::{Aggregate, Primitive}, ray::Ray, sampler::Sampler, scene::Scene, transform::Transform}, loader::{self, JsonObject, Loadable}, primitive::BvhAccel};
+use crate::{
+    core::{
+        bbox::Bbox,
+        intersection::Intersection,
+        primitive::{Aggregate, Primitive},
+        ray::Ray,
+        sampler::Sampler,
+        scene::Scene,
+        transform::Transform,
+    },
+    loader::{self, JsonObject, Loadable},
+    primitive::BvhAccel,
+};
 
 use super::CubicBezier;
 
@@ -108,7 +120,11 @@ impl Primitive for CatmullClark {
         self.bbox
     }
 
-    fn sample<'a>(&'a self, _trans: Transform, _sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+    fn sample<'a>(
+        &'a self,
+        _trans: Transform,
+        _sampler: &mut dyn Sampler,
+    ) -> (Intersection<'a>, f32) {
         unimplemented!("<CatmullClark as Primitive>::sample() not supported yet")
     }
 

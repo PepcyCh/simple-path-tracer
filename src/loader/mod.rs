@@ -5,7 +5,14 @@ use std::sync::Arc;
 use anyhow::Context;
 
 use crate::camera::PerspectiveCamera;
-use crate::core::{color::Color, filter::Filter, primitive::{Aggregate, Primitive}, renderer::Renderer, scene::{Instance, Scene}, surface::Surface};
+use crate::core::{
+    color::Color,
+    filter::Filter,
+    primitive::{Aggregate, Primitive},
+    renderer::Renderer,
+    scene::{Instance, Scene},
+    surface::Surface,
+};
 use crate::filter::BoxFilter;
 use crate::light::{DirLight, EnvLight, PointLight, RectangleLight};
 use crate::material::{
@@ -99,7 +106,9 @@ pub fn load<P: AsRef<Path>>(path: P) -> anyhow::Result<(Scene, Box<dyn Renderer>
             "environment",
             EnvLight::load,
         )?;
-        scene.lights.push(scene.environment.as_ref().unwrap().clone());
+        scene
+            .lights
+            .push(scene.environment.as_ref().unwrap().clone());
     }
 
     build_aggregate(&mut scene, &json_value)?;

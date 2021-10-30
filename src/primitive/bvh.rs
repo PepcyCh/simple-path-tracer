@@ -1,6 +1,13 @@
 use std::{collections::HashSet, sync::Arc};
 
-use crate::core::{bbox::Bbox, intersection::Intersection, primitive::{Aggregate, Primitive}, ray::Ray, sampler::Sampler, transform::Transform};
+use crate::core::{
+    bbox::Bbox,
+    intersection::Intersection,
+    primitive::{Aggregate, Primitive},
+    ray::Ray,
+    sampler::Sampler,
+    transform::Transform,
+};
 
 pub struct BvhAccel {
     bvh_root: Option<Box<BvhNode>>,
@@ -290,7 +297,11 @@ impl Primitive for BvhAccel {
         }
     }
 
-    fn sample<'a>(&'a self, trans: Transform, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+    fn sample<'a>(
+        &'a self,
+        trans: Transform,
+        sampler: &mut dyn Sampler,
+    ) -> (Intersection<'a>, f32) {
         let index = sampler.uniform_1d() * self.primitives.len() as f32;
         let index = (index as usize).min(self.primitives.len() - 1);
         let (inter, pdf) = self.primitives[index].sample(trans, sampler);

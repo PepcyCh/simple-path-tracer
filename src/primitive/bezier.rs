@@ -2,7 +2,13 @@ use std::sync::Arc;
 
 use anyhow::Context;
 
-use crate::{core::{bbox::Bbox, intersection::Intersection, primitive::Primitive, ray::Ray, sampler::Sampler, scene::Scene, transform::Transform}, loader::{self, JsonObject, Loadable}};
+use crate::{
+    core::{
+        bbox::Bbox, intersection::Intersection, primitive::Primitive, ray::Ray, sampler::Sampler,
+        scene::Scene, transform::Transform,
+    },
+    loader::{self, JsonObject, Loadable},
+};
 
 // Newton's iteration
 #[cfg(feature = "bezier_ni")]
@@ -161,7 +167,11 @@ impl Primitive for CubicBezier {
         self.bbox
     }
 
-    fn sample<'a>(&'a self, _trans: Transform, _sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+    fn sample<'a>(
+        &'a self,
+        _trans: Transform,
+        _sampler: &mut dyn Sampler,
+    ) -> (Intersection<'a>, f32) {
         unimplemented!("<CubicBezier as Primitive>::sample() not supported yet")
     }
 
