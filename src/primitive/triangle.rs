@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
-use crate::core::{
-    bbox::Bbox, intersection::Intersection, material::Material, medium::Medium,
-    primitive::Primitive, ray::Ray,
-};
+use crate::{core::{bbox::Bbox, intersection::Intersection, primitive::Primitive, ray::Ray, sampler::Sampler, scene::Scene, transform::Transform}, loader::{self, JsonObject, Loadable}};
+
+use super::BvhAccel;
 
 #[derive(Copy, Clone)]
 pub struct MeshVertex {
@@ -14,15 +13,12 @@ pub struct MeshVertex {
     pub bitangent: glam::Vec3A,
 }
 
-pub struct TriangleMesh {
-    vertices: Vec<MeshVertex>,
-    indices: Vec<u32>,
-    material: Arc<dyn Material>,
-    inside_medium: Option<Arc<dyn Medium>>,
+pub struct TriMesh {
+    triangles: BvhAccel,
 }
 
 pub struct Triangle {
-    mesh: Arc<TriangleMesh>,
+    vertices: Arc<Vec<MeshVertex>>,
     indices: [usize; 3],
     bbox: Bbox,
 }
@@ -39,176 +35,29 @@ impl Default for MeshVertex {
     }
 }
 
-impl TriangleMesh {
-    pub fn new(
-        vertices: Vec<MeshVertex>,
-        indices: Vec<u32>,
-        material: Arc<dyn Material>,
-        inside_medium: Option<Arc<dyn Medium>>,
-    ) -> Self {
-        let mut mesh = Self {
-            vertices,
-            indices,
-            material,
-            inside_medium,
-        };
-        mesh.calc_tangents();
-        mesh
-    }
-
-    pub fn position(&self, index: usize) -> glam::Vec3A {
-        self.vertices[index].position
-    }
-
-    pub fn normal(&self, index: usize) -> glam::Vec3A {
-        self.vertices[index].normal
-    }
-
-    pub fn texcoords(&self, index: usize) -> glam::Vec2 {
-        self.vertices[index].texcoords
-    }
-
-    pub fn tangent(&self, index: usize) -> glam::Vec3A {
-        self.vertices[index].tangent
-    }
-
-    pub fn bitangent(&self, index: usize) -> glam::Vec3A {
-        self.vertices[index].bitangent
-    }
-
-    pub fn into_triangles(self) -> Vec<Box<dyn Primitive>> {
-        let rc = Arc::new(self);
-        let triangle_count = rc.indices.len() / 3;
-        let mut triangles = vec![];
-        for i in 0..triangle_count {
-            let i0 = rc.indices[3 * i] as usize;
-            let i1 = rc.indices[3 * i + 1] as usize;
-            let i2 = rc.indices[3 * i + 2] as usize;
-            triangles.push(Box::new(Triangle::new(rc.clone(), [i0, i1, i2])) as Box<dyn Primitive>);
-        }
-        triangles
-    }
-}
-
-impl Triangle {
-    fn new(mesh: Arc<TriangleMesh>, indices: [usize; 3]) -> Self {
-        let p0 = mesh.position(indices[0]);
-        let p1 = mesh.position(indices[1]);
-        let p2 = mesh.position(indices[2]);
-        let bbox = Bbox::from_points(&[p0, p1, p2]);
-        Self {
-            mesh,
-            indices,
-            bbox,
-        }
-    }
-
-    fn intersect_ray(&self, ray: &Ray) -> Option<(f32, f32, f32, f32)> {
-        let p0 = self.mesh.position(self.indices[0]);
-        let p1 = self.mesh.position(self.indices[1]);
-        let p2 = self.mesh.position(self.indices[2]);
-        let e1 = p1 - p0;
-        let e2 = p2 - p0;
-        let q = ray.direction.cross(e2);
-        let det = e1.dot(q);
-        if det != 0.0 {
-            let det = 1.0 / det;
-            let s = ray.origin - p0;
-            let v = s.dot(q) * det;
-            if v >= 0.0 {
-                let r = s.cross(e1);
-                let w = ray.direction.dot(r) * det;
-                let u = 1.0 - v - w;
-                if w >= 0.0 && u >= 0.0 {
-                    let t = e2.dot(r) * det;
-                    return Some((t, u, v, w));
-                }
-            }
-        }
-        None
-    }
-}
-
-impl Primitive for Triangle {
-    fn intersect_test(&self, ray: &Ray, t_max: f32) -> bool {
-        if let Some((t, _, _, _)) = self.intersect_ray(ray) {
-            t > ray.t_min && t < t_max
-        } else {
-            false
-        }
-    }
-
-    fn intersect<'a>(&'a self, ray: &Ray, inter: &mut Intersection<'a>) -> bool {
-        if let Some((t, u, v, w)) = self.intersect_ray(ray) {
-            if t > ray.t_min && t < inter.t {
-                inter.t = t;
-                inter.normal = {
-                    let n0 = self.mesh.normal(self.indices[0]);
-                    let n1 = self.mesh.normal(self.indices[1]);
-                    let n2 = self.mesh.normal(self.indices[2]);
-                    (n0 * u + n1 * v + n2 * w).normalize()
-                };
-                inter.texcoords = {
-                    let uv0 = self.mesh.texcoords(self.indices[0]);
-                    let uv1 = self.mesh.texcoords(self.indices[1]);
-                    let uv2 = self.mesh.texcoords(self.indices[2]);
-                    lerp_point2(uv0, uv1, uv2, u, v, w)
-                };
-                inter.tangent = {
-                    let t0 = self.mesh.tangent(self.indices[0]);
-                    let t1 = self.mesh.tangent(self.indices[1]);
-                    let t2 = self.mesh.tangent(self.indices[2]);
-                    t0 * u + t1 * v + t2 * w
-                };
-                inter.bitangent = {
-                    let b0 = self.mesh.bitangent(self.indices[0]);
-                    let b1 = self.mesh.bitangent(self.indices[1]);
-                    let b2 = self.mesh.bitangent(self.indices[2]);
-                    b0 * u + b1 * v + b2 * w
-                };
-                inter.primitive = Some(self);
-                return true;
-            }
-        }
-        false
-    }
-
-    fn bbox(&self) -> Bbox {
-        self.bbox
-    }
-
-    fn material(&self) -> Option<&dyn Material> {
-        Some(&*self.mesh.material)
-    }
-
-    fn inside_medium(&self) -> Option<&dyn Medium> {
-        self.mesh.inside_medium.as_ref().map(|rc| rc.as_ref())
-    }
-}
-
-impl TriangleMesh {
-    fn calc_tangents(&mut self) {
-        let vertex_count = self.vertices.len();
+impl TriMesh {
+    pub fn new(mut vertices: Vec<MeshVertex>, indices: Vec<u32>) -> Self {
+        let vertex_count = vertices.len();
         let mut tangents_sum = vec![glam::Vec3A::ZERO; vertex_count];
         let mut tangents_cnt = vec![0; vertex_count];
         let mut bitangents_sum = vec![glam::Vec3A::ZERO; vertex_count];
         let mut bitangents_cnt = vec![0; vertex_count];
 
-        let triangle_count = self.indices.len() / 3;
+        let triangle_count = indices.len() / 3;
         for i in 0..triangle_count {
-            let i0 = self.indices[3 * i] as usize;
-            let i1 = self.indices[3 * i + 1] as usize;
-            let i2 = self.indices[3 * i + 2] as usize;
+            let i0 = indices[3 * i] as usize;
+            let i1 = indices[3 * i + 1] as usize;
+            let i2 = indices[3 * i + 2] as usize;
 
-            let p0 = self.vertices[i0].position;
-            let p1 = self.vertices[i1].position;
-            let p2 = self.vertices[i2].position;
+            let p0 = vertices[i0].position;
+            let p1 = vertices[i1].position;
+            let p2 = vertices[i2].position;
             let e1 = p1 - p0;
             let e2 = p2 - p0;
 
-            let uv0 = self.vertices[i0].texcoords;
-            let uv1 = self.vertices[i1].texcoords;
-            let uv2 = self.vertices[i2].texcoords;
+            let uv0 = vertices[i0].texcoords;
+            let uv1 = vertices[i1].texcoords;
+            let uv2 = vertices[i2].texcoords;
             let u1 = uv1 - uv0;
             let u2 = uv2 - uv0;
 
@@ -234,12 +83,181 @@ impl TriangleMesh {
 
         for i in 0..vertex_count {
             if tangents_cnt[i] != 0 {
-                self.vertices[i].tangent = tangents_sum[i] / tangents_cnt[i] as f32;
+                vertices[i].tangent = tangents_sum[i] / tangents_cnt[i] as f32;
             }
             if bitangents_cnt[i] != 0 {
-                self.vertices[i].bitangent = bitangents_sum[i] / bitangents_cnt[i] as f32;
+                vertices[i].bitangent = bitangents_sum[i] / bitangents_cnt[i] as f32;
             }
         }
+
+        let vertices = Arc::new(vertices);
+        let triangle_count = indices.len() / 3;
+        let mut triangles = Vec::with_capacity(triangle_count);
+        for i in 0..triangle_count {
+            let i0 = indices[3 * i] as usize;
+            let i1 = indices[3 * i + 1] as usize;
+            let i2 = indices[3 * i + 2] as usize;
+            triangles.push(Arc::new(Triangle::new(vertices.clone(), [i0, i1, i2])) as Arc<dyn Primitive>);
+        }
+        let triangles = BvhAccel::new(triangles, 4, 16);
+
+        Self { triangles }
+    }
+}
+
+impl Triangle {
+    fn new(vertices: Arc<Vec<MeshVertex>>, indices: [usize; 3]) -> Self {
+        let p0 = vertices[indices[0]].position;
+        let p1 = vertices[indices[1]].position;
+        let p2 = vertices[indices[2]].position;
+        let bbox = Bbox::from_points(&[p0, p1, p2]);
+        Self {
+            vertices,
+            indices,
+            bbox,
+        }
+    }
+
+    fn intersect_ray(&self, ray: &Ray) -> Option<(f32, f32, f32, f32)> {
+        let p0 = self.vertices[self.indices[0]].position;
+        let p1 = self.vertices[self.indices[1]].position;
+        let p2 = self.vertices[self.indices[2]].position;
+        let e1 = p1 - p0;
+        let e2 = p2 - p0;
+        let q = ray.direction.cross(e2);
+        let det = e1.dot(q);
+        if det != 0.0 {
+            let det = 1.0 / det;
+            let s = ray.origin - p0;
+            let v = s.dot(q) * det;
+            if v >= 0.0 {
+                let r = s.cross(e1);
+                let w = ray.direction.dot(r) * det;
+                let u = 1.0 - v - w;
+                if w >= 0.0 && u >= 0.0 {
+                    let t = e2.dot(r) * det;
+                    return Some((t, u, v, w));
+                }
+            }
+        }
+        None
+    }
+}
+
+impl Primitive for TriMesh {
+    fn intersect_test(&self, ray: &Ray, t_max: f32) -> bool {
+        self.triangles.intersect_test(ray, t_max)
+    }
+
+    fn intersect<'a>(&'a self, ray: &Ray, inter: &mut Intersection<'a>) -> bool {
+        self.triangles.intersect(ray, inter)
+    }
+
+    fn bbox(&self) -> Bbox {
+        self.triangles.bbox()
+    }
+
+    fn sample<'a>(&'a self, trans: Transform, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+        self.triangles.sample(trans, sampler)
+    }
+
+    fn pdf(&self, trans: Transform, inter: &Intersection<'_>) -> f32 {
+        self.triangles.pdf(trans, inter)
+    }
+}
+
+impl Primitive for Triangle {
+    fn intersect_test(&self, ray: &Ray, t_max: f32) -> bool {
+        if let Some((t, _, _, _)) = self.intersect_ray(ray) {
+            t > ray.t_min && t < t_max
+        } else {
+            false
+        }
+    }
+
+    fn intersect<'a>(&'a self, ray: &Ray, inter: &mut Intersection<'a>) -> bool {
+        if let Some((t, u, v, w)) = self.intersect_ray(ray) {
+            if t > ray.t_min && t < inter.t {
+                inter.t = t;
+                inter.normal = {
+                    let n0 = self.vertices[self.indices[0]].normal;
+                    let n1 = self.vertices[self.indices[1]].normal;
+                    let n2 = self.vertices[self.indices[2]].normal;
+                    (n0 * u + n1 * v + n2 * w).normalize()
+                };
+                inter.texcoords = {
+                    let uv0 = self.vertices[self.indices[0]].texcoords;
+                    let uv1 = self.vertices[self.indices[1]].texcoords;
+                    let uv2 = self.vertices[self.indices[2]].texcoords;
+                    lerp_point2(uv0, uv1, uv2, u, v, w)
+                };
+                inter.tangent = {
+                    let t0 = self.vertices[self.indices[0]].tangent;
+                    let t1 = self.vertices[self.indices[1]].tangent;
+                    let t2 = self.vertices[self.indices[2]].tangent;
+                    t0 * u + t1 * v + t2 * w
+                };
+                inter.bitangent = {
+                    let b0 = self.vertices[self.indices[0]].bitangent;
+                    let b1 = self.vertices[self.indices[1]].bitangent;
+                    let b2 = self.vertices[self.indices[2]].bitangent;
+                    b0 * u + b1 * v + b2 * w
+                };
+                inter.primitive = Some(self);
+                return true;
+            }
+        }
+        false
+    }
+
+    fn bbox(&self) -> Bbox {
+        self.bbox
+    }
+
+    fn sample<'a>(&'a self, trans: Transform, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+        let rand = sampler.uniform_2d();
+        let r0_sqrt = rand.0.sqrt();
+        let u = 1.0 - r0_sqrt;
+        let v = r0_sqrt * (1.0 - rand.1);
+        let w = 1.0 - u - v;
+
+        let p0 = trans.transform_point3a(self.vertices[self.indices[0]].position);
+        let p1 = trans.transform_point3a(self.vertices[self.indices[1]].position);
+        let p2 = trans.transform_point3a(self.vertices[self.indices[2]].position);
+
+        let n0 = trans.transform_normal3a(self.vertices[self.indices[0]].normal);
+        let n1 = trans.transform_normal3a(self.vertices[self.indices[1]].normal);
+        let n2 = trans.transform_normal3a(self.vertices[self.indices[2]].normal);
+
+        let uv0 = self.vertices[self.indices[0]].texcoords;
+        let uv1 = self.vertices[self.indices[1]].texcoords;
+        let uv2 = self.vertices[self.indices[2]].texcoords;
+
+        let p = p0 * u + p1 * v + p2 * w;
+        let area = (p1 - p0).cross(p2 - p0).length() * 0.5;
+
+        let norm = n0 * u + n1 * v + n2 * w;
+        let uv = uv0 * u + uv1 * v + uv2 * w;
+
+        let inter = Intersection {
+            position: p,
+            normal: norm,
+            texcoords: uv,
+            primitive: Some(self),
+            ..Default::default()
+        };
+
+        (inter, 1.0 / area.max(0.001))
+    }
+
+    fn pdf(&self, trans: Transform, _inter: &Intersection<'_>) -> f32 {
+        let p0 = trans.transform_point3a(self.vertices[self.indices[0]].position);
+        let p1 = trans.transform_point3a(self.vertices[self.indices[1]].position);
+        let p2 = trans.transform_point3a(self.vertices[self.indices[2]].position);
+
+        let area = (p1 - p0).cross(p2 - p0).length() * 0.5;
+
+        1.0 / area.max(0.001)
     }
 }
 
@@ -254,4 +272,69 @@ fn lerp_point2(
     let x = p0.x * u + p1.x * v + p2.x * w;
     let y = p0.y * u + p1.y * v + p2.y * w;
     glam::Vec2::new(x, y)
+}
+
+impl Loadable for TriMesh {
+    fn load(
+        scene: &mut Scene,
+        path: &std::path::PathBuf,
+        json_value: &JsonObject,
+    ) -> anyhow::Result<()> {
+        let name = loader::get_str_field(json_value, "primitive-trimesh", "name")?;
+        let env = format!("primitive-trimesh({})", name);
+        if scene.primitives.contains_key(name) {
+            anyhow::bail!(format!("{}: name is duplicated", env));
+        }
+
+        let file = loader::get_str_field(json_value, &env, "obj_file")?;
+        let mut load_options = tobj::LoadOptions::default();
+        load_options.triangulate = true;
+        load_options.single_index = true;
+        let (models, _) = tobj::load_obj(path.with_file_name(file), &load_options)?;
+
+        let mut vertices = vec![];
+        let mut indices = vec![];
+        for model in models {
+            let vertex_count = model.mesh.positions.len() / 3;
+            let mut model_vertices = vec![MeshVertex::default(); vertex_count];
+            for i in 0..vertex_count {
+                let i0 = 3 * i;
+                let i1 = 3 * i + 1;
+                let i2 = 3 * i + 2;
+                if i2 < model.mesh.positions.len() {
+                    model_vertices[i].position = glam::Vec3A::new(
+                        model.mesh.positions[i0],
+                        model.mesh.positions[i1],
+                        model.mesh.positions[i2],
+                    );
+                }
+                if i2 < model.mesh.normals.len() {
+                    model_vertices[i].normal = glam::Vec3A::new(
+                        model.mesh.normals[i0],
+                        model.mesh.normals[i1],
+                        model.mesh.normals[i2],
+                    );
+                }
+                if 2 * i + 1 < model.mesh.texcoords.len() {
+                    model_vertices[i].texcoords = glam::Vec2::new(
+                        model.mesh.texcoords[2 * i],
+                        model.mesh.texcoords[2 * i + 1],
+                    );
+                }
+            }
+            vertices.append(&mut model_vertices);
+            let mut model_indices = model
+                .mesh
+                .indices
+                .into_iter()
+                .map(|ind| ind + indices.len() as u32)
+                .collect::<Vec<_>>();
+            indices.append(&mut model_indices);
+        }
+
+        let mesh = TriMesh::new(vertices, indices);
+        scene.primitives.insert(name.to_owned(), Arc::new(mesh));
+
+        Ok(())
+    }
 }

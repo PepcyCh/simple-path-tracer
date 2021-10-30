@@ -4,12 +4,10 @@ use image::GenericImageView;
 
 use crate::{
     core::{
-        color::Color,
-        intersection::Intersection,
-        material::Material,
-        scatter::Scatter,
-        texture::{self, Texture},
+        color::Color, intersection::Intersection, material::Material, scatter::Scatter,
+        scene::Scene, texture::Texture,
     },
+    loader::{self, JsonObject, Loadable},
     scatter::{
         FresnelDielectricRR, LambertReflect, MicrofacetReflect, PndfAccel, PndfGaussTerm,
         PndfReflect, SpecularReflect,
@@ -25,8 +23,6 @@ pub struct PndfDielectric {
     base_normal_tiling: glam::Vec2,
     base_normal_offset: glam::Vec2,
     fallback_roughness: Arc<dyn Texture<f32>>,
-    emissive: Arc<dyn Texture<Color>>,
-    normal_map: Arc<dyn Texture<Color>>,
     /// used to avoid drop of terms
     _terms: Vec<PndfGaussTerm>,
     bvh: PndfAccel,
@@ -42,8 +38,6 @@ impl PndfDielectric {
         base_normal_offset: glam::Vec2,
         fallback_roughness: Arc<dyn Texture<f32>>,
         h: f32,
-        emissive: Arc<dyn Texture<Color>>,
-        normal_map: Arc<dyn Texture<Color>>,
     ) -> Self {
         let h_inv = 1.0 / h;
         let (normal_width, normal_height) = base_normal.dimensions();
@@ -98,8 +92,6 @@ impl PndfDielectric {
             base_normal_tiling,
             base_normal_offset,
             fallback_roughness,
-            emissive,
-            normal_map,
             _terms: terms,
             bvh,
         }
@@ -107,10 +99,6 @@ impl PndfDielectric {
 }
 
 impl Material for PndfDielectric {
-    fn apply_normal_map(&self, inter: &Intersection<'_>) -> glam::Vec3A {
-        texture::get_normal_at(&self.normal_map, inter)
-    }
-
     fn scatter(&self, inter: &Intersection<'_>) -> Box<dyn Scatter> {
         let albedo = self.albedo.value_at(inter);
         let u = glam::Vec2::new(inter.texcoords.x, inter.texcoords.y) * self.base_normal_tiling
@@ -152,10 +140,6 @@ impl Material for PndfDielectric {
             }
         }
     }
-
-    fn emissive(&self, inter: &Intersection<'_>) -> Color {
-        self.emissive.value_at(inter)
-    }
 }
 
 fn get_normal_bilinear(image: &image::DynamicImage, u: f32, v: f32) -> glam::Vec2 {
@@ -163,4 +147,61 @@ fn get_normal_bilinear(image: &image::DynamicImage, u: f32, v: f32) -> glam::Vec
     let normal_color = normal_color * 2.0 - Color::WHITE;
     let normal = glam::Vec3A::new(normal_color.r, normal_color.g, normal_color.b).normalize();
     glam::Vec2::new(normal.x, normal.y)
+}
+
+impl Loadable for PndfDielectric {
+    fn load(
+        scene: &mut Scene,
+        path: &std::path::PathBuf,
+        json_value: &JsonObject,
+    ) -> anyhow::Result<()> {
+        let name = loader::get_str_field(json_value, "material-pndf_dielectric", "name")?;
+        let env = format!("material-pndf_dielectric({})", name);
+        if scene.materials.contains_key(name) {
+            anyhow::bail!(format!("{}: name is duplicated", env));
+        }
+
+        let ior = loader::get_float_field(json_value, &env, "ior")?;
+
+        let albedo = loader::get_str_field(json_value, &env, "albedo")?;
+        let albedo = if let Some(tex) = scene.textures_color.get(albedo) {
+            tex.clone()
+        } else {
+            anyhow::bail!(format!("{}: albedo '{}' not found", env, albedo))
+        };
+
+        let sigma_r = loader::get_float_field(json_value, &env, "sigma_r")?;
+
+        let base_normal = loader::get_image_field(json_value, &env, "base_normal", path)?;
+        let base_normal_tiling =
+            loader::get_float_array2_field_or(json_value, &env, "base_normal_tiling", [1.0, 1.0])?;
+        let base_normal_offset =
+            loader::get_float_array2_field_or(json_value, &env, "base_normal_offset", [0.0, 0.0])?;
+
+        let fallback_roughness = loader::get_str_field(json_value, &env, "fallback_roughness")?;
+        let fallback_roughness = if let Some(tex) = scene.textures_f32.get(fallback_roughness) {
+            tex.clone()
+        } else {
+            anyhow::bail!(format!(
+                "{}: fallback_roughness '{}' not found",
+                env, fallback_roughness
+            ))
+        };
+
+        let h = loader::get_float_field(json_value, &env, "h")?;
+
+        let mat = PndfDielectric::new(
+            ior,
+            albedo,
+            sigma_r,
+            base_normal,
+            base_normal_tiling.into(),
+            base_normal_offset.into(),
+            fallback_roughness,
+            h,
+        );
+        scene.materials.insert(name.to_owned(), Arc::new(mat));
+
+        Ok(())
+    }
 }

@@ -1,4 +1,17 @@
 {
+  "renderer": {
+    "type": "pt",
+    "width": 200,
+    "height": 200,
+    "spp": 1,
+    "max_depth": 2,
+    "sampler": "random",
+    "filter": {
+      "type": "box",
+      "radius": 0.5
+    },
+    "output_filename": "images/test_scene_00.jpg"
+  },
   "camera": {
     "type": "perspective",
     "eye": [0.0, 0.0, 5.0],
@@ -6,49 +19,41 @@
     "up": [0.0, 1.0, 0.0],
     "fov": 45.0
   },
-  "aggregate": {
-    "type": "group"
-  },
-  "pixel_sampler": {
-    "type": "random",
-    "spp": 1
-  },
-  "max_depth": 2,
-  "filter": {
-    "type": "box",
-    "radius": 0.5
-  },
-  "output": {
-    "file": "images/test_scene_00.jpg",
-    "width": 200,
-    "height": 200
-  },
   "textures": [
     {
       "type": "scalar",
       "ele": "color",
-      "value": [0.0, 0.0, 0.0]
-    },
-    {
-      "type": "scalar",
-      "ele": "color",
+      "name": "tex_blue",
       "value": [0.5, 0.7, 1.0]
     }
   ],
   "materials": [
     {
       "type": "lambert",
-      "albedo": 1,
-      "emissive": 0
+      "name": "mat_sphere",
+      "albedo": "tex_blue"
     }
   ],
   "mediums": [],
-  "objects": [
+  "primitives": [
     {
       "type": "sphere",
-      "material": 0,
-      "center": [0.5, 0.0, 0.0],
+      "name": "sphere",
       "radius": 1.0
+    }
+  ],
+  "surfaces": [
+    {
+      "name": "surf_sphere",
+      "material": "mat_sphere"
+    }
+  ],
+  "instances": [
+    {
+      "name": "sphere",
+      "primitive": "sphere",
+      "surface": "surf_sphere",
+      "translate": [0.5, 0.0, 0.0]
     }
   ],
   "lights": [
@@ -57,5 +62,6 @@
       "direction": [-1.0, -1.0, -1.0],
       "strength": [5.0, 5.0, 5.0]
     }
-  ]
+  ],
+  "aggregate": "group"
 }

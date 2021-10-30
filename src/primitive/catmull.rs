@@ -2,17 +2,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use pep_mesh::{halfedge, io::ply};
 
-use crate::{
-    core::{
-        bbox::Bbox,
-        intersection::Intersection,
-        material::Material,
-        medium::Medium,
-        primitive::{Aggregate, Primitive},
-        ray::Ray,
-    },
-    primitive::BvhAccel,
-};
+use crate::{core::{bbox::Bbox, intersection::Intersection, primitive::{Aggregate, Primitive}, ray::Ray, sampler::Sampler, scene::Scene, transform::Transform}, loader::{self, JsonObject, Loadable}, primitive::BvhAccel};
 
 use super::CubicBezier;
 
@@ -92,21 +82,16 @@ impl From<ply::PropertyMap> for FData {
 type Mesh = halfedge::HalfEdgeMesh<VData, EData, FData>;
 
 pub struct CatmullClark {
-    material: Arc<dyn Material>,
     bbox: Bbox,
     patches: Box<dyn Aggregate>,
 }
 
 impl CatmullClark {
-    pub fn new(mut mesh: Mesh, material: Arc<dyn Material>, fas_times: u32) -> Self {
-        let patches = feature_adaptive_subdivision(&mut mesh, fas_times, &material);
+    pub fn new(mut mesh: Mesh, fas_times: u32) -> Self {
+        let patches = feature_adaptive_subdivision(&mut mesh, fas_times);
         let bbox = patches.bbox();
 
-        Self {
-            material,
-            bbox,
-            patches,
-        }
+        Self { bbox, patches }
     }
 }
 
@@ -123,20 +108,16 @@ impl Primitive for CatmullClark {
         self.bbox
     }
 
-    fn material(&self) -> Option<&dyn Material> {
-        Some(&*self.material)
+    fn sample<'a>(&'a self, _trans: Transform, _sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+        unimplemented!("<CatmullClark as Primitive>::sample() not supported yet")
     }
 
-    fn inside_medium(&self) -> Option<&dyn Medium> {
-        None
+    fn pdf(&self, _trans: Transform, _inter: &Intersection<'_>) -> f32 {
+        unimplemented!("<CatmullClark as Primitive>::pdf() not supported yet")
     }
 }
 
-fn feature_adaptive_subdivision(
-    mesh: &mut Mesh,
-    max_iter_times: u32,
-    material: &Arc<dyn Material>,
-) -> Box<dyn Aggregate> {
+fn feature_adaptive_subdivision(mesh: &mut Mesh, max_iter_times: u32) -> Box<dyn Aggregate> {
     let mut process_faces = mesh.faces().collect::<Vec<_>>();
 
     let mut patches = vec![];
@@ -155,7 +136,7 @@ fn feature_adaptive_subdivision(
             if !is_regular {
                 irregular_faces.push(*face);
             } else {
-                patches.push(get_bezier_patch(face, mesh, material));
+                patches.push(get_bezier_patch(face, mesh));
             }
         }
 
@@ -439,9 +420,9 @@ fn feature_adaptive_subdivision(
 
         let is_regular = check_if_regular(face, &mesh);
         if !is_regular {
-            patches.push(get_gregory_patch(face, mesh, material));
+            patches.push(get_gregory_patch(face, mesh));
         } else {
-            patches.push(get_bezier_patch(face, mesh, material));
+            patches.push(get_bezier_patch(face, mesh));
         }
     }
 
@@ -472,11 +453,7 @@ fn check_if_regular(face: &halfedge::FaceRef, mesh: &Mesh) -> bool {
     is_regular
 }
 
-fn get_bezier_patch(
-    face: &halfedge::FaceRef,
-    mesh: &Mesh,
-    material: &Arc<dyn Material>,
-) -> Box<dyn Primitive> {
+fn get_bezier_patch(face: &halfedge::FaceRef, mesh: &Mesh) -> Arc<dyn Primitive> {
     let mut control_points = [[glam::Vec3A::new(0.0, 0.0, 0.0); 4]; 4];
 
     let order = [
@@ -556,14 +533,10 @@ fn get_bezier_patch(
         }
     }
 
-    Box::new(CubicBezier::new(control_points, material.clone()))
+    Arc::new(CubicBezier::new(control_points))
 }
 
-fn get_gregory_patch(
-    face: &halfedge::FaceRef,
-    mesh: &Mesh,
-    material: &Arc<dyn Material>,
-) -> Box<dyn Primitive> {
+fn get_gregory_patch(face: &halfedge::FaceRef, mesh: &Mesh) -> Arc<dyn Primitive> {
     let mut control_points = [[glam::Vec3A::new(0.0, 0.0, 0.0); 4]; 4];
 
     let he = face.halfedge(mesh);
@@ -631,7 +604,7 @@ fn get_gregory_patch(
         calc_face_control_points_neg(pos3, e3_neg, e2_pos, &edge_points3, &face_points3, n3, n2);
     control_points[2][1] = (f3_pos + f3_neg) * 0.5;
 
-    Box::new(CubicBezier::new(control_points, material.clone()))
+    Arc::new(CubicBezier::new(control_points))
 }
 
 fn get_edge_points_and_face_points(
@@ -772,4 +745,27 @@ fn calc_face_control_points_neg(
     let c0 = (2.0 * std::f32::consts::PI / n0).cos();
     let c1 = (2.0 * std::f32::consts::PI / n3).cos();
     (c1 * pos0 + (3.0 - 2.0 * c0 - c1) * e0_neg + 2.0 * c0 * e3_pos + r) / 3.0
+}
+
+impl Loadable for CatmullClark {
+    fn load(
+        scene: &mut Scene,
+        path: &std::path::PathBuf,
+        json_value: &JsonObject,
+    ) -> anyhow::Result<()> {
+        let name = loader::get_str_field(json_value, "primitive-catmull_clark", "name")?;
+        let env = format!("primitive-catmull_clark({})", name);
+        if scene.primitives.contains_key(name) {
+            anyhow::bail!(format!("{}: name is duplicated", env));
+        }
+
+        let file = loader::get_str_field(json_value, &env, "ply_file")?;
+        let mesh = ply::load_to_halfedge(path.with_file_name(file))?;
+        let fas_times = loader::get_int_field_or(json_value, &env, "fas_times", 4)?;
+
+        let catmull = CatmullClark::new(mesh, fas_times);
+        scene.primitives.insert(name.to_owned(), Arc::new(catmull));
+
+        Ok(())
+    }
 }

@@ -1,4 +1,9 @@
-use crate::core::{color::Color, light::Light, sampler::Sampler};
+use std::sync::Arc;
+
+use crate::{
+    core::{color::Color, light::Light, sampler::Sampler, scene::Scene},
+    loader::{self, JsonObject, Loadable},
+};
 
 pub struct DirLight {
     direction: glam::Vec3A,
@@ -33,5 +38,23 @@ impl Light for DirLight {
 
     fn is_delta(&self) -> bool {
         true
+    }
+}
+
+impl Loadable for DirLight {
+    fn load(
+        scene: &mut Scene,
+        _path: &std::path::PathBuf,
+        json_value: &JsonObject,
+    ) -> anyhow::Result<()> {
+        let env = "light-directional";
+
+        let direction = loader::get_float_array3_field(json_value, &env, "direction")?;
+        let strength = loader::get_float_array3_field(json_value, &env, "strength")?;
+
+        let light = DirLight::new(direction.into(), strength.into());
+        scene.lights.push(Arc::new(light));
+
+        Ok(())
     }
 }

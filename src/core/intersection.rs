@@ -1,16 +1,16 @@
-use crate::core::{primitive::Primitive, ray::Ray};
+use crate::core::{primitive::Primitive, ray::Ray, surface::Surface};
 
 pub struct Intersection<'a> {
     pub t: f32,
+    pub position: glam::Vec3A,
     /// tangent - dpdu
     pub tangent: glam::Vec3A,
     /// bitangent - dpdv
     pub bitangent: glam::Vec3A,
     pub normal: glam::Vec3A,
-    /// shade_normal - normal from normal map (in world space)
-    pub shade_normal: glam::Vec3A,
     pub texcoords: glam::Vec2,
     pub primitive: Option<&'a dyn Primitive>,
+    pub surface: Option<&'a Surface>,
     pub duvdx: glam::Vec2,
     pub duvdy: glam::Vec2,
 }
@@ -79,30 +79,19 @@ impl Intersection<'_> {
             }
         }
     }
-
-    pub fn apply_normal_map(&mut self) {
-        if let Some(prim) = self.primitive {
-            if let Some(mat) = prim.material() {
-                let shade_normal_local = mat.apply_normal_map(self);
-                self.shade_normal = (shade_normal_local.x * self.tangent.normalize()
-                    + shade_normal_local.y * self.bitangent.normalize()
-                    + shade_normal_local.z * self.normal)
-                    .normalize();
-            }
-        }
-    }
 }
 
 impl Default for Intersection<'_> {
     fn default() -> Self {
         Self {
             t: f32::MAX,
+            position: glam::Vec3A::ZERO,
             tangent: glam::Vec3A::X,
             bitangent: glam::Vec3A::Y,
             normal: glam::Vec3A::Z,
-            shade_normal: glam::Vec3A::Z,
             texcoords: glam::Vec2::ZERO,
             primitive: None,
+            surface: None,
             duvdx: glam::Vec2::ZERO,
             duvdy: glam::Vec2::ZERO,
         }

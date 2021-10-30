@@ -1,4 +1,11 @@
-use crate::core::{color::Color, light::Light, sampler::Sampler};
+use std::sync::Arc;
+
+use anyhow::Context;
+
+use crate::{
+    core::{color::Color, light::Light, sampler::Sampler, scene::Scene},
+    loader::{self, JsonObject, Loadable},
+};
 
 pub struct EnvLight {
     texture: Vec<Vec<Color>>,
@@ -174,5 +181,38 @@ impl AliasTable {
         } else {
             (self.k[x], self.props[self.k[x]])
         }
+    }
+}
+
+impl Loadable for EnvLight {
+    fn load(
+        scene: &mut Scene,
+        path: &std::path::PathBuf,
+        json_value: &JsonObject,
+    ) -> anyhow::Result<()> {
+        let env = "environment";
+
+        let ty = loader::get_str_field(json_value, &env, "type")?;
+        let scale: Color =
+            loader::get_float_array3_field_or(json_value, &env, "scale", [1.0, 1.0, 1.0])?.into();
+        let env = match ty {
+            "color" => {
+                let color: Color =
+                    loader::get_float_array3_field(json_value, &env, "color")?.into();
+                Arc::new(EnvLight::new(vec![vec![color]], scale))
+            }
+            "exr" => {
+                let path =
+                    path.with_file_name(loader::get_str_field(json_value, &env, "exr_file")?);
+                let path_str = path.to_str().unwrap();
+                let image = loader::get_exr_image(&path)
+                    .context(format!("{}: 'file', can't find image '{}'", env, path_str))?;
+                Arc::new(EnvLight::new(image, scale))
+            }
+            _ => anyhow::bail!(format!("{}: unknown type '{}'", env, ty)),
+        };
+        scene.environment = Some(env);
+
+        Ok(())
     }
 }

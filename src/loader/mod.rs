@@ -1,801 +1,359 @@
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use anyhow::*;
-use pep_mesh::io::ply;
+use anyhow::Context;
 
-use crate::{
-    camera::PerspectiveCamera,
-    core::{
-        camera::Camera,
-        color::Color,
-        filter::Filter,
-        light::Light,
-        material::Material,
-        medium::Medium,
-        primitive::{Aggregate, Primitive},
-        texture::Texture,
-    },
-    filter::BoxFilter,
-    light::{DirLight, EnvLight, PointLight, RectangleLight},
-    material::{
-        DebugMaterial, Dielectric, Glass, Lambert, Metal, PndfDielectric, PndfMetal,
-        PseudoMaterial, Subsurface,
-    },
-    medium::Homogeneous,
-    primitive::{
-        BvhAccel, CatmullClark, CubicBezier, Group, MeshVertex, Sphere, Transform, TriangleMesh,
-    },
-    renderer::PathTracer,
-    texture::{ScalarTex, UvMap},
+use crate::camera::PerspectiveCamera;
+use crate::core::{color::Color, filter::Filter, primitive::{Aggregate, Primitive}, renderer::Renderer, scene::{Instance, Scene}, surface::Surface};
+use crate::filter::BoxFilter;
+use crate::light::{DirLight, EnvLight, PointLight, RectangleLight};
+use crate::material::{
+    Dielectric, Glass, Lambert, Metal, PndfDielectric, PndfMetal, PseudoMaterial, Subsurface,
 };
+use crate::medium::Homogeneous;
+use crate::primitive::{BvhAccel, CatmullClark, CubicBezier, Group, Sphere, TriMesh};
+use crate::renderer::PathTracer;
+use crate::texture::{ImageTex, ScalarTex};
 
-pub struct OutputConfig {
-    pub file: String,
-    pub width: u32,
-    pub height: u32,
+pub type JsonObject = serde_json::Map<String, serde_json::Value>;
+
+pub trait Loadable {
+    fn load(scene: &mut Scene, path: &PathBuf, json_value: &JsonObject) -> anyhow::Result<()>;
 }
 
-struct InputLoader {
-    path: PathBuf,
-    textures_float: Vec<Arc<dyn Texture<f32>>>,
-    textures_color: Vec<Arc<dyn Texture<Color>>>,
-    textures_indices: Vec<usize>,
-    materials: Vec<Arc<dyn Material>>,
-    mediums: Vec<Arc<dyn Medium>>,
-}
+pub fn load<P: AsRef<Path>>(path: P) -> anyhow::Result<(Scene, Box<dyn Renderer>)> {
+    let path = path.as_ref().to_path_buf();
+    let mut scene = Scene::default();
 
-pub fn load<P: AsRef<Path>>(path: P) -> Result<(PathTracer, OutputConfig)> {
-    let mut loader = InputLoader::new(path);
-    loader.load()
-}
+    let json_file = std::fs::File::open(&path)?;
+    let json_reader = std::io::BufReader::new(json_file);
+    let json_value: serde_json::Value = serde_json::from_reader(json_reader)?;
 
-impl InputLoader {
-    fn new<P: AsRef<Path>>(path: P) -> Self {
-        let path = path.as_ref().to_path_buf();
-        Self {
-            path,
-            textures_color: vec![],
-            textures_float: vec![],
-            textures_indices: vec![],
-            materials: vec![],
-            mediums: vec![],
-        }
+    let renderer = load_renderer(&path, &json_value)?;
+
+    load_from_object_or_external(&mut scene, &path, &json_value, "top", "camera", load_camera)?;
+
+    load_from_array_or_external(
+        &mut scene,
+        &path,
+        &json_value,
+        "top",
+        "textures",
+        load_texture,
+    )?;
+
+    load_from_array_or_external(
+        &mut scene,
+        &path,
+        &json_value,
+        "top",
+        "materials",
+        load_material,
+    )?;
+
+    load_from_array_or_external(
+        &mut scene,
+        &path,
+        &json_value,
+        "top",
+        "mediums",
+        load_medium,
+    )?;
+
+    load_from_array_or_external(
+        &mut scene,
+        &path,
+        &json_value,
+        "top",
+        "primitives",
+        load_primitive,
+    )?;
+
+    load_from_array_or_external(
+        &mut scene,
+        &path,
+        &json_value,
+        "top",
+        "surfaces",
+        Surface::load,
+    )?;
+
+    load_from_array_or_external(
+        &mut scene,
+        &path,
+        &json_value,
+        "top",
+        "instances",
+        Instance::load,
+    )?;
+
+    load_from_array_or_external(&mut scene, &path, &json_value, "top", "lights", load_light)?;
+
+    if json_value.get("environment").is_some() {
+        load_from_object_or_external(
+            &mut scene,
+            &path,
+            &json_value,
+            "top",
+            "environment",
+            EnvLight::load,
+        )?;
+        scene.lights.push(scene.environment.as_ref().unwrap().clone());
     }
 
-    fn load(&mut self) -> Result<(PathTracer, OutputConfig)> {
-        let json_file = std::fs::File::open(&self.path)?;
+    build_aggregate(&mut scene, &json_value)?;
+
+    scene.collect_shape_lights();
+
+    Ok((scene, renderer))
+}
+
+fn load_renderer(
+    path: &PathBuf,
+    json_value: &serde_json::Value,
+) -> anyhow::Result<Box<dyn Renderer>> {
+    let renderer_value = json_value
+        .get("renderer")
+        .context("top: 'renderer' is needed but not found")?;
+    let renderer_value = if let Some(renderer_json_path) = renderer_value.as_str() {
+        let json_file = std::fs::File::open(path.with_file_name(renderer_json_path))
+            .context("renderer: external json file not found")?;
         let json_reader = std::io::BufReader::new(json_file);
-        let json_value: serde_json::Value = serde_json::from_reader(json_reader)?;
+        Cow::Owned(
+            serde_json::from_reader(json_reader)
+                .context("renderer: failed to parse external json")?,
+        )
+    } else {
+        Cow::Borrowed(renderer_value)
+    };
+    let renderer_object = renderer_value
+        .as_object()
+        .context("renderer: should be an object")?;
 
-        let output_config_json = json_value.get("output").context("top: no 'output' field")?;
-        let output_config = self.load_output(output_config_json)?;
-
-        let camera_json = json_value.get("camera").context("top: no 'camera' field")?;
-        let camera = self.load_camera(camera_json)?;
-
-        let spp;
-        let sampler_type;
-        if let Some(pixel_sampler_json) = json_value.get("pixel_sampler") {
-            spp = get_int_field_or(pixel_sampler_json, "pixel_sampler", "spp", 1)?;
-            sampler_type = get_sampler_type(pixel_sampler_json)?;
-        } else {
-            spp = 1_u32;
-            sampler_type = "random";
+    let ty = get_str_field(renderer_object, "renderer", "type")?;
+    match ty {
+        "pt" => {
+            let width = get_int_field(renderer_object, "renderer-pt", "width")?;
+            let height = get_int_field(renderer_object, "renderer-pt", "height")?;
+            let spp = get_int_field(renderer_object, "renderer-pt", "spp")?;
+            let max_depth = get_int_field(renderer_object, "renderer-pt", "max_depth")?;
+            let sampler = get_sampler_field(renderer_object, "renderer-pt", "sampler")?;
+            let filter = load_filter(
+                renderer_object
+                    .get("filter")
+                    .context("renderer-pt: 'filter' is needed but not fount")?
+                    .as_object()
+                    .context("renderer-pt: 'filter' should be an object")?,
+            )?;
+            let output_filename = get_str_field(renderer_object, "renderer-pt", "output_filename")?;
+            Ok(Box::new(PathTracer::new(
+                width,
+                height,
+                spp,
+                max_depth,
+                sampler,
+                filter,
+                output_filename.to_owned(),
+            )) as Box<dyn Renderer>)
         }
-
-        let max_depth = get_int_field_or(&json_value, "top", "max_depth", 1)?;
-
-        let filter = if let Some(filter_value) = json_value.get("filter") {
-            self.load_filter(filter_value)?
-        } else {
-            Box::new(BoxFilter::new(0.5))
-        };
-
-        let textures_json = json_value
-            .get("textures")
-            .context("top: no 'textures' field")?;
-        let (textures_float, textures_color, textures_indices) =
-            self.load_textures(textures_json)?;
-        self.textures_float = textures_float;
-        self.textures_color = textures_color;
-        self.textures_indices = textures_indices;
-
-        let materials_json = json_value
-            .get("materials")
-            .context("top: no 'materials' field")?;
-        self.materials = self.load_materials(materials_json)?;
-
-        let mediums_json = json_value
-            .get("mediums")
-            .context("top: no 'mediums' field")?;
-        self.mediums = self.load_mediums(mediums_json)?;
-
-        let objects_json = json_value
-            .get("objects")
-            .context("top: no 'objects' field")?;
-        let objects = self.load_objects(objects_json)?;
-
-        let aggregate_json = json_value
-            .get("aggregate")
-            .context("top: no 'aggregate' field")?;
-        let aggregate = self.load_aggregate(aggregate_json, objects)?;
-
-        let lights_json = json_value.get("lights").context("top: no 'lights' field")?;
-        let mut lights = self.load_lights(lights_json)?;
-
-        let environment = if let Some(environment_json) = json_value.get("environment") {
-            let env = self.load_environment(environment_json)?;
-            lights.push(env.clone() as Arc<dyn Light>);
-            Some(env)
-        } else {
-            None
-        };
-
-        let path_tracer = PathTracer::new(
-            camera,
-            aggregate,
-            lights,
-            environment,
-            spp,
-            sampler_type,
-            max_depth,
-            filter,
-        );
-
-        Ok((path_tracer, output_config))
-    }
-
-    fn load_output(&self, value: &serde_json::Value) -> Result<OutputConfig> {
-        let file = get_str_field(value, "output", "file")?;
-        let width = get_int_field(value, "output", "width")?;
-        let height = get_int_field(value, "output", "height")?;
-        Ok(OutputConfig {
-            file: file.to_string(),
-            width,
-            height,
-        })
-    }
-
-    fn load_camera(&self, value: &serde_json::Value) -> Result<Box<dyn Camera>> {
-        let ty = get_str_field(value, "camera", "type")?;
-        match ty {
-            "perspective" => {
-                let eye = get_float_array3_field(value, "camera-perspective", "eye")?;
-                let forward = get_float_array3_field(value, "camera-perspective", "forward")?;
-                let up = get_float_array3_field(value, "camera-perspective", "up")?;
-                let fov = get_float_field(value, "camera-perspective", "fov")?;
-                Ok(Box::new(PerspectiveCamera::new(
-                    eye.into(),
-                    forward.into(),
-                    up.into(),
-                    fov,
-                )))
-            }
-            _ => bail!(format!("camera: unknown type '{}'", ty)),
-        }
-    }
-
-    fn load_filter(&self, value: &serde_json::Value) -> Result<Box<dyn Filter>> {
-        let ty = get_str_field(value, "filter", "type")?;
-        match ty {
-            "box" => {
-                let radius = get_float_field(value, "filter-box", "radius")?;
-                Ok(Box::new(BoxFilter::new(radius)))
-            }
-            _ => bail!(format!("filter: unknown type '{}'", ty)),
-        }
-    }
-
-    fn load_textures(
-        &self,
-        value: &serde_json::Value,
-    ) -> Result<(
-        Vec<Arc<dyn Texture<f32>>>,
-        Vec<Arc<dyn Texture<Color>>>,
-        Vec<usize>,
-    )> {
-        let arr = value
-            .as_array()
-            .context("top: 'textures' should be an array")?;
-        let mut textures_float = Vec::with_capacity(arr.len());
-        let mut textures_color = Vec::with_capacity(arr.len());
-        let mut textures_indices = Vec::with_capacity(arr.len());
-        for tex_json in arr {
-            let ty = get_str_field(tex_json, "texture", "type")?;
-            let ele = get_str_field(tex_json, "texture", "ele")?;
-            match ele {
-                "float" => {
-                    let tex = match ty {
-                        "scalar" => {
-                            let value = get_float_field(tex_json, "texture-scalar", "value")?;
-                            Arc::new(ScalarTex::new(value)) as Arc<dyn Texture<f32>>
-                        }
-                        "uvmap" => {
-                            let value =
-                                get_image_field(tex_json, "texture-uvmap", "value", &self.path)?;
-                            let tiling = get_float_array2_field_or(
-                                tex_json,
-                                "texture-uvmap",
-                                "tiling",
-                                [1.0, 1.0],
-                            )?
-                            .into();
-                            let offset = get_float_array2_field_or(
-                                tex_json,
-                                "texture-uvmap",
-                                "offset",
-                                [0.0, 0.0],
-                            )?
-                            .into();
-                            Arc::new(UvMap::new(value, tiling, offset)) as Arc<dyn Texture<f32>>
-                        }
-                        _ => bail!(format!("texture: unknown type: '{}'", ty)),
-                    };
-                    textures_indices.push(textures_float.len());
-                    textures_float.push(tex);
-                }
-                "color" => {
-                    let tex = match ty {
-                        "scalar" => {
-                            let value =
-                                get_float_array3_field(tex_json, "texture-scalar", "value")?;
-                            Arc::new(ScalarTex::new(value.into())) as Arc<dyn Texture<Color>>
-                        }
-                        "uvmap" => {
-                            let value =
-                                get_image_field(tex_json, "texture-uvmap", "value", &self.path)?;
-                            let tiling = get_float_array2_field_or(
-                                tex_json,
-                                "texture-uvmap",
-                                "tiling",
-                                [1.0, 1.0],
-                            )?
-                            .into();
-                            let offset = get_float_array2_field_or(
-                                tex_json,
-                                "texture-uvmap",
-                                "offset",
-                                [0.0, 0.0],
-                            )?
-                            .into();
-                            Arc::new(UvMap::new(value, tiling, offset)) as Arc<dyn Texture<Color>>
-                        }
-                        _ => bail!(format!("texture: unknown type: '{}'", ty)),
-                    };
-                    textures_indices.push(textures_color.len());
-                    textures_color.push(tex);
-                }
-                _ => bail!(format!("texture: unknown element type: '{}'", ele)),
-            }
-        }
-        Ok((textures_float, textures_color, textures_indices))
-    }
-
-    fn load_materials(&self, value: &serde_json::Value) -> Result<Vec<Arc<dyn Material>>> {
-        let arr = value
-            .as_array()
-            .context("top: 'materials' should be an array")?;
-        let mut materials = Vec::with_capacity(arr.len());
-        let default_normal_map =
-            Arc::new(ScalarTex::new(Color::new(0.5, 0.5, 1.0))) as Arc<dyn Texture<Color>>;
-        for mat_json in arr {
-            let ty = get_str_field(mat_json, "material", "type")?;
-            let mat = match ty {
-                "pseudo" => Arc::new(PseudoMaterial::new()) as Arc<dyn Material>,
-                "debug" => {
-                    let debug_color = get_int_field(mat_json, "material-debug", "color")? as usize;
-                    let normal = get_int_field_option(mat_json, "material-debug", "normal_map")?;
-                    Arc::new(DebugMaterial::new(
-                        self.get_texture_color(debug_color),
-                        normal.map_or(default_normal_map.clone(), |ind| {
-                            self.get_texture_color(ind as usize)
-                        }),
-                    )) as Arc<dyn Material>
-                }
-                "lambert" => {
-                    let albedo = get_int_field(mat_json, "material-lambert", "albedo")? as usize;
-                    let emissive =
-                        get_int_field(mat_json, "material-lambert", "emissive")? as usize;
-                    let normal = get_int_field_option(mat_json, "material-lambert", "normal_map")?;
-                    Arc::new(Lambert::new(
-                        self.get_texture_color(albedo),
-                        self.get_texture_color(emissive),
-                        normal.map_or(default_normal_map.clone(), |ind| {
-                            self.get_texture_color(ind as usize)
-                        }),
-                    )) as Arc<dyn Material>
-                }
-                "glass" => {
-                    let ior = get_float_field(mat_json, "material-glass", "ior")?;
-                    let reflectance =
-                        get_int_field(mat_json, "material-glass", "reflectance")? as usize;
-                    let transmittance =
-                        get_int_field(mat_json, "material-glass", "transmittance")? as usize;
-                    let roughness =
-                        get_int_field(mat_json, "material-glass", "roughness")? as usize;
-                    let normal = get_int_field_option(mat_json, "material-glass", "normal_map")?;
-                    Arc::new(Glass::new(
-                        ior,
-                        self.get_texture_color(reflectance),
-                        self.get_texture_color(transmittance),
-                        self.get_texture_float(roughness),
-                        normal.map_or(default_normal_map.clone(), |ind| {
-                            self.get_texture_color(ind as usize)
-                        }),
-                    )) as Arc<dyn Material>
-                }
-                "dielectric" => {
-                    let ior = get_float_field(mat_json, "material-dielectric", "ior")?;
-                    let albedo = get_int_field(mat_json, "material-dielectric", "albedo")? as usize;
-                    let roughness =
-                        get_int_field(mat_json, "material-dielectric", "roughness")? as usize;
-                    let emissive =
-                        get_int_field(mat_json, "material-dielectric", "emissive")? as usize;
-                    let normal =
-                        get_int_field_option(mat_json, "material-dielectric", "normal_map")?;
-                    Arc::new(Dielectric::new(
-                        ior,
-                        self.get_texture_color(albedo),
-                        self.get_texture_float(roughness),
-                        self.get_texture_color(emissive),
-                        normal.map_or(default_normal_map.clone(), |ind| {
-                            self.get_texture_color(ind as usize)
-                        }),
-                    )) as Arc<dyn Material>
-                }
-                "metal" => {
-                    let ior = get_int_field(mat_json, "material-metal", "ior")? as usize;
-                    let ior_k = get_int_field(mat_json, "material-metal", "ior_k")? as usize;
-                    let roughness =
-                        get_int_field(mat_json, "material-metal", "roughness")? as usize;
-                    let emissive = get_int_field(mat_json, "material-metal", "emissive")? as usize;
-                    let normal = get_int_field_option(mat_json, "material-metal", "normal_map")?;
-                    Arc::new(Metal::new(
-                        self.get_texture_color(ior),
-                        self.get_texture_color(ior_k),
-                        self.get_texture_float(roughness),
-                        self.get_texture_color(emissive),
-                        normal.map_or(default_normal_map.clone(), |ind| {
-                            self.get_texture_color(ind as usize)
-                        }),
-                    )) as Arc<dyn Material>
-                }
-                "subsurface" => {
-                    let ior = get_float_field(mat_json, "material-subsurface", "ior")?;
-                    let albedo = get_int_field(mat_json, "material-subsurface", "albedo")? as usize;
-                    let ld = get_int_field(mat_json, "material-subsurface", "ld")? as usize;
-                    let roughness =
-                        get_int_field(mat_json, "material-subsurface", "roughness")? as usize;
-                    let emissive =
-                        get_int_field(mat_json, "material-subsurface", "emissive")? as usize;
-                    let normal =
-                        get_int_field_option(mat_json, "material-subsurface", "normal_map")?;
-                    Arc::new(Subsurface::new(
-                        ior,
-                        self.get_texture_color(albedo),
-                        self.get_texture_float(ld),
-                        self.get_texture_float(roughness),
-                        self.get_texture_color(emissive),
-                        normal.map_or(default_normal_map.clone(), |ind| {
-                            self.get_texture_color(ind as usize)
-                        }),
-                    )) as Arc<dyn Material>
-                }
-                "pndf_dielectric" => {
-                    let ior = get_float_field(mat_json, "material-pndf", "ior")?;
-                    let albedo = get_int_field(mat_json, "material-pndf", "albedo")? as usize;
-                    let sigma_r = get_float_field(mat_json, "material-pndf", "sigma_r")?;
-                    let base_normal =
-                        get_image_field(mat_json, "material-pndf", "base_normal", &self.path)?;
-                    let base_normal_tiling = get_float_array2_field_or(
-                        mat_json,
-                        "material-pndf",
-                        "base_normal_tiling",
-                        [1.0, 1.0],
-                    )?
-                    .into();
-                    let base_normal_offset = get_float_array2_field_or(
-                        mat_json,
-                        "material-pndf",
-                        "base_normal_offset",
-                        [0.0, 0.0],
-                    )?
-                    .into();
-                    let fallback_roughness =
-                        get_int_field(mat_json, "material-pndf", "fallback_roughness")? as usize;
-                    let h = get_float_field(mat_json, "material-pndf", "h")?;
-                    let emissive = get_int_field(mat_json, "material-pndf", "emissive")? as usize;
-                    let normal = get_int_field_option(mat_json, "material-pndf", "normal_map")?;
-                    Arc::new(PndfDielectric::new(
-                        ior,
-                        self.get_texture_color(albedo),
-                        sigma_r,
-                        base_normal,
-                        base_normal_tiling,
-                        base_normal_offset,
-                        self.get_texture_float(fallback_roughness),
-                        h,
-                        self.get_texture_color(emissive),
-                        normal.map_or(default_normal_map.clone(), |ind| {
-                            self.get_texture_color(ind as usize)
-                        }),
-                    )) as Arc<dyn Material>
-                }
-                "pndf_metal" => {
-                    let albedo = get_int_field(mat_json, "material-pndf", "albedo")? as usize;
-                    let sigma_r = get_float_field(mat_json, "material-pndf", "sigma_r")?;
-                    let base_normal =
-                        get_image_field(mat_json, "material-pndf", "base_normal", &self.path)?;
-                    let base_normal_tiling = get_float_array2_field_or(
-                        mat_json,
-                        "material-pndf",
-                        "base_normal_tiling",
-                        [1.0, 1.0],
-                    )?
-                    .into();
-                    let base_normal_offset = get_float_array2_field_or(
-                        mat_json,
-                        "material-pndf",
-                        "base_normal_offset",
-                        [0.0, 0.0],
-                    )?
-                    .into();
-                    let fallback_roughness =
-                        get_int_field(mat_json, "material-pndf", "fallback_roughness")? as usize;
-                    let h = get_float_field(mat_json, "material-pndf", "h")?;
-                    let emissive = get_int_field(mat_json, "material-pndf", "emissive")? as usize;
-                    let normal = get_int_field_option(mat_json, "material-pndf", "normal_map")?;
-                    Arc::new(PndfMetal::new(
-                        self.get_texture_color(albedo),
-                        sigma_r,
-                        base_normal,
-                        base_normal_tiling,
-                        base_normal_offset,
-                        self.get_texture_float(fallback_roughness),
-                        h,
-                        self.get_texture_color(emissive),
-                        normal.map_or(default_normal_map.clone(), |ind| {
-                            self.get_texture_color(ind as usize)
-                        }),
-                    )) as Arc<dyn Material>
-                }
-                _ => bail!(format!("material: unknown type '{}'", ty)),
-            };
-            materials.push(mat);
-        }
-        Ok(materials)
-    }
-
-    fn load_mediums(&self, value: &serde_json::Value) -> Result<Vec<Arc<dyn Medium>>> {
-        let arr = value
-            .as_array()
-            .context("top: 'mediums' should be an array")?;
-        let mut mediums = Vec::with_capacity(arr.len());
-        for med_json in arr {
-            let ty = get_str_field(med_json, "medium", "type")?;
-            let med = match ty {
-                "homogeneous" => {
-                    let sigma_a =
-                        get_float_array3_field(med_json, "medium-homogeneous", "sigma_a")?;
-                    let sigma_s =
-                        get_float_array3_field(med_json, "medium-homogeneous", "sigma_s")?;
-                    let asymmetric = get_float_field(med_json, "medium-homogeneous", "asymmetric")?;
-                    Arc::new(Homogeneous::new(sigma_a.into(), sigma_s.into(), asymmetric))
-                        as Arc<dyn Medium>
-                }
-                _ => bail!(format!("medium: unknown type '{}'", ty)),
-            };
-            mediums.push(med);
-        }
-        Ok(mediums)
-    }
-
-    fn load_objects(&self, value: &serde_json::Value) -> Result<Vec<Box<dyn Primitive>>> {
-        let arr = value
-            .as_array()
-            .context("top: 'objects' should be an array")?;
-        let mut objects = vec![];
-        for obj_json in arr {
-            let mut primitives = self.load_object(obj_json)?;
-            objects.append(&mut primitives);
-        }
-        Ok(objects)
-    }
-
-    fn load_object(&self, value: &serde_json::Value) -> Result<Vec<Box<dyn Primitive>>> {
-        let ty = get_str_field(value, "object", "type")?;
-        match ty {
-            "sphere" => {
-                let center = get_float_array3_field(value, "object-sphere", "center")?;
-                let radius = get_float_field(value, "object-sphere", "radius")?;
-                let material = get_int_field(value, "object-sphere", "material")? as usize;
-                let medium = get_int_field_option(value, "object-sphere", "medium")?
-                    .map(|ind| self.mediums[ind as usize].clone());
-                Ok(vec![Box::new(Sphere::new(
-                    center.into(),
-                    radius,
-                    self.materials[material].clone(),
-                    medium,
-                )) as Box<dyn Primitive>])
-            }
-            "transform" => {
-                let trans = self.load_transform(value, "object-transform")?;
-                let prim_json = value
-                    .get("primitive")
-                    .context("object-transform: no 'primitive' field")?;
-                let primitive = self.load_object(prim_json)?;
-                Ok(primitive
-                    .into_iter()
-                    .map(|prim| Box::new(Transform::new(prim, trans)) as Box<dyn Primitive>)
-                    .collect())
-            }
-            "obj_mesh" => {
-                let material = get_int_field(value, "object-obj_mesh", "material")? as usize;
-                let medium = get_int_field_option(value, "object-sphere", "medium")?
-                    .map(|ind| self.mediums[ind as usize].clone());
-                let file = get_str_field(value, "object-obj_mesh", "file")?;
-                let mut load_options = tobj::LoadOptions::default();
-                load_options.triangulate = true;
-                load_options.single_index = true;
-                let (models, _) = tobj::load_obj(self.path.with_file_name(file), &load_options)?;
-                let mut triangles = vec![];
-                for model in models {
-                    let indices = model.mesh.indices;
-                    let vertex_count = model.mesh.positions.len() / 3;
-                    let mut vertices = vec![MeshVertex::default(); vertex_count];
-                    for i in 0..vertex_count {
-                        let i0 = 3 * i;
-                        let i1 = 3 * i + 1;
-                        let i2 = 3 * i + 2;
-                        if i2 < model.mesh.positions.len() {
-                            vertices[i].position = glam::Vec3A::new(
-                                model.mesh.positions[i0],
-                                model.mesh.positions[i1],
-                                model.mesh.positions[i2],
-                            );
-                        }
-                        if i2 < model.mesh.normals.len() {
-                            vertices[i].normal = glam::Vec3A::new(
-                                model.mesh.normals[i0],
-                                model.mesh.normals[i1],
-                                model.mesh.normals[i2],
-                            );
-                        }
-                        if 2 * i + 1 < model.mesh.texcoords.len() {
-                            vertices[i].texcoords = glam::Vec2::new(
-                                model.mesh.texcoords[2 * i],
-                                model.mesh.texcoords[2 * i + 1],
-                            );
-                        }
-                    }
-                    let mesh = TriangleMesh::new(
-                        vertices,
-                        indices,
-                        self.materials[material].clone(),
-                        medium.clone(),
-                    );
-                    let mut primitives = mesh.into_triangles();
-                    triangles.append(&mut primitives);
-                }
-                Ok(triangles)
-            }
-            "cubic_bezier" => {
-                let material = get_int_field(value, "object-cubic_bezier", "material")? as usize;
-                let cp_value = value
-                    .get("control_points")
-                    .context("object-cubic_bezier: no 'control_points' field")?;
-                let error_info =
-                    "object-cubic_bezier: 'control_points' should be a 4x4 array of float3";
-                let cp_arr = cp_value.as_array().context(error_info)?;
-                if cp_arr.len() != 4 {
-                    bail!(error_info);
-                }
-                let mut control_points = [[glam::Vec3A::new(0.0, 0.0, 0.0); 4]; 4];
-                for i in 0..4 {
-                    let cp_row_arr = cp_arr[i].as_array().context(error_info)?;
-                    if cp_row_arr.len() != 4 {
-                        bail!(error_info);
-                    }
-                    for j in 0..4 {
-                        let cp_point_arr = cp_row_arr[j].as_array().context(error_info)?;
-                        if cp_point_arr.len() != 3 {
-                            bail!(error_info);
-                        }
-                        control_points[i][j] = glam::Vec3A::new(
-                            cp_point_arr[0].as_f64().context(error_info)? as f32,
-                            cp_point_arr[1].as_f64().context(error_info)? as f32,
-                            cp_point_arr[2].as_f64().context(error_info)? as f32,
-                        );
-                    }
-                }
-                Ok(vec![Box::new(CubicBezier::new(
-                    control_points,
-                    self.materials[material].clone(),
-                ))])
-            }
-            "catmull_clark" => {
-                let material = get_int_field(value, "object-catmull_clark", "material")? as usize;
-                let file = get_str_field(value, "object-catmull_clark", "file")?;
-                let mesh = ply::load_to_halfedge(self.path.with_file_name(file))?;
-                let fas_times = get_int_field_or(value, "object-catmull_clark", "fas_times", 4)?;
-                Ok(vec![Box::new(CatmullClark::new(
-                    mesh,
-                    self.materials[material].clone(),
-                    fas_times,
-                ))])
-            }
-            _ => bail!(format!("object: unknown type '{}'", ty)),
-        }
-    }
-
-    fn load_transform(&self, value: &serde_json::Value, env: &str) -> Result<glam::Affine3A> {
-        let trans_json = value
-            .get("transform")
-            .context(format!("{}: no field 'transform'", env))?;
-        let mut trans = glam::Affine3A::IDENTITY;
-        if let Some(mat_json) = trans_json.get("matrix") {
-            let error_info = format!("{}: 'matrix' should be an array with 16 floats", env);
-            let mat_arr = mat_json.as_array().context(error_info.clone())?;
-            if mat_arr.len() != 16 {
-                bail!(error_info.clone());
-            }
-            let mut matrix = glam::Mat4::IDENTITY;
-            matrix.col_mut(0).x = mat_arr[0].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(0).y = mat_arr[1].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(0).z = mat_arr[2].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(0).w = mat_arr[3].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(1).x = mat_arr[4].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(1).y = mat_arr[5].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(1).z = mat_arr[6].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(1).w = mat_arr[7].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(2).x = mat_arr[8].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(2).y = mat_arr[9].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(2).z = mat_arr[10].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(2).w = mat_arr[11].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(3).x = mat_arr[12].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(3).y = mat_arr[13].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(3).z = mat_arr[14].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(3).w = mat_arr[15].as_f64().context(error_info.clone())? as f32;
-            trans = glam::Affine3A::from_mat4(matrix);
-        }
-        if let Some(_) = trans_json.get("scale") {
-            let scale = get_float_array3_field(trans_json, env, "scale")?;
-            trans =
-                glam::Affine3A::from_scale(glam::Vec3::new(scale[0], scale[1], scale[2])) * trans;
-        }
-        if let Some(_) = trans_json.get("rotate") {
-            let rotate = get_float_array3_field(trans_json, env, "rotate")?;
-            trans = glam::Affine3A::from_rotation_z(rotate[2] * std::f32::consts::PI / 180.0)
-                * glam::Affine3A::from_rotation_x(rotate[0] * std::f32::consts::PI / 180.0)
-                * glam::Affine3A::from_rotation_y(rotate[1] * std::f32::consts::PI / 180.0)
-                * trans;
-        }
-        if let Some(_) = trans_json.get("translate") {
-            let translate = get_float_array3_field(trans_json, env, "translate")?;
-            trans = glam::Affine3A::from_translation(glam::Vec3::new(
-                translate[0],
-                translate[1],
-                translate[2],
-            )) * trans;
-        }
-        if trans.matrix3.determinant() == 0.0 {
-            println!("WARNING: singular transform matrix found");
-        }
-        Ok(trans)
-    }
-
-    fn load_lights(&self, value: &serde_json::Value) -> Result<Vec<Arc<dyn Light>>> {
-        let arr = value
-            .as_array()
-            .context("top: 'lights' should be an array")?;
-        let mut lights = Vec::with_capacity(arr.len());
-        for light_json in arr {
-            let ty = get_str_field(light_json, "light", "type")?;
-            let light = match ty {
-                "point" => {
-                    let position = get_float_array3_field(light_json, "light-point", "position")?;
-                    let strength = get_float_array3_field(light_json, "light-point", "strength")?;
-                    Arc::new(PointLight::new(
-                        glam::Vec3A::new(position[0], position[1], position[2]),
-                        strength.into(),
-                    )) as Arc<dyn Light>
-                }
-                "directional" => {
-                    let direction =
-                        get_float_array3_field(light_json, "light-directional", "direction")?;
-                    let strength =
-                        get_float_array3_field(light_json, "light-directional", "strength")?;
-                    Arc::new(DirLight::new(
-                        glam::Vec3A::new(direction[0], direction[1], direction[2]),
-                        strength.into(),
-                    )) as Arc<dyn Light>
-                }
-                "rectangle" => {
-                    let center = get_float_array3_field(light_json, "light-rectangle", "center")?;
-                    let direction =
-                        get_float_array3_field(light_json, "light-rectangle", "direction")?;
-                    let strength =
-                        get_float_array3_field(light_json, "light-rectangle", "strength")?;
-                    let up = get_float_array3_field(light_json, "light-rectangle", "up")?;
-                    let width = get_float_field(light_json, "light-rectangle", "width")?;
-                    let height = get_float_field(light_json, "light-rectangle", "height")?;
-                    Arc::new(RectangleLight::new(
-                        glam::Vec3A::new(center[0], center[1], center[2]),
-                        glam::Vec3A::new(direction[0], direction[1], direction[2]),
-                        width,
-                        height,
-                        glam::Vec3A::new(up[0], up[1], up[2]),
-                        strength.into(),
-                    )) as Arc<dyn Light>
-                }
-                _ => bail!(format!("light: unknown type '{}'", ty)),
-            };
-            lights.push(light)
-        }
-        Ok(lights)
-    }
-
-    fn load_environment(&self, value: &serde_json::Value) -> Result<Arc<EnvLight>> {
-        let ty = get_str_field(value, "environment", "type")?;
-        let env = match ty {
-            "color" => {
-                let color: Color = get_float_array3_field(value, "environment", "color")?.into();
-                let scale: Color =
-                    get_float_array3_field_or(value, "environment", "scale", [1.0, 1.0, 1.0])?
-                        .into();
-                Arc::new(EnvLight::new(vec![vec![color]], scale))
-            }
-            "texture" => {
-                let path = self
-                    .path
-                    .with_file_name(get_str_field(value, "environment", "file")?);
-                let path_str = path.to_str().unwrap();
-                let image = get_exr_image(&path).context(format!(
-                    "environment: 'file', can't find image '{}'",
-                    path_str
-                ))?;
-                let scale: Color =
-                    get_float_array3_field_or(value, "environment", "scale", [1.0, 1.0, 1.0])?
-                        .into();
-                Arc::new(EnvLight::new(image, scale))
-            }
-            _ => bail!(format!("environment: unknown type '{}'", ty)),
-        };
-        Ok(env)
-    }
-
-    fn load_aggregate(
-        &self,
-        value: &serde_json::Value,
-        primitives: Vec<Box<dyn Primitive>>,
-    ) -> Result<Box<dyn Aggregate>> {
-        let ty = get_str_field(value, "aggregate", "type")?;
-        match ty {
-            "group" => Ok(Box::new(Group::new(primitives)) as Box<dyn Aggregate>),
-            "bvh" => {
-                let max_leaf_size = get_int_field_or(value, "aggregate-bvh", "max_leaf_size", 4)?;
-                let bucket_number = get_int_field_or(value, "aggregate-bvh", "bucket_number", 16)?;
-                Ok(Box::new(BvhAccel::new(
-                    primitives,
-                    max_leaf_size as _,
-                    bucket_number as _,
-                )) as Box<dyn Aggregate>)
-            }
-            _ => bail!(format!("aggregate: unknown type '{}'", ty)),
-        }
-    }
-
-    fn get_texture_float(&self, ind: usize) -> Arc<dyn Texture<f32>> {
-        self.textures_float[self.textures_indices[ind]].clone()
-    }
-
-    fn get_texture_color(&self, ind: usize) -> Arc<dyn Texture<Color>> {
-        self.textures_color[self.textures_indices[ind]].clone()
+        _ => anyhow::bail!(format!("renderer: unknown type '{}'", ty)),
     }
 }
 
-fn get_str_field<'a>(value: &'a serde_json::Value, env: &str, field: &str) -> Result<&'a str> {
+fn load_from_object_or_external<F: Fn(&mut Scene, &PathBuf, &JsonObject) -> anyhow::Result<()>>(
+    scene: &mut Scene,
+    path: &PathBuf,
+    json_value: &serde_json::Value,
+    env: &str,
+    field: &str,
+    load_func: F,
+) -> anyhow::Result<()> {
+    let value = json_value
+        .get(field)
+        .context(format!("{}: '{}' is needed but not found", env, field))?;
+    let value = if let Some(json_path) = value.as_str() {
+        let json_file = std::fs::File::open(path.with_file_name(json_path))
+            .context(format!("{}: external json file not found", field))?;
+        let json_reader = std::io::BufReader::new(json_file);
+        Cow::Owned(
+            serde_json::from_reader(json_reader)
+                .context(format!("{}: failed to parse external json", field))?,
+        )
+    } else {
+        Cow::Borrowed(value)
+    };
+    let object = value
+        .as_object()
+        .context(format!("{}: should be an object", field))?;
+
+    load_func(scene, path, object)
+}
+
+fn load_from_array_or_external<F: Fn(&mut Scene, &PathBuf, &JsonObject) -> anyhow::Result<()>>(
+    scene: &mut Scene,
+    path: &PathBuf,
+    json_value: &serde_json::Value,
+    env: &str,
+    field: &str,
+    load_func: F,
+) -> anyhow::Result<()> {
+    let value = json_value
+        .get(field)
+        .context(format!("{}: '{}' is needed but not found", env, field))?;
+    let value = if let Some(json_path) = value.as_str() {
+        let json_file = std::fs::File::open(path.with_file_name(json_path))
+            .context(format!("{}: external json file not found", field))?;
+        let json_reader = std::io::BufReader::new(json_file);
+        Cow::Owned(
+            serde_json::from_reader(json_reader)
+                .context(format!("{}: failed to parse external json", field))?,
+        )
+    } else {
+        Cow::Borrowed(value)
+    };
+    let array = value
+        .as_array()
+        .context(format!("{}: should be an array", field))?;
+
+    for (id, ele) in array.iter().enumerate() {
+        let value = if let Some(json_path) = ele.as_str() {
+            let json_file = std::fs::File::open(path.with_file_name(json_path))
+                .context(format!("{}[{}]: external json file not found", field, id))?;
+            let json_reader = std::io::BufReader::new(json_file);
+            Cow::Owned(
+                serde_json::from_reader(json_reader)
+                    .context(format!("{}[{}]: failed to parse external json", field, id))?,
+            )
+        } else {
+            Cow::Borrowed(ele)
+        };
+        let object = value
+            .as_object()
+            .context(format!("{}[{}]: should be an object", field, id))?;
+
+        load_func(scene, path, object)?;
+    }
+
+    Ok(())
+}
+
+fn load_camera(scene: &mut Scene, path: &PathBuf, json_value: &JsonObject) -> anyhow::Result<()> {
+    let ty = get_str_field(json_value, "camera", "type")?;
+    match ty {
+        "perspective" => PerspectiveCamera::load(scene, path, json_value)?,
+        _ => anyhow::bail!(format!("camera: unknown type '{}'", ty)),
+    };
+    Ok(())
+}
+
+fn load_texture(scene: &mut Scene, path: &PathBuf, json_value: &JsonObject) -> anyhow::Result<()> {
+    let ty = get_str_field(json_value, "texture", "type")?;
+    match ty {
+        "scalar" => {
+            let ele_ty = get_str_field(json_value, "texture", "ele")?;
+            match ele_ty {
+                "color" => ScalarTex::<Color>::load(scene, path, json_value)?,
+                "float" => ScalarTex::<f32>::load(scene, path, json_value)?,
+                _ => anyhow::bail!(format!("texture-scalar: unknown element type '{}'", ele_ty)),
+            }
+        }
+        "image" => ImageTex::load(scene, path, json_value)?,
+        _ => anyhow::bail!(format!("texture: unknown type '{}'", ty)),
+    };
+    Ok(())
+}
+
+fn load_material(scene: &mut Scene, path: &PathBuf, json_value: &JsonObject) -> anyhow::Result<()> {
+    let ty = get_str_field(json_value, "material", "type")?;
+    match ty {
+        "pseudo" => PseudoMaterial::load(scene, path, json_value)?,
+        "lambert" => Lambert::load(scene, path, json_value)?,
+        "dielectric" => Dielectric::load(scene, path, json_value)?,
+        "metal" => Metal::load(scene, path, json_value)?,
+        "glass" => Glass::load(scene, path, json_value)?,
+        "subsurface" => Subsurface::load(scene, path, json_value)?,
+        "pndf_dielectric" => PndfDielectric::load(scene, path, json_value)?,
+        "pndf_metal" => PndfMetal::load(scene, path, json_value)?,
+        _ => anyhow::bail!(format!("material: unknown type '{}'", ty)),
+    };
+    Ok(())
+}
+
+fn load_medium(scene: &mut Scene, path: &PathBuf, json_value: &JsonObject) -> anyhow::Result<()> {
+    let ty = get_str_field(json_value, "medium", "type")?;
+    match ty {
+        "homogeneous" => Homogeneous::load(scene, path, json_value)?,
+        _ => anyhow::bail!(format!("medium: unknown type '{}'", ty)),
+    };
+    Ok(())
+}
+
+fn load_primitive(
+    scene: &mut Scene,
+    path: &PathBuf,
+    json_value: &JsonObject,
+) -> anyhow::Result<()> {
+    let ty = get_str_field(json_value, "primitive", "type")?;
+    match ty {
+        "sphere" => Sphere::load(scene, path, json_value)?,
+        "trimesh" => TriMesh::load(scene, path, json_value)?,
+        "cubic_bezier" => CubicBezier::load(scene, path, json_value)?,
+        "catmull_clark" => CatmullClark::load(scene, path, json_value)?,
+        _ => anyhow::bail!(format!("primitive: unknown type '{}'", ty)),
+    };
+    Ok(())
+}
+
+fn load_light(scene: &mut Scene, path: &PathBuf, json_value: &JsonObject) -> anyhow::Result<()> {
+    let ty = get_str_field(json_value, "light", "type")?;
+    match ty {
+        "point" => PointLight::load(scene, path, json_value)?,
+        "directional" => DirLight::load(scene, path, json_value)?,
+        "rectangle" => RectangleLight::load(scene, path, json_value)?,
+        _ => anyhow::bail!(format!("light: unknown type '{}'", ty)),
+    };
+    Ok(())
+}
+
+fn load_filter(value: &JsonObject) -> anyhow::Result<Box<dyn Filter>> {
+    let ty = get_str_field(value, "filter", "type")?;
+    match ty {
+        "box" => {
+            let radius = get_float_field(value, "filter-box", "radius")?;
+            Ok(Box::new(BoxFilter::new(radius)))
+        }
+        _ => anyhow::bail!(format!("filter: unknown type '{}'", ty)),
+    }
+}
+
+fn build_aggregate(scene: &mut Scene, json_value: &serde_json::Value) -> anyhow::Result<()> {
+    let instances = scene
+        .instances
+        .iter()
+        .map(|(_, inst)| inst.clone() as Arc<dyn Primitive>)
+        .collect::<Vec<_>>();
+
+    let ty = json_value.get("aggregate");
+    let aggregate = if let Some(ty) = ty {
+        let ty = ty.as_str().context("top: 'aggregate' should be a string")?;
+
+        match ty {
+            "group" => Arc::new(Group::new(instances)) as Arc<dyn Aggregate>,
+            "bvh" => Arc::new(BvhAccel::new(instances, 4, 16)) as Arc<dyn Aggregate>,
+            _ => anyhow::bail!(format!("top: unknown aggregate type '{}'", ty)),
+        }
+    } else {
+        Arc::new(BvhAccel::new(instances, 4, 16)) as Arc<dyn Aggregate>
+    };
+    scene.aggregate = Some(aggregate);
+
+    Ok(())
+}
+
+// utils
+
+pub fn get_str_field<'a>(value: &'a JsonObject, env: &str, field: &str) -> anyhow::Result<&'a str> {
     let field_value = value
         .get(field)
         .context(format!("{}: no '{}' field", env, field))?;
@@ -804,7 +362,7 @@ fn get_str_field<'a>(value: &'a serde_json::Value, env: &str, field: &str) -> Re
         .context(format!("{}: '{}' should be a string", env, field))
 }
 
-fn get_float_field(value: &serde_json::Value, env: &str, field: &str) -> Result<f32> {
+pub fn get_float_field(value: &JsonObject, env: &str, field: &str) -> anyhow::Result<f32> {
     let field_value = value
         .get(field)
         .context(format!("{}: no '{}' field", env, field))?;
@@ -814,24 +372,12 @@ fn get_float_field(value: &serde_json::Value, env: &str, field: &str) -> Result<
         .context(format!("{}: '{}' should be a float", env, field))
 }
 
-fn get_int_field_option(value: &serde_json::Value, env: &str, field: &str) -> Result<Option<u32>> {
-    if let Some(field_value) = value.get(field) {
-        field_value
-            .as_u64()
-            .map(|i| i as u32)
-            .context(format!("{}: '{}' should be an int", env, field))
-            .map(|i| Some(i))
-    } else {
-        Ok(None)
-    }
-}
-
-fn get_int_field_or(
-    value: &serde_json::Value,
+pub fn get_int_field_or(
+    value: &JsonObject,
     env: &str,
     field: &str,
     default: u32,
-) -> Result<u32> {
+) -> anyhow::Result<u32> {
     if let Some(_) = value.get(field) {
         get_int_field(value, env, field)
     } else {
@@ -839,7 +385,7 @@ fn get_int_field_or(
     }
 }
 
-fn get_int_field(value: &serde_json::Value, env: &str, field: &str) -> Result<u32> {
+pub fn get_int_field(value: &JsonObject, env: &str, field: &str) -> anyhow::Result<u32> {
     let field_value = value
         .get(field)
         .context(format!("{}: no '{}' field", env, field))?;
@@ -849,12 +395,34 @@ fn get_int_field(value: &serde_json::Value, env: &str, field: &str) -> Result<u3
         .context(format!("{}: '{}' should be an int", env, field))
 }
 
-fn get_float_array2_field_or(
-    value: &serde_json::Value,
+pub fn get_bool_field_or(
+    value: &JsonObject,
+    env: &str,
+    field: &str,
+    default: bool,
+) -> anyhow::Result<bool> {
+    if let Some(_) = value.get(field) {
+        get_bool_field(value, env, field)
+    } else {
+        Ok(default)
+    }
+}
+
+pub fn get_bool_field(value: &JsonObject, env: &str, field: &str) -> anyhow::Result<bool> {
+    let field_value = value
+        .get(field)
+        .context(format!("{}: no '{}' field", env, field))?;
+    field_value
+        .as_bool()
+        .context(format!("{}: '{}' should be a bool", env, field))
+}
+
+pub fn get_float_array2_field_or(
+    value: &JsonObject,
     env: &str,
     field: &str,
     default: [f32; 2],
-) -> Result<[f32; 2]> {
+) -> anyhow::Result<[f32; 2]> {
     if let Some(_) = value.get(field) {
         get_float_array2_field(value, env, field)
     } else {
@@ -862,7 +430,11 @@ fn get_float_array2_field_or(
     }
 }
 
-fn get_float_array2_field(value: &serde_json::Value, env: &str, field: &str) -> Result<[f32; 2]> {
+pub fn get_float_array2_field(
+    value: &JsonObject,
+    env: &str,
+    field: &str,
+) -> anyhow::Result<[f32; 2]> {
     let field_value = value
         .get(field)
         .context(format!("{}: no '{}' field", env, field))?;
@@ -873,16 +445,16 @@ fn get_float_array2_field(value: &serde_json::Value, env: &str, field: &str) -> 
         let arr1 = arr[1].as_f64().context(error_info.clone())? as f32;
         Ok([arr0, arr1])
     } else {
-        bail!(error_info)
+        anyhow::bail!(error_info)
     }
 }
 
-fn get_float_array3_field_or(
-    value: &serde_json::Value,
+pub fn get_float_array3_field_or(
+    value: &JsonObject,
     env: &str,
     field: &str,
     default: [f32; 3],
-) -> Result<[f32; 3]> {
+) -> anyhow::Result<[f32; 3]> {
     if let Some(_) = value.get(field) {
         get_float_array3_field(value, env, field)
     } else {
@@ -890,7 +462,11 @@ fn get_float_array3_field_or(
     }
 }
 
-fn get_float_array3_field(value: &serde_json::Value, env: &str, field: &str) -> Result<[f32; 3]> {
+pub fn get_float_array3_field(
+    value: &JsonObject,
+    env: &str,
+    field: &str,
+) -> anyhow::Result<[f32; 3]> {
     let field_value = value
         .get(field)
         .context(format!("{}: no '{}' field", env, field))?;
@@ -902,25 +478,29 @@ fn get_float_array3_field(value: &serde_json::Value, env: &str, field: &str) -> 
         let arr2 = arr[2].as_f64().context(error_info.clone())? as f32;
         Ok([arr0, arr1, arr2])
     } else {
-        bail!(error_info)
+        anyhow::bail!(error_info)
     }
 }
 
-fn get_sampler_type(value: &serde_json::Value) -> Result<&'static str> {
-    let ty = get_str_field(value, "sample", "type")?;
+pub fn get_sampler_field(
+    value: &JsonObject,
+    env: &str,
+    field: &str,
+) -> anyhow::Result<&'static str> {
+    let ty = get_str_field(value, env, field)?;
     match ty {
         "random" => Ok("random"),
         "jittered" => Ok("jittered"),
-        _ => bail!(format!("sampler: unknown type '{}'", ty)),
+        _ => anyhow::bail!(format!("sampler: unknown type '{}'", ty)),
     }
 }
 
-fn get_image_field(
-    value: &serde_json::Value,
+pub fn get_image_field(
+    value: &JsonObject,
     env: &str,
     field: &str,
     dir: &PathBuf,
-) -> Result<image::DynamicImage> {
+) -> anyhow::Result<image::DynamicImage> {
     let path = dir.with_file_name(get_str_field(value, env, field)?);
     let path_str = path.to_str().unwrap();
     image::open(path_str).context(format!(
@@ -929,7 +509,7 @@ fn get_image_field(
     ))
 }
 
-fn get_exr_image(path: &PathBuf) -> Result<Vec<Vec<Color>>> {
+pub fn get_exr_image(path: &PathBuf) -> anyhow::Result<Vec<Vec<Color>>> {
     Ok(exr::image::read::read_first_rgba_layer_from_file(
         path,
         |resolution: exr::math::Vec2<usize>, _| {

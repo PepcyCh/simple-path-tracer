@@ -1,17 +1,10 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
-use crate::core::{
-    bbox::Bbox,
-    intersection::Intersection,
-    material::Material,
-    medium::Medium,
-    primitive::{Aggregate, Primitive},
-    ray::Ray,
-};
+use crate::core::{bbox::Bbox, intersection::Intersection, primitive::{Aggregate, Primitive}, ray::Ray, sampler::Sampler, transform::Transform};
 
 pub struct BvhAccel {
     bvh_root: Option<Box<BvhNode>>,
-    primitives: Vec<Box<dyn Primitive>>,
+    primitives: Vec<Arc<dyn Primitive>>,
 }
 
 struct BvhNode {
@@ -24,7 +17,7 @@ struct BvhNode {
 
 impl BvhAccel {
     pub fn new(
-        mut primitives: Vec<Box<dyn Primitive>>,
+        mut primitives: Vec<Arc<dyn Primitive>>,
         max_leaf_size: usize,
         bucket_number: usize,
     ) -> Self {
@@ -185,7 +178,7 @@ impl BvhAccel {
         bucket_number: usize,
         boxes: &Vec<Bbox>,
         prim_indices: &mut Vec<Vec<usize>>,
-        primitives: &mut Vec<Box<dyn Primitive>>,
+        primitives: &mut Vec<Arc<dyn Primitive>>,
         start: usize,
         end: usize,
     ) -> (Box<BvhNode>, Box<BvhNode>) {
@@ -297,12 +290,15 @@ impl Primitive for BvhAccel {
         }
     }
 
-    fn material(&self) -> Option<&dyn Material> {
-        None
+    fn sample<'a>(&'a self, trans: Transform, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+        let index = sampler.uniform_1d() * self.primitives.len() as f32;
+        let index = (index as usize).min(self.primitives.len() - 1);
+        let (inter, pdf) = self.primitives[index].sample(trans, sampler);
+        (inter, pdf / self.primitives.len() as f32)
     }
 
-    fn inside_medium(&self) -> Option<&dyn Medium> {
-        None
+    fn pdf(&self, trans: Transform, inter: &Intersection<'_>) -> f32 {
+        inter.primitive.unwrap().pdf(trans, inter) / self.primitives.len() as f32
     }
 }
 

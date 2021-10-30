@@ -1,4 +1,17 @@
 {
+  "renderer": {
+    "type": "pt",
+    "width": 200,
+    "height": 200,
+    "spp": 4,
+    "max_depth": 2,
+    "sampler": "jittered",
+    "filter": {
+      "type": "box",
+      "radius": 0.5
+    },
+    "output_filename": "images/test_scene_01.jpg"
+  },
   "camera": {
     "type": "perspective",
     "eye": [0.0, 0.0, 7.0],
@@ -6,55 +19,36 @@
     "up": [0.0, 1.0, 0.0],
     "fov": 45.0
   },
-  "aggregate": {
-    "type": "group"
-  },
-  "pixel_sampler": {
-    "type": "jittered",
-    "division": 4,
-    "spp": 4
-  },
-  "max_depth": 2,
-  "filter": {
-    "type": "box",
-    "radius": 0.5
-  },
-  "output": {
-    "file": "images/test_scene_01.jpg",
-    "width": 200,
-    "height": 200
-  },
   "textures": [
     {
       "type": "scalar",
       "ele": "color",
-      "value": [0.0, 0.0, 0.0]
-    },
-    {
-      "type": "scalar",
-      "ele": "color",
+      "name": "tex_white",
       "value": [1.0, 1.0, 1.0]
     }
   ],
   "materials": [
     {
       "type": "lambert",
-      "albedo": 1,
-      "emissive": 0
+      "name": "mat_cube",
+      "albedo": "tex_white"
     }
   ],
   "mediums": [],
-  "objects": [
+  "surfaces": [],
+  "primitives": [
     {
-      "type": "transform",
-      "transform": {
-        "rotate": [0.0, 60.0, 0.0]
-      },
-      "primitive": {
-        "type": "obj_mesh",
-        "file": "models/cube.obj",
-        "material": 0
-      }
+      "type": "trimesh",
+      "name": "cube",
+      "obj_file": "models/cube.obj"
+    }
+  ],
+  "instances": [
+    {
+      "name": "cube",
+      "primitive": "cube",
+      "material": "mat_cube",
+      "rotate": [0.0, 60.0, 0.0]
     }
   ],
   "lights": [
@@ -63,5 +57,6 @@
       "direction": [-1.0, -1.0, -1.0],
       "strength": [5.0, 5.0, 5.0]
     }
-  ]
+  ],
+  "aggregate": "group"
 }

@@ -104,8 +104,13 @@ impl Scatter for SubsurfaceReflect {
         loop {
             if scene.intersect(&ray, &mut inter) {
                 // TODO - check if the intersected one is the same as self
-                inter.apply_normal_map();
-                intersects.push((ray.point_at(inter.t), inter.normal, inter.shade_normal));
+                let surf = inter.surface.unwrap();
+                let coord_temp = surf.coord(&ray, &inter);
+                intersects.push((
+                    ray.point_at(inter.t),
+                    inter.normal,
+                    coord_temp.to_world(glam::Vec3A::Z),
+                ));
                 ray.t_min = inter.t + Ray::T_MIN_EPS;
             } else {
                 break;

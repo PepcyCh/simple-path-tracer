@@ -1,19 +1,14 @@
-use crate::core::{
-    bbox::Bbox,
-    intersection::Intersection,
-    material::Material,
-    medium::Medium,
-    primitive::{Aggregate, Primitive},
-    ray::Ray,
-};
+use std::sync::Arc;
+
+use crate::core::{bbox::Bbox, intersection::Intersection, primitive::{Aggregate, Primitive}, ray::Ray, sampler::Sampler, transform::Transform};
 
 pub struct Group {
-    primitives: Vec<Box<dyn Primitive>>,
+    primitives: Vec<Arc<dyn Primitive>>,
     bbox: Bbox,
 }
 
 impl Group {
-    pub fn new(primitives: Vec<Box<dyn Primitive>>) -> Self {
+    pub fn new(primitives: Vec<Arc<dyn Primitive>>) -> Self {
         let bbox = primitives
             .iter()
             .map(|prim| prim.bbox())
@@ -44,12 +39,15 @@ impl Primitive for Group {
         self.bbox
     }
 
-    fn material(&self) -> Option<&dyn Material> {
-        None
+    fn sample<'a>(&'a self, trans: Transform, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+        let index = sampler.uniform_1d() * self.primitives.len() as f32;
+        let index = (index as usize).min(self.primitives.len() - 1);
+        let (inter, pdf) = self.primitives[index].sample(trans, sampler);
+        (inter, pdf / self.primitives.len() as f32)
     }
 
-    fn inside_medium(&self) -> Option<&dyn Medium> {
-        None
+    fn pdf(&self, trans: Transform, inter: &Intersection<'_>) -> f32 {
+        inter.primitive.unwrap().pdf(trans, inter) / self.primitives.len() as f32
     }
 }
 

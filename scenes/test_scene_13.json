@@ -1,4 +1,17 @@
 {
+  "renderer": {
+    "type": "pt",
+    "width": 400,
+    "height": 400,
+    "spp": 256,
+    "max_depth": 8,
+    "sampler": "jittered",
+    "filter": {
+      "type": "box",
+      "radius": 0.5
+    },
+    "output_filename": "images/test_scene_13.jpg"
+  },
   "camera": {
     "type": "perspective",
     "eye": [0.0, 0.0, 4.0],
@@ -6,188 +19,76 @@
     "up": [0.0, 1.0, 0.0],
     "fov": 75.0
   },
-  "aggregate": {
-    "type": "bvh",
-    "max_leaf_size": 4,
-    "bucket_number": 16
-  },
-  "pixel_sampler": {
-    "type": "jittered",
-    "division": 1024,
-    "spp": 1024
-  },
-  "max_depth": 8,
-  "filter": {
-    "type": "box",
-    "radius": 0.5
-  },
-  "output": {
-    "file": "images/test_scene_13.jpg",
-    "width": 400,
-    "height": 400
-  },
-  "textures": [
-    {
-      "type": "scalar",
-      "ele": "color",
-      "value": [0.0, 0.0, 0.0]
-    },
-    {
-      "type": "scalar",
-      "ele": "float",
-      "value": 0.0
-    },
-    {
-      "type": "scalar",
-      "ele": "color",
-      "value": [1.0, 1.0, 1.0]
-    },
-    {
-      "type": "scalar",
-      "ele": "color",
-      "value": [0.6, 0.7, 0.4]
-    },
-    {
-      "type": "uvmap",
-      "ele": "color",
-      "value": "textures/uv-test.png"
-    },
-    {
-      "type": "scalar",
-      "ele": "color",
-      "value": [0.7, 0.6, 0.3]
-    },
-    {
-      "type": "scalar",
-      "ele": "float",
-      "value": 0.2
-    },
-    {
-      "type": "uvmap",
-      "ele": "color",
-      "value": "textures/normal-test.jpg"
-    }
-  ],
-  "materials": [
-    {
-      "type": "lambert",
-      "albedo": 0,
-      "emissive": 2
-    },
-    {
-      "type": "lambert",
-      "albedo": 3,
-      "emissive": 0
-    },
-    {
-      "type": "lambert",
-      "albedo": 4,
-      "emissive": 0
-    },
-    {
-      "type": "metal",
-      "ior": 5,
-      "ior_k": 0,
-      "emissive": 0,
-      "roughness": 6,
-      "normal_map": 7
-    }
-  ],
+  "textures": "common_textures.json",
+  "materials": "common_materials.json",
   "mediums": [],
-  "objects": [
+  "surfaces": [
     {
-      "type": "sphere",
-      "material": 3,
-      "center": [0.0, 0.3, 0.0],
-      "radius": 1.0
+      "name": "light",
+      "material": "lambert_black",
+      "emissive": [2.0, 2.0, 2.0]
     },
     {
-      "type": "transform",
-      "transform": {
-        "translate": [0.0, -1.0, 0.0],
-        "scale": [5.0, 1.0, 5.0]
-      },
-      "primitive": {
-        "type": "obj_mesh",
-        "file": "models/plane.obj",
-        "material": 2
-      }
-    },
-    {
-      "type": "transform",
-      "transform": {
-        "scale": [5.0, 1.0, 3.0],
-        "rotate": [90.0, 0.0, 0.0],
-        "translate": [0.0, 2.0, -5.0]
-      },
-      "primitive": {
-        "type": "obj_mesh",
-        "file": "models/plane.obj",
-        "material": 1
-      }
-    },
-    {
-      "type": "transform",
-      "transform": {
-        "scale": [5.0, 1.0, 3.0],
-        "rotate": [-90.0, 0.0, 0.0],
-        "translate": [0.0, 2.0, 5.0]
-      },
-      "primitive": {
-        "type": "obj_mesh",
-        "file": "models/plane.obj",
-        "material": 1
-      }
-    },
-    {
-      "type": "transform",
-      "transform": {
-        "scale": [3.0, 1.0, 5.0],
-        "rotate": [0.0, 0.0, -90.0],
-        "translate": [-5.0, 2.0, 0.0]
-      },
-      "primitive": {
-        "type": "obj_mesh",
-        "file": "models/plane.obj",
-        "material": 1
-      }
-    },
-    {
-      "type": "transform",
-      "transform": {
-        "scale": [3.0, 1.0, 5.0],
-        "rotate": [0.0, 0.0, 90.0],
-        "translate": [5.0, 2.0, 0.0]
-      },
-      "primitive": {
-        "type": "obj_mesh",
-        "file": "models/plane.obj",
-        "material": 1
-      }
-    },
-    {
-      "type": "transform",
-      "transform": {
-        "scale": [5.0, 1.0, 5.0],
-        "rotate": [180.0, 0.0, 0.0],
-        "translate": [0.0, 5.0, 0.0]
-      },
-      "primitive": {
-        "type": "obj_mesh",
-        "file": "models/plane.obj",
-        "material": 0
-      }
+      "name": "metal_yellow_smooth_nm",
+      "material": "metal_yellow_smooth",
+      "normal_map": "nm_test"
     }
   ],
-  "lights": [
+  "primitives": "common_primitives.json",
+  "instances": [
     {
-      "type": "rectangle",
-      "direction": [0.0, -1.0, 0.0],
-      "center": [0.0, 5.0, 0.0],
-      "up": [1.0, 0.0, 0.0],
-      "width": 10.0,
-      "height": 10.0,
-      "strength": [2.0, 2.0, 2.0]
+      "name": "metal",
+      "primitive": "sphere_1",
+      "surface": "metal_yellow_smooth_nm",
+      "translate": [0.0, 0.3, 0.0]
+    },
+    {
+      "name": "floor",
+      "primitive": "plane",
+      "material": "lambert_uv_test",
+      "translate": [0.0, -1.0, 0.0],
+      "scale": [5.0, 1.0, 5.0]
+    },
+    {
+      "name": "wall_back",
+      "primitive": "plane",
+      "material": "lambert_green_light",
+      "scale": [5.0, 1.0, 3.0],
+      "rotate": [90.0, 0.0, 0.0],
+      "translate": [0.0, 2.0, -5.0]
+    },
+    {
+      "name": "wall_front",
+      "primitive": "plane",
+      "material": "lambert_green_light",
+      "scale": [5.0, 1.0, 3.0],
+      "rotate": [-90.0, 0.0, 0.0],
+      "translate": [0.0, 2.0, 5.0]
+    },
+    {
+      "name": "wall_left",
+      "primitive": "plane",
+      "material": "lambert_green_light",
+      "scale": [3.0, 1.0, 5.0],
+      "rotate": [0.0, 0.0, -90.0],
+      "translate": [-5.0, 2.0, 0.0]
+    },
+    {
+      "name": "wall_right",
+      "primitive": "plane",
+      "material": "lambert_green_light",
+      "scale": [3.0, 1.0, 5.0],
+      "rotate": [0.0, 0.0, 90.0],
+      "translate": [5.0, 2.0, 0.0]
+    },
+    {
+      "name": "ceil",
+      "primitive": "plane",
+      "surface": "light",
+      "scale": [5.0, 1.0, 5.0],
+      "rotate": [180.0, 0.0, 0.0],
+      "translate": [0.0, 5.0, 0.0]
     }
-  ]
+  ],
+  "lights": []
 }

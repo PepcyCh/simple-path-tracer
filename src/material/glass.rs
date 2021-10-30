@@ -2,12 +2,10 @@ use std::sync::Arc;
 
 use crate::{
     core::{
-        color::Color,
-        intersection::Intersection,
-        material::Material,
-        scatter::Scatter,
-        texture::{self, Texture},
+        color::Color, intersection::Intersection, material::Material, scatter::Scatter,
+        scene::Scene, texture::Texture,
     },
+    loader::{self, JsonObject, Loadable},
     scatter::{
         FresnelDielectricRT, MicrofacetReflect, MicrofacetTransmit, SpecularReflect,
         SpecularTransmit,
@@ -19,7 +17,6 @@ pub struct Glass {
     reflectance: Arc<dyn Texture<Color>>,
     transmittance: Arc<dyn Texture<Color>>,
     roughness: Arc<dyn Texture<f32>>,
-    normal_map: Arc<dyn Texture<Color>>,
 }
 
 impl Glass {
@@ -28,23 +25,17 @@ impl Glass {
         reflectance: Arc<dyn Texture<Color>>,
         transmittance: Arc<dyn Texture<Color>>,
         roughness: Arc<dyn Texture<f32>>,
-        normal_map: Arc<dyn Texture<Color>>,
     ) -> Self {
         Self {
             ior,
             reflectance,
             transmittance,
             roughness,
-            normal_map,
         }
     }
 }
 
 impl Material for Glass {
-    fn apply_normal_map(&self, inter: &Intersection<'_>) -> glam::Vec3A {
-        texture::get_normal_at(&self.normal_map, inter)
-    }
-
     fn scatter(&self, inter: &Intersection<'_>) -> Box<dyn Scatter> {
         let reflectance = self.reflectance.value_at(inter);
         let transmittance = self.transmittance.value_at(inter);
@@ -64,8 +55,49 @@ impl Material for Glass {
             )) as Box<dyn Scatter>
         }
     }
+}
 
-    fn emissive(&self, _inter: &Intersection<'_>) -> Color {
-        Color::BLACK
+impl Loadable for Glass {
+    fn load(
+        scene: &mut Scene,
+        _path: &std::path::PathBuf,
+        json_value: &JsonObject,
+    ) -> anyhow::Result<()> {
+        let name = loader::get_str_field(json_value, "material-glass", "name")?;
+        let env = format!("material-glass({})", name);
+        if scene.materials.contains_key(name) {
+            anyhow::bail!(format!("{}: name is duplicated", env));
+        }
+
+        let ior = loader::get_float_field(json_value, &env, "ior")?;
+
+        let reflectance = loader::get_str_field(json_value, &env, "reflectance")?;
+        let reflectance = if let Some(tex) = scene.textures_color.get(reflectance) {
+            tex.clone()
+        } else {
+            anyhow::bail!(format!("{}: reflectance '{}' not found", env, reflectance))
+        };
+
+        let transmittance = loader::get_str_field(json_value, &env, "transmittance")?;
+        let transmittance = if let Some(tex) = scene.textures_color.get(transmittance) {
+            tex.clone()
+        } else {
+            anyhow::bail!(format!(
+                "{}: transmittance '{}' not found",
+                env, transmittance
+            ))
+        };
+
+        let roughness = loader::get_str_field(json_value, &env, "roughness")?;
+        let roughness = if let Some(tex) = scene.textures_f32.get(roughness) {
+            tex.clone()
+        } else {
+            anyhow::bail!(format!("{}: roughness '{}' not found", env, roughness))
+        };
+
+        let mat = Glass::new(ior, reflectance, transmittance, roughness);
+        scene.materials.insert(name.to_owned(), Arc::new(mat));
+
+        Ok(())
     }
 }

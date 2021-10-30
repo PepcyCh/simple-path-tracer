@@ -1,32 +1,20 @@
 use std::sync::Arc;
 
-use crate::core::{
-    bbox::Bbox, intersection::Intersection, material::Material, medium::Medium,
-    primitive::Primitive, ray::Ray,
-};
+use crate::{core::{bbox::Bbox, intersection::Intersection, primitive::Primitive, ray::Ray, sampler::Sampler, scene::Scene, transform::Transform}, loader::{self, JsonObject, Loadable}};
 
 pub struct Sphere {
     center: glam::Vec3A,
     radius: f32,
-    material: Arc<dyn Material>,
-    inside_medium: Option<Arc<dyn Medium>>,
     bbox: Bbox,
 }
 
 impl Sphere {
-    pub fn new(
-        center: glam::Vec3A,
-        radius: f32,
-        material: Arc<dyn Material>,
-        inside_medium: Option<Arc<dyn Medium>>,
-    ) -> Self {
+    pub fn new(center: glam::Vec3A, radius: f32) -> Self {
         let delta = glam::Vec3A::new(radius, radius, radius);
         let bbox = Bbox::new(center - delta, center + delta);
         Self {
             center,
             radius,
-            material,
-            inside_medium,
             bbox,
         }
     }
@@ -88,12 +76,12 @@ impl Primitive for Sphere {
         self.bbox
     }
 
-    fn material(&self) -> Option<&dyn Material> {
-        Some(&*self.material)
+    fn sample<'a>(&'a self, _trans: Transform, _sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+        unimplemented!("<Sphere as Primitive>::sample() not supported yet")
     }
 
-    fn inside_medium(&self) -> Option<&dyn Medium> {
-        self.inside_medium.as_ref().map(|rc| rc.as_ref())
+    fn pdf(&self, _trans: Transform, _inter: &Intersection<'_>) -> f32 {
+        unimplemented!("<Sphere as Primitive>::pdf() not supported yet")
     }
 }
 
@@ -104,4 +92,27 @@ fn sphere_normal_to_texcoords(p: glam::Vec3A) -> glam::Vec2 {
         phi * 0.5 * std::f32::consts::FRAC_1_PI,
         theta * std::f32::consts::FRAC_1_PI,
     )
+}
+
+impl Loadable for Sphere {
+    fn load(
+        scene: &mut Scene,
+        _path: &std::path::PathBuf,
+        json_value: &JsonObject,
+    ) -> anyhow::Result<()> {
+        let name = loader::get_str_field(json_value, "primitive-sphere", "name")?;
+        let env = format!("primitive-sphere({})", name);
+        if scene.primitives.contains_key(name) {
+            anyhow::bail!(format!("{}: name is duplicated", env));
+        }
+
+        let center =
+            loader::get_float_array3_field_or(json_value, &env, "center", [0.0, 0.0, 0.0])?;
+        let radius = loader::get_float_field(json_value, &env, "radius")?;
+
+        let sphere = Sphere::new(center.into(), radius);
+        scene.primitives.insert(name.to_owned(), Arc::new(sphere));
+
+        Ok(())
+    }
 }

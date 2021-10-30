@@ -1,4 +1,9 @@
-use crate::core::{color::Color, medium::Medium, sampler::Sampler};
+use std::sync::Arc;
+
+use crate::{
+    core::{color::Color, medium::Medium, sampler::Sampler, scene::Scene},
+    loader::{self, JsonObject, Loadable},
+};
 
 pub struct Homogeneous {
     sigma_t: Color,
@@ -70,5 +75,28 @@ impl Medium for Homogeneous {
     fn phase(&self, wo: glam::Vec3A, wi: glam::Vec3A) -> f32 {
         let cos = wo.dot(wi);
         crate::medium::util::henyey_greenstein(self.asymmetric, cos)
+    }
+}
+
+impl Loadable for Homogeneous {
+    fn load(
+        scene: &mut Scene,
+        _path: &std::path::PathBuf,
+        json_value: &JsonObject,
+    ) -> anyhow::Result<()> {
+        let name = loader::get_str_field(json_value, "medium-homogeneous", "name")?;
+        let env = format!("medium-homogeneous({})", name);
+        if scene.mediums.contains_key(name) {
+            anyhow::bail!(format!("{}: name is duplicated", env));
+        }
+
+        let sigma_a = loader::get_float_array3_field(json_value, &env, "sigma_a")?;
+        let sigma_s = loader::get_float_array3_field(json_value, &env, "sigma_s")?;
+        let asymmetric = loader::get_float_field(json_value, &env, "asymmetric")?;
+
+        let homo = Homogeneous::new(sigma_a.into(), sigma_s.into(), asymmetric);
+        scene.mediums.insert(name.to_owned(), Arc::new(homo));
+
+        Ok(())
     }
 }

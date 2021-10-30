@@ -1,4 +1,9 @@
-use crate::core::{color::Color, light::Light, sampler::Sampler};
+use std::sync::Arc;
+
+use crate::{
+    core::{color::Color, light::Light, sampler::Sampler, scene::Scene},
+    loader::{self, JsonObject, Loadable},
+};
 
 pub struct RectangleLight {
     strength: Color,
@@ -84,5 +89,34 @@ impl Light for RectangleLight {
 
     fn is_delta(&self) -> bool {
         false
+    }
+}
+
+impl Loadable for RectangleLight {
+    fn load(
+        scene: &mut Scene,
+        _path: &std::path::PathBuf,
+        json_value: &JsonObject,
+    ) -> anyhow::Result<()> {
+        let env = "light-rectangle";
+
+        let center = loader::get_float_array3_field(json_value, &env, "center")?;
+        let direction = loader::get_float_array3_field(json_value, &env, "direction")?;
+        let width = loader::get_float_field(json_value, &env, "width")?;
+        let height = loader::get_float_field(json_value, &env, "height")?;
+        let up = loader::get_float_array3_field(json_value, &env, "up")?;
+        let strength = loader::get_float_array3_field(json_value, &env, "strength")?;
+
+        let light = RectangleLight::new(
+            center.into(),
+            direction.into(),
+            width,
+            height,
+            up.into(),
+            strength.into(),
+        );
+        scene.lights.push(Arc::new(light));
+
+        Ok(())
     }
 }

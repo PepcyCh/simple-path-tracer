@@ -1,4 +1,17 @@
 {
+  "renderer": {
+    "type": "pt",
+    "width": 400,
+    "height": 400,
+    "spp": 256,
+    "max_depth": 8,
+    "sampler": "jittered",
+    "filter": {
+      "type": "box",
+      "radius": 0.5
+    },
+    "output_filename": "images/test_scene_06.jpg"
+  },
   "camera": {
     "type": "perspective",
     "eye": [0.0, 0.0, 4.0],
@@ -6,205 +19,92 @@
     "up": [0.0, 1.0, 0.0],
     "fov": 75.0
   },
-  "aggregate": {
-    "type": "bvh",
-    "max_leaf_size": 4,
-    "bucket_number": 16
-  },
-  "pixel_sampler": {
-    "type": "jittered",
-    "division": 256,
-    "spp": 256
-  },
-  "max_depth": 8,
-  "filter": {
-    "type": "box",
-    "radius": 0.5
-  },
-  "output": {
-    "file": "images/test_scene_06.jpg",
-    "width": 400,
-    "height": 400
-  },
-  "textures": [
-    {
-      "type": "scalar",
-      "ele": "color",
-      "value": [0.0, 0.0, 0.0]
-    },
-    {
-      "type": "scalar",
-      "ele": "float",
-      "value": 0.0
-    },
-    {
-      "type": "scalar",
-      "ele": "color",
-      "value": [1.0, 1.0, 1.0]
-    },
-    {
-      "type": "scalar",
-      "ele": "color",
-      "value": [0.5, 0.7, 1.0]
-    },
-    {
-      "type": "scalar",
-      "ele": "color",
-      "value": [0.5, 1.0, 0.7]
-    },
-    {
-      "type": "scalar",
-      "ele": "color",
-      "value": [0.7, 0.6, 0.3]
-    },
-    {
-      "type": "scalar",
-      "ele": "float",
-      "value": 0.2
-    }
-  ],
-  "materials": [
-    {
-      "type": "lambert",
-      "albedo": 0,
-      "emissive": 2
-    },
-    {
-      "type": "lambert",
-      "albedo": 3,
-      "emissive": 0
-    },
-    {
-      "type": "lambert",
-      "albedo": 4,
-      "emissive": 0
-    },
-    {
-      "type": "metal",
-      "ior": 5,
-      "ior_k": 0,
-      "emissive": 0,
-      "roughness": 6
-    },
-    {
-      "type": "pseudo"
-    }
-  ],
+  "textures": "common_textures.json",
+  "materials": "common_materials.json",
   "mediums": [
     {
       "type": "homogeneous",
+      "name": "med_homo",
       "sigma_a": [0.5, 0.5, 0.5],
       "sigma_s": [1.0, 0.2, 0.2],
       "asymmetric": 0.0
     }
   ],
-  "objects": [
+  "surfaces": [
     {
-      "type": "sphere",
-      "material": 3,
-      "center": [1.2, 0.3, 0.0],
-      "radius": 1.0
+      "name": "light",
+      "material": "lambert_black",
+      "emissive": [2.0, 2.0, 2.0]
     },
     {
-      "type": "transform",
-      "transform": {
-        "rotate": [0.0, -15.0, 0.0],
-        "translate": [-1.2, 0.3, 0.0]
-      },
-      "primitive": {
-        "type": "obj_mesh",
-        "file": "models/cube.obj",
-        "material": 4,
-        "medium": 0
-      }
-    },
-    {
-      "type": "transform",
-      "transform": {
-        "translate": [0.0, -1.0, 0.0],
-        "scale": [5.0, 1.0, 5.0]
-      },
-      "primitive": {
-        "type": "obj_mesh",
-        "file": "models/plane.obj",
-        "material": 2
-      }
-    },
-    {
-      "type": "transform",
-      "transform": {
-        "scale": [5.0, 1.0, 3.0],
-        "rotate": [90.0, 0.0, 0.0],
-        "translate": [0.0, 2.0, -5.0]
-      },
-      "primitive": {
-        "type": "obj_mesh",
-        "file": "models/plane.obj",
-        "material": 1
-      }
-    },
-    {
-      "type": "transform",
-      "transform": {
-        "scale": [5.0, 1.0, 3.0],
-        "rotate": [-90.0, 0.0, 0.0],
-        "translate": [0.0, 2.0, 5.0]
-      },
-      "primitive": {
-        "type": "obj_mesh",
-        "file": "models/plane.obj",
-        "material": 1
-      }
-    },
-    {
-      "type": "transform",
-      "transform": {
-        "scale": [3.0, 1.0, 5.0],
-        "rotate": [0.0, 0.0, -90.0],
-        "translate": [-5.0, 2.0, 0.0]
-      },
-      "primitive": {
-        "type": "obj_mesh",
-        "file": "models/plane.obj",
-        "material": 1
-      }
-    },
-    {
-      "type": "transform",
-      "transform": {
-        "scale": [3.0, 1.0, 5.0],
-        "rotate": [0.0, 0.0, 90.0],
-        "translate": [5.0, 2.0, 0.0]
-      },
-      "primitive": {
-        "type": "obj_mesh",
-        "file": "models/plane.obj",
-        "material": 1
-      }
-    },
-    {
-      "type": "transform",
-      "transform": {
-        "scale": [5.0, 1.0, 5.0],
-        "rotate": [180.0, 0.0, 0.0],
-        "translate": [0.0, 5.0, 0.0]
-      },
-      "primitive": {
-        "type": "obj_mesh",
-        "file": "models/plane.obj",
-        "material": 0
-      }
+      "name": "medium",
+      "material": "pseudo",
+      "inside_medium": "med_homo"
     }
   ],
-  "lights": [
+  "primitives": "common_primitives.json",
+  "instances": [
     {
-      "type": "rectangle",
-      "direction": [0.0, -1.0, 0.0],
-      "center": [0.0, 5.0, 0.0],
-      "up": [1.0, 0.0, 0.0],
-      "width": 10.0,
-      "height": 10.0,
-      "strength": [2.0, 2.0, 2.0]
+      "name": "medium",
+      "primitive": "cube",
+      "surface": "medium",
+      "rotate": [0.0, -15.0, 0.0],
+      "translate": [-1.2, 0.3, 0.0]
+    },
+    {
+      "name": "sphere_metal",
+      "primitive": "sphere_1",
+      "material": "metal_yellow_smooth",
+      "translate": [1.2, 0.3, 0.0]
+    },
+    {
+      "name": "floor",
+      "primitive": "plane",
+      "material": "lambert_cyan",
+      "translate": [0.0, -1.0, 0.0],
+      "scale": [5.0, 1.0, 5.0]
+    },
+    {
+      "name": "wall_back",
+      "primitive": "plane",
+      "material": "lambert_blue",
+      "scale": [5.0, 1.0, 3.0],
+      "rotate": [90.0, 0.0, 0.0],
+      "translate": [0.0, 2.0, -5.0]
+    },
+    {
+      "name": "wall_front",
+      "primitive": "plane",
+      "material": "lambert_blue",
+      "scale": [5.0, 1.0, 3.0],
+      "rotate": [-90.0, 0.0, 0.0],
+      "translate": [0.0, 2.0, 5.0]
+    },
+    {
+      "name": "wall_left",
+      "primitive": "plane",
+      "material": "lambert_blue",
+      "scale": [3.0, 1.0, 5.0],
+      "rotate": [0.0, 0.0, -90.0],
+      "translate": [-5.0, 2.0, 0.0]
+    },
+    {
+      "name": "wall_right",
+      "primitive": "plane",
+      "material": "lambert_blue",
+      "scale": [3.0, 1.0, 5.0],
+      "rotate": [0.0, 0.0, 90.0],
+      "translate": [5.0, 2.0, 0.0]
+    },
+    {
+      "name": "ceil",
+      "primitive": "plane",
+      "surface": "light",
+      "scale": [5.0, 1.0, 5.0],
+      "rotate": [180.0, 0.0, 0.0],
+      "translate": [0.0, 5.0, 0.0]
     }
-  ]
+  ],
+  "lights": [],
+  "aggregate": "bvh"
 }

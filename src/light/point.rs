@@ -1,4 +1,9 @@
-use crate::core::{color::Color, light::Light, sampler::Sampler};
+use std::sync::Arc;
+
+use crate::{
+    core::{color::Color, light::Light, sampler::Sampler, scene::Scene},
+    loader::{self, JsonObject, Loadable},
+};
 
 pub struct PointLight {
     position: glam::Vec3A,
@@ -38,5 +43,23 @@ impl Light for PointLight {
 
     fn is_delta(&self) -> bool {
         true
+    }
+}
+
+impl Loadable for PointLight {
+    fn load(
+        scene: &mut Scene,
+        _path: &std::path::PathBuf,
+        json_value: &JsonObject,
+    ) -> anyhow::Result<()> {
+        let env = "light-point";
+
+        let position = loader::get_float_array3_field(json_value, &env, "position")?;
+        let strength = loader::get_float_array3_field(json_value, &env, "strength")?;
+
+        let light = PointLight::new(position.into(), strength.into());
+        scene.lights.push(Arc::new(light));
+
+        Ok(())
     }
 }

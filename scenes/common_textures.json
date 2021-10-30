@@ -1,0 +1,202 @@
+[
+  {
+    "type": "scalar",
+    "ele": "float",
+    "name": "scalar_0",
+    "value": 0.0
+  },
+  {
+    "type": "scalar",
+    "ele": "float",
+    "name": "scalar_1",
+    "value": 1.0
+  },
+  {
+    "type": "scalar",
+    "ele": "float",
+    "name": "scalar_0.2",
+    "value": 0.2
+  },
+  {
+    "type": "scalar",
+    "ele": "float",
+    "name": "scalar_0.3",
+    "value": 0.3
+  },
+  {
+    "type": "scalar",
+    "ele": "float",
+    "name": "scalar_0.4",
+    "value": 0.4
+  },
+  {
+    "type": "scalar",
+    "ele": "float",
+    "name": "scalar_0.6",
+    "value": 0.6
+  },
+  {
+    "type": "scalar",
+    "ele": "float",
+    "name": "scalar_0.8",
+    "value": 0.8
+  },
+  {
+    "type": "scalar",
+    "ele": "float",
+    "name": "scalar_3",
+    "value": 3.0
+  },
+  {
+    "type": "scalar",
+    "ele": "color",
+    "name": "color_black",
+    "value": [0.0, 0.0, 0.0]
+  },
+  {
+    "type": "scalar",
+    "ele": "color",
+    "name": "color_white",
+    "value": [1.0, 1.0, 1.0]
+  },
+  {
+    "type": "scalar",
+    "ele": "color",
+    "name": "color_gray_3",
+    "value": [0.3, 0.3, 0.3]
+  },
+  {
+    "type": "scalar",
+    "ele": "color",
+    "name": "color_gray_7",
+    "value": [0.7, 0.7, 0.7]
+  },
+  {
+    "type": "scalar",
+    "ele": "color",
+    "name": "color_gray_9",
+    "value": [0.9, 0.9, 0.9]
+  },
+  {
+    "type": "scalar",
+    "ele": "color",
+    "name": "color_blue",
+    "value": [0.5, 0.7, 1.0]
+  },
+  {
+    "type": "scalar",
+    "ele": "color",
+    "name": "color_blue2",
+    "value": [0.8, 0.8, 1.0]
+  },
+  {
+    "type": "scalar",
+    "ele": "color",
+    "name": "color_magenta",
+    "value": [1.0, 0.5, 0.7]
+  },
+  {
+    "type": "scalar",
+    "ele": "color",
+    "name": "color_cyan",
+    "value": [0.5, 1.0, 0.7]
+  },
+  {
+    "type": "scalar",
+    "ele": "color",
+    "name": "color_red",
+    "value": [0.8, 0.2, 0.2]
+  },
+  {
+    "type": "scalar",
+    "ele": "color",
+    "name": "color_red2",
+    "value": [0.9, 0.3, 0.3]
+  },
+  {
+    "type": "scalar",
+    "ele": "color",
+    "name": "color_yellow",
+    "value": [0.7, 0.6, 0.3]
+  },
+  {
+    "type": "scalar",
+    "ele": "color",
+    "name": "color_orange",
+    "value": [1.0, 0.6, 0.1]
+  },
+  {
+    "type": "scalar",
+    "ele": "color",
+    "name": "color_blue_dark",
+    "value": [0.2, 0.3, 0.5]
+  },
+  {
+    "type": "scalar",
+    "ele": "color",
+    "name": "color_green_dark",
+    "value": [0.2, 0.5, 0.3]
+  },
+  {
+    "type": "scalar",
+    "ele": "color",
+    "name": "color_green_light",
+    "value": [0.6, 0.7, 0.4]
+  },
+  {
+    "type": "scalar",
+    "ele": "color",
+    "name": "color_green_light2",
+    "value": [0.7, 0.8, 0.5]
+  },
+  {
+    "type": "image",
+    "ele": "color",
+    "name": "image_grid",
+    "image_file": "textures/grid.png"
+  },
+  {
+    "type": "image",
+    "ele": "color",
+    "name": "image_checkboard",
+    "image_file": "textures/checkboard.jpg"
+  },
+  {
+    "type": "image",
+    "ele": "color",
+    "name": "image_uv_test",
+    "image_file": "textures/uv-test.png"
+  },
+  {
+    "type": "image",
+    "ele": "color",
+    "name": "image_uv_test_rev",
+    "image_file": "textures/uv-test-rev.png"
+  },
+  {
+    "type": "image",
+    "ele": "float",
+    "name": "fimage_earth",
+    "image_file": "textures/earthmap_bw.png"
+  },
+  {
+    "type": "image",
+    "ele": "color",
+    "name": "nm_test",
+    "image_file": "textures/normal-test.jpg"
+  },
+  {
+    "type": "image",
+    "ele": "color",
+    "name": "nm_scratched_16",
+    "image_file": "textures/scratched_low.jpg",
+    "tiling": [16.0, 16.0]
+  },
+  {
+    "type": "image",
+    "ele": "color",
+    "name": "nm_brushed_16",
+    "image_file": "textures/brushed_low.jpg",
+    "tiling": [16.0, 16.0]
+  }
+]

@@ -1,0 +1,243 @@
+[
+  {
+    "type": "pseudo",
+    "name": "pseudo"
+  },
+  {
+    "type": "lambert",
+    "name": "lambert_black",
+    "albedo": "color_black"
+  },
+  {
+    "type": "lambert",
+    "name": "lambert_white",
+    "albedo": "color_white"
+  },
+  {
+    "type": "lambert",
+    "name": "lambert_gray_7",
+    "albedo": "color_gray_7"
+  },
+  {
+    "type": "lambert",
+    "name": "lambert_blue",
+    "albedo": "color_blue"
+  },
+  {
+    "type": "lambert",
+    "name": "lambert_cyan",
+    "albedo": "color_cyan"
+  },
+  {
+    "type": "lambert",
+    "name": "lambert_magenta",
+    "albedo": "color_magenta"
+  },
+  {
+    "type": "lambert",
+    "name": "lambert_blue_dark",
+    "albedo": "color_blue_dark"
+  },
+  {
+    "type": "lambert",
+    "name": "lambert_green_dark",
+    "albedo": "color_green_dark"
+  },
+  {
+    "type": "lambert",
+    "name": "lambert_green_light",
+    "albedo": "color_green_light"
+  },
+  {
+    "type": "lambert",
+    "name": "lambert_green_light2",
+    "albedo": "color_green_light2"
+  },
+  {
+    "type": "glass",
+    "name": "glass_red",
+    "ior": 1.5,
+    "reflectance": "color_gray_9",
+    "transmittance": "color_red",
+    "roughness": "scalar_0"
+  },
+  {
+    "type": "glass",
+    "name": "glass_white",
+    "ior": 1.3,
+    "reflectance": "color_white",
+    "transmittance": "color_white",
+    "roughness": "scalar_0.2"
+  },
+  {
+    "type": "glass",
+    "name": "glass_gray_9",
+    "ior": 1.5,
+    "reflectance": "color_gray_9",
+    "transmittance": "color_gray_9",
+    "roughness": "scalar_0.2"
+  },
+  {
+    "type": "glass",
+    "name": "glass_earth",
+    "ior": 1.5,
+    "reflectance": "color_white",
+    "transmittance": "color_white",
+    "roughness": "fimage_earth"
+  },
+  {
+    "type": "metal",
+    "name": "metal_white_smooth",
+    "ior": "color_white",
+    "ior_k": "color_black",
+    "roughness": "scalar_0.2"
+  },
+  {
+    "type": "metal",
+    "name": "metal_yellow_smooth",
+    "ior": "color_yellow",
+    "ior_k": "color_black",
+    "roughness": "scalar_0.2"
+  },
+  {
+    "type": "metal",
+    "name": "metal_blue2_smooth",
+    "ior": "color_blue2",
+    "ior_k": "color_black",
+    "roughness": "scalar_0.2"
+  },
+  {
+    "type": "metal",
+    "name": "metal_green_smooth",
+    "ior": "color_green_light",
+    "ior_k": "color_black",
+    "roughness": "scalar_0.2"
+  },
+  {
+    "type": "metal",
+    "name": "metal_orange_smooth",
+    "ior": "color_orange",
+    "ior_k": "color_black",
+    "roughness": "scalar_0.2"
+  },
+  {
+    "type": "dielectric",
+    "name": "dielectric_gray_smooth",
+    "ior": 1.5,
+    "albedo": "color_gray_3",
+    "roughness": "scalar_0.2"
+  },
+  {
+    "type": "dielectric",
+    "name": "dielectric_red_smooth",
+    "ior": 1.5,
+    "albedo": "color_red",
+    "roughness": "scalar_0.3"
+  },
+  {
+    "type": "dielectric",
+    "name": "dielectric_uv_test_rev_rough",
+    "ior": 1.5,
+    "albedo": "image_uv_test_rev",
+    "roughness": "scalar_0.6"
+  },
+  {
+    "type": "glass",
+    "name": "glass_red_large_ior",
+    "ior": 12,
+    "reflectance": "color_red2",
+    "transmittance": "color_red",
+    "roughness": "scalar_0"
+  },
+  {
+    "type": "lambert",
+    "name": "lambert_grid",
+    "albedo": "image_grid"
+  },
+  {
+    "type": "lambert",
+    "name": "lambert_checkboard",
+    "albedo": "image_checkboard"
+  },
+  {
+    "type": "lambert",
+    "name": "lambert_uv_test",
+    "albedo": "image_uv_test"
+  },
+  {
+    "type": "subsurface",
+    "name": "ss_white",
+    "ior": 1.3,
+    "albedo": "color_white",
+    "ld": "scalar_3",
+    "roughness": "scalar_0.3"
+  },
+  {
+    "type": "subsurface",
+    "name": "ss_white_r0",
+    "ior": 1.3,
+    "albedo": "color_white",
+    "ld": "scalar_3",
+    "roughness": "scalar_0"
+  },
+  {
+    "type": "subsurface",
+    "name": "ss_white_r2",
+    "ior": 1.3,
+    "albedo": "color_white",
+    "ld": "scalar_3",
+    "roughness": "scalar_0.2"
+  },
+  {
+    "type": "subsurface",
+    "name": "ss_white_r4",
+    "ior": 1.3,
+    "albedo": "color_white",
+    "ld": "scalar_3",
+    "roughness": "scalar_0.4"
+  },
+  {
+    "type": "subsurface",
+    "name": "ss_white_r6",
+    "ior": 1.3,
+    "albedo": "color_white",
+    "ld": "scalar_3",
+    "roughness": "scalar_0.6"
+  },
+  {
+    "type": "subsurface",
+    "name": "ss_white_r8",
+    "ior": 1.3,
+    "albedo": "color_white",
+    "ld": "scalar_3",
+    "roughness": "scalar_0.8"
+  },
+  {
+    "type": "subsurface",
+    "name": "ss_white_rx",
+    "ior": 1.3,
+    "albedo": "color_white",
+    "ld": "scalar_3",
+    "roughness": "scalar_1"
+  },
+  {
+    "type": "pndf_metal",
+    "name": "pndf_metal_green",
+    "albedo": "color_green_light",
+    "sigma_r": 0.005,
+    "base_normal": "textures/scratched_low.jpg",
+    "base_normal_tiling": [16.0, 16.0],
+    "h": 1.0,
+    "fallback_roughness": "scalar_0.2"
+  },
+  {
+    "type": "pndf_metal",
+    "name": "pndf_metal_orange",
+    "albedo": "color_orange",
+    "sigma_r": 0.02,
+    "base_normal": "textures/brushed_low.jpg",
+    "base_normal_tiling": [16.0, 16.0],
+    "h": 1.0,
+    "fallback_roughness": "scalar_0.2"
+  }
+]

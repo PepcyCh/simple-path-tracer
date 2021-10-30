@@ -1,4 +1,17 @@
 {
+  "renderer": {
+    "type": "pt",
+    "width": 400,
+    "height": 400,
+    "spp": 256,
+    "max_depth": 16,
+    "sampler": "jittered",
+    "filter": {
+      "type": "box",
+      "radius": 0.5
+    },
+    "output_filename": "images/test_scene_02.jpg"
+  },
   "camera": {
     "type": "perspective",
     "eye": [0.0, 0.0, 7.0],
@@ -6,131 +19,39 @@
     "up": [0.0, 1.0, 0.0],
     "fov": 45.0
   },
-  "aggregate": {
-    "type": "bvh",
-    "max_leaf_size": 4,
-    "bucket_number": 16
-  },
-  "pixel_sampler": {
-    "type": "jittered",
-    "division": 256,
-    "spp": 256
-  },
-  "max_depth": 16,
-  "filter": {
-    "type": "box",
-    "radius": 0.5
-  },
-  "output": {
-    "file": "images/test_scene_02.jpg",
-    "width": 400,
-    "height": 400
-  },
-  "textures": [
-    {
-      "type": "scalar",
-      "ele": "color",
-      "value": [0.0, 0.0, 0.0]
-    },
-    {
-      "type": "scalar",
-      "ele": "float",
-      "value": 0.0
-    },
-    {
-      "type": "scalar",
-      "ele": "color",
-      "value": [1.0, 1.0, 1.0]
-    },
-    {
-      "type": "scalar",
-      "ele": "color",
-      "value": [0.5, 0.7, 1.0]
-    },
-    {
-      "type": "scalar",
-      "ele": "color",
-      "value": [1.0, 0.5, 0.7]
-    },
-    {
-      "type": "scalar",
-      "ele": "color",
-      "value": [0.9, 0.9, 0.9]
-    },
-    {
-      "type": "scalar",
-      "ele": "color",
-      "value": [0.8, 0.2, 0.2]
-    }
-  ],
-  "materials": [
-    {
-      "type": "lambert",
-      "albedo": 2,
-      "emissive": 0
-    },
-    {
-      "type": "lambert",
-      "albedo": 3,
-      "emissive": 0
-    },
-    {
-      "type": "glass",
-      "ior": 1.5,
-      "reflectance": 5,
-      "transmittance": 6,
-      "roughness": 1
-    },
-    {
-      "type": "lambert",
-      "albedo": 4,
-      "emissive": 0
-    }
-  ],
+  "textures": "common_textures.json",
+  "materials": "common_materials.json",
   "mediums": [],
-  "objects": [
+  "surfaces": [],
+  "primitives": "common_primitives.json",
+  "instances": [
     {
-      "type": "sphere",
-      "material": 0,
-      "center": [1.2, 0.0, 0.0],
-      "radius": 1.0
+      "name": "sphere",
+      "primitive": "sphere_1",
+      "material": "lambert_white",
+      "translate": [1.2, 0.0, 0.0]
     },
     {
-      "type": "transform",
-      "transform": {
-        "translate": [-1.0, 0.0, 0.0],
-        "rotate": [0.0, -15.0, 0.0]
-      },
-      "primitive": {
-        "type": "obj_mesh",
-        "file": "models/cube.obj",
-        "material": 2
-      }
+      "name": "glass_cube",
+      "primitive": "cube",
+      "material": "glass_red",
+      "translate": [-1.0, 0.0, 0.0],
+      "rotate": [0.0, -15.0, 0.0]
     },
     {
-      "type": "transform",
-      "transform": {
-        "translate": [0.0, -1.0, 0.0],
-        "scale": [5.0, 1.0, 5.0]
-      },
-      "primitive": {
-        "type": "obj_mesh",
-        "file": "models/plane.obj",
-        "material": 1
-      }
+      "name": "floor",
+      "primitive": "plane",
+      "material": "lambert_blue",
+      "translate": [0.0, -1.0, 0.0],
+      "scale": [5.0, 1.0, 5.0]
     },
     {
-      "type": "transform",
-      "transform": {
-        "scale": [5.0, 1.0, 5.0],
-        "rotate": [90.0, 0.0, 0.0],
-        "translate": [0.0, 4.0, -5.0]
-      },
-      "primitive": {
-        "type": "obj_mesh",
-        "file": "models/plane.obj",
-        "material": 1
-      }
+      "name": "wall",
+      "primitive": "plane",
+      "material": "lambert_blue",
+      "scale": [5.0, 1.0, 5.0],
+      "rotate": [90.0, 0.0, 0.0],
+      "translate": [0.0, 4.0, -5.0]
     }
   ],
   "lights": [
@@ -139,5 +60,6 @@
       "direction": [-0.5, -1.0, -0.5],
       "strength": [5.0, 5.0, 5.0]
     }
-  ]
+  ],
+  "aggregate": "bvh"
 }
