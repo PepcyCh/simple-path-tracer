@@ -5,7 +5,7 @@ use crate::{
         color::Color, intersection::Intersection, material::Material, scatter::Scatter,
         scene::Scene, texture::Texture,
     },
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
     scatter::{
         FresnelDielectricRT, MicrofacetReflect, MicrofacetTransmit, SpecularReflect,
         SpecularTransmit,
@@ -57,7 +57,7 @@ impl Material for Glass {
     }
 }
 
-impl Loadable for Glass {
+impl LoadableSceneObject for Glass {
     fn load(
         scene: &mut Scene,
         _path: &std::path::PathBuf,

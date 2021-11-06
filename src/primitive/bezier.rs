@@ -5,9 +5,9 @@ use anyhow::Context;
 use crate::{
     core::{
         bbox::Bbox, intersection::Intersection, primitive::Primitive, ray::Ray, sampler::Sampler,
-        scene::Scene, transform::Transform,
+        scene::Scene,
     },
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
 };
 
 // Newton's iteration
@@ -167,15 +167,11 @@ impl Primitive for CubicBezier {
         self.bbox
     }
 
-    fn sample<'a>(
-        &'a self,
-        _trans: Transform,
-        _sampler: &mut dyn Sampler,
-    ) -> (Intersection<'a>, f32) {
+    fn sample<'a>(&'a self, _sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
         unimplemented!("<CubicBezier as Primitive>::sample() not supported yet")
     }
 
-    fn pdf(&self, _trans: Transform, _inter: &Intersection<'_>) -> f32 {
+    fn pdf(&self, _inter: &Intersection<'_>) -> f32 {
         unimplemented!("<CubicBezier as Primitive>::pdf() not supported yet")
     }
 }
@@ -475,7 +471,7 @@ fn clip_bezier_at_midpoint(points: [glam::Vec2; 4]) -> ([glam::Vec2; 4], [glam::
     )
 }
 
-impl Loadable for CubicBezier {
+impl LoadableSceneObject for CubicBezier {
     fn load(
         scene: &mut Scene,
         _path: &std::path::PathBuf,

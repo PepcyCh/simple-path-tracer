@@ -5,7 +5,7 @@ use crate::{
         color::Color, intersection::Intersection, material::Material, scatter::Scatter,
         scene::Scene, texture::Texture,
     },
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
     scatter::{FresnelConductor, MicrofacetReflect, SpecularReflect},
 };
 
@@ -51,7 +51,7 @@ impl Material for Metal {
     }
 }
 
-impl Loadable for Metal {
+impl LoadableSceneObject for Metal {
     fn load(
         scene: &mut Scene,
         _path: &std::path::PathBuf,

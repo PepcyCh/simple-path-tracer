@@ -1,17 +1,4 @@
 {
-  "renderer": {
-    "type": "pt",
-    "width": 200,
-    "height": 200,
-    "spp": 4,
-    "max_depth": 2,
-    "sampler": "jittered",
-    "filter": {
-      "type": "box",
-      "radius": 0.5
-    },
-    "output_filename": "images/test_scene_01.jpg"
-  },
   "camera": {
     "type": "perspective",
     "eye": [0.0, 0.0, 7.0],

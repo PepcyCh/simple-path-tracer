@@ -3,9 +3,9 @@ use std::sync::Arc;
 use crate::{
     core::{
         bbox::Bbox, intersection::Intersection, primitive::Primitive, ray::Ray, sampler::Sampler,
-        scene::Scene, transform::Transform,
+        scene::Scene,
     },
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
 };
 
 pub struct Sphere {
@@ -82,17 +82,13 @@ impl Primitive for Sphere {
         self.bbox
     }
 
-    fn sample<'a>(
-        &'a self,
-        trans: Transform,
-        sampler: &mut dyn Sampler,
-    ) -> (Intersection<'a>, f32) {
+    fn sample<'a>(&'a self, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
         let norm = sampler.uniform_on_sphere();
         let pos = self.center + norm * self.radius;
 
         let mut inter = Intersection {
-            position: trans.transform_point3a(pos),
-            normal: trans.transform_normal3a(norm),
+            position: pos,
+            normal: norm,
             texcoords: sphere_normal_to_texcoords(norm),
             primitive: Some(self),
             ..Default::default()
@@ -111,29 +107,11 @@ impl Primitive for Sphere {
             inter.tangent = -glam::Vec3A::Z;
         }
 
-        let tangent = inter.tangent;
-        let bitangent = inter.bitangent;
-        inter.tangent = trans.transform_vector3a(inter.tangent);
-        inter.bitangent = trans.transform_vector3a(inter.bitangent);
-
-        let original_area = tangent.cross(bitangent).length();
-        let transformed_area = inter.tangent.cross(inter.bitangent).length();
-
-        let pdf = 0.25 * std::f32::consts::FRAC_1_PI * original_area / transformed_area;
-
-        (inter, pdf)
+        (inter, 0.25 * std::f32::consts::FRAC_1_PI)
     }
 
-    fn pdf(&self, trans: Transform, inter: &Intersection<'_>) -> f32 {
-        let trans_inv = trans.inverse();
-
-        let tangent = trans_inv.transform_vector3a(inter.tangent);
-        let bitangent = trans_inv.transform_vector3a(inter.bitangent);
-
-        let original_area = tangent.cross(bitangent).length();
-        let transformed_area = inter.tangent.cross(inter.bitangent).length();
-
-        0.25 * std::f32::consts::FRAC_1_PI * original_area / transformed_area
+    fn pdf(&self, _inter: &Intersection<'_>) -> f32 {
+        0.25 * std::f32::consts::FRAC_1_PI
     }
 }
 
@@ -146,7 +124,7 @@ fn sphere_normal_to_texcoords(p: glam::Vec3A) -> glam::Vec2 {
     )
 }
 
-impl Loadable for Sphere {
+impl LoadableSceneObject for Sphere {
     fn load(
         scene: &mut Scene,
         _path: &std::path::PathBuf,

@@ -5,7 +5,7 @@ use crate::{
         color::Color, coord::Coordinate, intersection::Intersection, material::Material,
         medium::Medium, ray::Ray, scatter::Scatter, scene::Scene, texture::Texture,
     },
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
 };
 
 pub struct Surface {
@@ -107,7 +107,7 @@ impl Surface {
     }
 }
 
-impl Loadable for Surface {
+impl LoadableSceneObject for Surface {
     fn load(
         scene: &mut Scene,
         _path: &std::path::PathBuf,

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     core::{color::Color, medium::Medium, sampler::Sampler, scene::Scene},
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
 };
 
 pub struct Homogeneous {
@@ -78,7 +78,7 @@ impl Medium for Homogeneous {
     }
 }
 
-impl Loadable for Homogeneous {
+impl LoadableSceneObject for Homogeneous {
     fn load(
         scene: &mut Scene,
         _path: &std::path::PathBuf,

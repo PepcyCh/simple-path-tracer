@@ -1,17 +1,4 @@
 {
-  "renderer": {
-    "type": "pt",
-    "width": 200,
-    "height": 200,
-    "spp": 1,
-    "max_depth": 2,
-    "sampler": "random",
-    "filter": {
-      "type": "box",
-      "radius": 0.5
-    },
-    "output_filename": "images/test_scene_00.jpg"
-  },
   "camera": {
     "type": "perspective",
     "eye": [0.0, 0.0, 5.0],

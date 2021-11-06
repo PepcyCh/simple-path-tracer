@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::core::{
     color::Color, intersection::Intersection, light::Light, primitive::Primitive, ray::Ray,
-    sampler::Sampler, scene::Instance, transform::Transform,
+    sampler::Sampler, scene::Instance,
 };
 
 pub struct ShapeLight {
@@ -21,7 +21,7 @@ impl Light for ShapeLight {
         position: glam::Vec3A,
         sampler: &mut dyn Sampler,
     ) -> (glam::Vec3A, f32, Color, f32) {
-        let (inter, pdf) = self.shape.sample(Transform::IDENTITY, sampler);
+        let (inter, pdf) = self.shape.sample(sampler);
         let emissive = inter.surface.unwrap().emissive(&inter);
 
         let light_vec = inter.position - position;
@@ -50,7 +50,7 @@ impl Light for ShapeLight {
         if self.shape.intersect(&ray, &mut inter) {
             let emissive = inter.surface.unwrap().emissive(&inter);
 
-            let pdf = self.shape.pdf(Transform::IDENTITY, &inter);
+            let pdf = self.shape.pdf(&inter);
 
             let light_dist_sqr = inter.t * inter.t;
             let light_dist = inter.t;

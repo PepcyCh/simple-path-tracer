@@ -25,19 +25,45 @@ use crate::texture::{ImageTex, ScalarTex};
 
 pub type JsonObject = serde_json::Map<String, serde_json::Value>;
 
-pub trait Loadable {
+pub fn load_renderer<P: AsRef<Path>>(path: P) -> anyhow::Result<Box<dyn Renderer>> {
+    let json_file = std::fs::File::open(&path)?;
+    let json_reader = std::io::BufReader::new(json_file);
+    let json_value: serde_json::Value = serde_json::from_reader(json_reader)?;
+
+    let json_object = json_value
+        .as_object()
+        .context("renderer: should be an object")?;
+
+    let ty = get_str_field(json_object, "renderer", "type")?;
+    match ty {
+        "pt" => {
+            let spp = get_int_field(json_object, "renderer-pt", "spp")?;
+            let max_depth = get_int_field(json_object, "renderer-pt", "max_depth")?;
+            let sampler = get_sampler_field(json_object, "renderer-pt", "sampler")?;
+            let filter = load_filter(
+                json_object
+                    .get("filter")
+                    .context("renderer-pt: 'filter' is needed but not fount")?
+                    .as_object()
+                    .context("renderer-pt: 'filter' should be an object")?,
+            )?;
+            Ok(Box::new(PathTracer::new(spp, max_depth, sampler, filter)) as Box<dyn Renderer>)
+        }
+        _ => anyhow::bail!(format!("renderer: unknown type '{}'", ty)),
+    }
+}
+
+pub trait LoadableSceneObject {
     fn load(scene: &mut Scene, path: &PathBuf, json_value: &JsonObject) -> anyhow::Result<()>;
 }
 
-pub fn load<P: AsRef<Path>>(path: P) -> anyhow::Result<(Scene, Box<dyn Renderer>)> {
+pub fn load_scene<P: AsRef<Path>>(path: P) -> anyhow::Result<Scene> {
     let path = path.as_ref().to_path_buf();
     let mut scene = Scene::default();
 
     let json_file = std::fs::File::open(&path)?;
     let json_reader = std::io::BufReader::new(json_file);
     let json_value: serde_json::Value = serde_json::from_reader(json_reader)?;
-
-    let renderer = load_renderer(&path, &json_value)?;
 
     load_from_object_or_external(&mut scene, &path, &json_value, "top", "camera", load_camera)?;
 
@@ -115,59 +141,7 @@ pub fn load<P: AsRef<Path>>(path: P) -> anyhow::Result<(Scene, Box<dyn Renderer>
 
     scene.collect_shape_lights();
 
-    Ok((scene, renderer))
-}
-
-fn load_renderer(
-    path: &PathBuf,
-    json_value: &serde_json::Value,
-) -> anyhow::Result<Box<dyn Renderer>> {
-    let renderer_value = json_value
-        .get("renderer")
-        .context("top: 'renderer' is needed but not found")?;
-    let renderer_value = if let Some(renderer_json_path) = renderer_value.as_str() {
-        let json_file = std::fs::File::open(path.with_file_name(renderer_json_path))
-            .context("renderer: external json file not found")?;
-        let json_reader = std::io::BufReader::new(json_file);
-        Cow::Owned(
-            serde_json::from_reader(json_reader)
-                .context("renderer: failed to parse external json")?,
-        )
-    } else {
-        Cow::Borrowed(renderer_value)
-    };
-    let renderer_object = renderer_value
-        .as_object()
-        .context("renderer: should be an object")?;
-
-    let ty = get_str_field(renderer_object, "renderer", "type")?;
-    match ty {
-        "pt" => {
-            let width = get_int_field(renderer_object, "renderer-pt", "width")?;
-            let height = get_int_field(renderer_object, "renderer-pt", "height")?;
-            let spp = get_int_field(renderer_object, "renderer-pt", "spp")?;
-            let max_depth = get_int_field(renderer_object, "renderer-pt", "max_depth")?;
-            let sampler = get_sampler_field(renderer_object, "renderer-pt", "sampler")?;
-            let filter = load_filter(
-                renderer_object
-                    .get("filter")
-                    .context("renderer-pt: 'filter' is needed but not fount")?
-                    .as_object()
-                    .context("renderer-pt: 'filter' should be an object")?,
-            )?;
-            let output_filename = get_str_field(renderer_object, "renderer-pt", "output_filename")?;
-            Ok(Box::new(PathTracer::new(
-                width,
-                height,
-                spp,
-                max_depth,
-                sampler,
-                filter,
-                output_filename.to_owned(),
-            )) as Box<dyn Renderer>)
-        }
-        _ => anyhow::bail!(format!("renderer: unknown type '{}'", ty)),
-    }
+    Ok(scene)
 }
 
 fn load_from_object_or_external<F: Fn(&mut Scene, &PathBuf, &JsonObject) -> anyhow::Result<()>>(

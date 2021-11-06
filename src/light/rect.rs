@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     core::{color::Color, light::Light, sampler::Sampler, scene::Scene},
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
 };
 
 pub struct RectangleLight {
@@ -92,7 +92,7 @@ impl Light for RectangleLight {
     }
 }
 
-impl Loadable for RectangleLight {
+impl LoadableSceneObject for RectangleLight {
     fn load(
         scene: &mut Scene,
         _path: &std::path::PathBuf,

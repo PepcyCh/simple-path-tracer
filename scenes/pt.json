@@ -1,0 +1,10 @@
+{
+  "type": "pt",
+  "spp": 256,
+  "max_depth": 8,
+  "sampler": "jittered",
+  "filter": {
+    "type": "box",
+    "radius": 0.5
+  }
+}

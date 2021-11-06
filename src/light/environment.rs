@@ -4,7 +4,7 @@ use anyhow::Context;
 
 use crate::{
     core::{color::Color, light::Light, sampler::Sampler, scene::Scene},
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
 };
 
 pub struct EnvLight {
@@ -184,7 +184,7 @@ impl AliasTable {
     }
 }
 
-impl Loadable for EnvLight {
+impl LoadableSceneObject for EnvLight {
     fn load(
         scene: &mut Scene,
         path: &std::path::PathBuf,

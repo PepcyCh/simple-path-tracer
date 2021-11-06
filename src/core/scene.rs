@@ -19,7 +19,7 @@ use crate::{
         transform::Transform,
     },
     light::{EnvLight, ShapeLight},
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
 };
 
 pub struct Instance {
@@ -114,22 +114,36 @@ impl Primitive for Instance {
         self.bbox
     }
 
-    fn sample<'a>(
-        &'a self,
-        trans: Transform,
-        sampler: &mut dyn Sampler,
-    ) -> (Intersection<'a>, f32) {
-        let (mut inter, pdf) = self.primitive.sample(trans * self.trans, sampler);
+    fn sample<'a>(&'a self, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+        let (mut inter, pdf) = self.primitive.sample(sampler);
         inter.surface = Some(self.surface.as_ref());
-        (inter, pdf)
+
+        let original_area = inter.tangent.cross(inter.bitangent).length();
+
+        inter.position = self.trans.transform_point3a(inter.position);
+        inter.normal = self.trans.transform_normal3a(inter.normal);
+        inter.bitangent = self.trans.transform_vector3a(inter.bitangent);
+        inter.tangent = self.trans.transform_vector3a(inter.tangent);
+
+        let transformed_area = inter.tangent.cross(inter.bitangent).length();
+
+        (inter, pdf * original_area / transformed_area)
     }
 
-    fn pdf(&self, trans: Transform, inter: &Intersection<'_>) -> f32 {
-        self.primitive.pdf(trans * self.trans, inter)
+    fn pdf(&self, inter: &Intersection<'_>) -> f32 {
+        let trans_inv = self.trans.inverse();
+
+        let tangent = trans_inv.transform_vector3a(inter.tangent);
+        let bitangent = trans_inv.transform_vector3a(inter.bitangent);
+
+        let original_area = tangent.cross(bitangent).length();
+        let transformed_area = inter.tangent.cross(inter.bitangent).length();
+
+        self.primitive.pdf(inter) * original_area / transformed_area
     }
 }
 
-impl Loadable for Instance {
+impl LoadableSceneObject for Instance {
     fn load(
         scene: &mut Scene,
         _path: &std::path::PathBuf,

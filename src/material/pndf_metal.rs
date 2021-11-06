@@ -7,7 +7,7 @@ use crate::{
         color::Color, intersection::Intersection, material::Material, scatter::Scatter,
         scene::Scene, texture::Texture,
     },
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
     scatter::{
         FresnelConductor, MicrofacetReflect, PndfAccel, PndfGaussTerm, PndfReflect, SpecularReflect,
     },
@@ -145,7 +145,7 @@ fn get_normal_bilinear(image: &image::DynamicImage, u: f32, v: f32) -> glam::Vec
     glam::Vec2::new(normal.x, normal.y)
 }
 
-impl Loadable for PndfMetal {
+impl LoadableSceneObject for PndfMetal {
     fn load(
         scene: &mut Scene,
         path: &std::path::PathBuf,

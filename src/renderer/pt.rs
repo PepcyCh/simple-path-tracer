@@ -2,43 +2,42 @@ use std::sync::{Arc, Mutex};
 
 use crate::{
     core::{
-        color::Color, film::Film, filter::Filter, intersection::Intersection, light::Light,
-        medium::Medium, primitive::Primitive, ray::Ray, renderer::Renderer, sampler::Sampler,
+        color::Color,
+        film::Film,
+        filter::Filter,
+        intersection::Intersection,
+        light::Light,
+        medium::Medium,
+        primitive::Primitive,
+        ray::Ray,
+        renderer::{OutputConfig, Renderer},
+        sampler::Sampler,
         scene::Scene,
     },
     sampler::sampler_from,
 };
 
 pub struct PathTracer {
-    width: u32,
-    height: u32,
     spp: u32,
     max_depth: u32,
     sampler_type: &'static str,
     filter: Box<dyn Filter>,
-    output_filename: String,
 }
 
 impl PathTracer {
     const CUTOFF_LUMINANCE: f32 = 0.001;
 
     pub fn new(
-        width: u32,
-        height: u32,
         spp: u32,
         max_depth: u32,
         sampler_type: &'static str,
         filter: Box<dyn Filter>,
-        output_filename: String,
     ) -> Self {
         Self {
-            width,
-            height,
             spp,
             sampler_type,
             max_depth,
             filter,
-            output_filename,
         }
     }
 
@@ -252,11 +251,11 @@ impl PathTracer {
 }
 
 impl Renderer for PathTracer {
-    fn render(&self, scene: &Scene) {
-        let film = Arc::new(Mutex::new(Film::new(self.width, self.height)));
-        let aspect = self.width as f32 / self.height as f32;
+    fn render(&self, scene: &Scene, config: &OutputConfig) {
+        let film = Arc::new(Mutex::new(Film::new(config.width, config.height)));
+        let aspect = config.width as f32 / config.height as f32;
 
-        let progress_bar = indicatif::ProgressBar::new(self.width as u64 * self.height as u64);
+        let progress_bar = indicatif::ProgressBar::new(config.width as u64 * config.height as u64);
         progress_bar.set_style(
             indicatif::ProgressStyle::default_bar()
                 .template("[{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} (eta: {eta})")
@@ -269,12 +268,12 @@ impl Renderer for PathTracer {
             to: u32,
         }
         let num_cpus = num_cpus::get() as u32 * 2;
-        let height_per_cpu = self.height / num_cpus;
+        let height_per_cpu = config.height / num_cpus;
         let mut ranges = Vec::with_capacity(num_cpus as usize);
         for t in 0..num_cpus {
             let from = t * height_per_cpu;
             let to = if t + 1 == num_cpus {
-                self.height
+                config.height
             } else {
                 (t + 1) * height_per_cpu
             };
@@ -283,8 +282,8 @@ impl Renderer for PathTracer {
 
         crossbeam::scope(|scope| {
             for t in 0..num_cpus as usize {
-                let width_inv = 1.0 / self.width as f32;
-                let height_inv = 1.0 / self.height as f32;
+                let width_inv = 1.0 / config.width as f32;
+                let height_inv = 1.0 / config.height as f32;
                 let spp = self.spp;
                 let spp_sqrt_inv = 1.0 / (spp as f32).sqrt();
                 let sampler_type = self.sampler_type;
@@ -296,12 +295,12 @@ impl Renderer for PathTracer {
                 scope.spawn(move |_| {
                     let mut sampler = sampler_from(sampler_type, spp);
                     for j in from..to {
-                        for i in 0..self.width {
+                        for i in 0..config.width {
                             let samples = sampler.pixel_samples(spp);
                             for (offset_x, offset_y) in samples {
                                 let x = ((i as f32 + offset_x) * width_inv - 0.5) * aspect;
                                 let y =
-                                    ((self.height - j - 1) as f32 + offset_y) * height_inv - 0.5;
+                                    ((config.height - j - 1) as f32 + offset_y) * height_inv - 0.5;
                                 // let ray = path_tracer.camera.generate_ray((x, y));
                                 let ray = scene.camera().generate_ray_with_aux_ray(
                                     (x, y),
@@ -322,7 +321,7 @@ impl Renderer for PathTracer {
         let film = film.lock().unwrap();
         // TODO - filter_to_image can also be multi-threaded
         let image = film.filter_to_image(self.filter.as_ref());
-        if let Err(err) = image.save(&self.output_filename) {
+        if let Err(err) = image.save(&config.output_filename) {
             println!("Failed to save image, err: {}", err);
         }
     }

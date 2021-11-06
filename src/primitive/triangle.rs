@@ -3,9 +3,9 @@ use std::sync::Arc;
 use crate::{
     core::{
         bbox::Bbox, intersection::Intersection, primitive::Primitive, ray::Ray, sampler::Sampler,
-        scene::Scene, transform::Transform,
+        scene::Scene,
     },
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
 };
 
 use super::BvhAccel;
@@ -163,16 +163,12 @@ impl Primitive for TriMesh {
         self.triangles.bbox()
     }
 
-    fn sample<'a>(
-        &'a self,
-        trans: Transform,
-        sampler: &mut dyn Sampler,
-    ) -> (Intersection<'a>, f32) {
-        self.triangles.sample(trans, sampler)
+    fn sample<'a>(&'a self, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+        self.triangles.sample(sampler)
     }
 
-    fn pdf(&self, trans: Transform, inter: &Intersection<'_>) -> f32 {
-        self.triangles.pdf(trans, inter)
+    fn pdf(&self, inter: &Intersection<'_>) -> f32 {
+        self.triangles.pdf(inter)
     }
 }
 
@@ -224,24 +220,28 @@ impl Primitive for Triangle {
         self.bbox
     }
 
-    fn sample<'a>(
-        &'a self,
-        trans: Transform,
-        sampler: &mut dyn Sampler,
-    ) -> (Intersection<'a>, f32) {
+    fn sample<'a>(&'a self, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
         let rand = sampler.uniform_2d();
         let r0_sqrt = rand.0.sqrt();
         let u = 1.0 - r0_sqrt;
         let v = r0_sqrt * (1.0 - rand.1);
         let w = 1.0 - u - v;
 
-        let p0 = trans.transform_point3a(self.vertices[self.indices[0]].position);
-        let p1 = trans.transform_point3a(self.vertices[self.indices[1]].position);
-        let p2 = trans.transform_point3a(self.vertices[self.indices[2]].position);
+        let p0 = self.vertices[self.indices[0]].position;
+        let p1 = self.vertices[self.indices[1]].position;
+        let p2 = self.vertices[self.indices[2]].position;
 
-        let n0 = trans.transform_normal3a(self.vertices[self.indices[0]].normal);
-        let n1 = trans.transform_normal3a(self.vertices[self.indices[1]].normal);
-        let n2 = trans.transform_normal3a(self.vertices[self.indices[2]].normal);
+        let n0 = self.vertices[self.indices[0]].normal;
+        let n1 = self.vertices[self.indices[1]].normal;
+        let n2 = self.vertices[self.indices[2]].normal;
+
+        let t0 = self.vertices[self.indices[0]].tangent;
+        let t1 = self.vertices[self.indices[1]].tangent;
+        let t2 = self.vertices[self.indices[2]].tangent;
+
+        let b0 = self.vertices[self.indices[0]].bitangent;
+        let b1 = self.vertices[self.indices[1]].bitangent;
+        let b2 = self.vertices[self.indices[2]].bitangent;
 
         let uv0 = self.vertices[self.indices[0]].texcoords;
         let uv1 = self.vertices[self.indices[1]].texcoords;
@@ -251,11 +251,15 @@ impl Primitive for Triangle {
         let area = (p1 - p0).cross(p2 - p0).length() * 0.5;
 
         let norm = n0 * u + n1 * v + n2 * w;
+        let tan = t0 * u + t1 * v + t2 * w;
+        let bitan = b0 * u + b1 * v + b2 * w;
         let uv = uv0 * u + uv1 * v + uv2 * w;
 
         let inter = Intersection {
             position: p,
             normal: norm,
+            tangent: tan,
+            bitangent: bitan,
             texcoords: uv,
             primitive: Some(self),
             ..Default::default()
@@ -264,10 +268,10 @@ impl Primitive for Triangle {
         (inter, 1.0 / area.max(0.001))
     }
 
-    fn pdf(&self, trans: Transform, _inter: &Intersection<'_>) -> f32 {
-        let p0 = trans.transform_point3a(self.vertices[self.indices[0]].position);
-        let p1 = trans.transform_point3a(self.vertices[self.indices[1]].position);
-        let p2 = trans.transform_point3a(self.vertices[self.indices[2]].position);
+    fn pdf(&self, _inter: &Intersection<'_>) -> f32 {
+        let p0 = self.vertices[self.indices[0]].position;
+        let p1 = self.vertices[self.indices[1]].position;
+        let p2 = self.vertices[self.indices[2]].position;
 
         let area = (p1 - p0).cross(p2 - p0).length() * 0.5;
 
@@ -288,7 +292,7 @@ fn lerp_point2(
     glam::Vec2::new(x, y)
 }
 
-impl Loadable for TriMesh {
+impl LoadableSceneObject for TriMesh {
     fn load(
         scene: &mut Scene,
         path: &std::path::PathBuf,

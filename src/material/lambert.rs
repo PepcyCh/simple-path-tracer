@@ -5,7 +5,7 @@ use crate::{
         color::Color, intersection::Intersection, material::Material, scatter::Scatter,
         scene::Scene, texture::Texture,
     },
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
     scatter::LambertReflect,
 };
 
@@ -26,7 +26,7 @@ impl Material for Lambert {
     }
 }
 
-impl Loadable for Lambert {
+impl LoadableSceneObject for Lambert {
     fn load(
         scene: &mut Scene,
         _path: &std::path::PathBuf,

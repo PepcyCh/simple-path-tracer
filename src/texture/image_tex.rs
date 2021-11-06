@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     core::{color::Color, intersection::Intersection, scene::Scene, texture::Texture},
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
 };
 
 pub struct ImageTex {
@@ -55,7 +55,7 @@ fn vec2_mul_point2(a: glam::Vec2, b: glam::Vec2) -> glam::Vec2 {
     glam::Vec2::new(a.x * b.x, a.y * b.y)
 }
 
-impl Loadable for ImageTex {
+impl LoadableSceneObject for ImageTex {
     fn load(
         scene: &mut Scene,
         path: &std::path::PathBuf,

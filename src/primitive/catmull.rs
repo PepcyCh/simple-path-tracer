@@ -10,9 +10,8 @@ use crate::{
         ray::Ray,
         sampler::Sampler,
         scene::Scene,
-        transform::Transform,
     },
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
     primitive::BvhAccel,
 };
 
@@ -120,15 +119,11 @@ impl Primitive for CatmullClark {
         self.bbox
     }
 
-    fn sample<'a>(
-        &'a self,
-        _trans: Transform,
-        _sampler: &mut dyn Sampler,
-    ) -> (Intersection<'a>, f32) {
+    fn sample<'a>(&'a self, _sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
         unimplemented!("<CatmullClark as Primitive>::sample() not supported yet")
     }
 
-    fn pdf(&self, _trans: Transform, _inter: &Intersection<'_>) -> f32 {
+    fn pdf(&self, _inter: &Intersection<'_>) -> f32 {
         unimplemented!("<CatmullClark as Primitive>::pdf() not supported yet")
     }
 }
@@ -763,7 +758,7 @@ fn calc_face_control_points_neg(
     (c1 * pos0 + (3.0 - 2.0 * c0 - c1) * e0_neg + 2.0 * c0 * e3_pos + r) / 3.0
 }
 
-impl Loadable for CatmullClark {
+impl LoadableSceneObject for CatmullClark {
     fn load(
         scene: &mut Scene,
         path: &std::path::PathBuf,

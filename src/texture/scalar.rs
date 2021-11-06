@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     core::{color::Color, intersection::Intersection, scene::Scene, texture::Texture},
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
 };
 
 pub struct ScalarTex<T> {
@@ -21,7 +21,7 @@ impl<T: Copy + Send + Sync> Texture<T> for ScalarTex<T> {
     }
 }
 
-impl Loadable for ScalarTex<f32> {
+impl LoadableSceneObject for ScalarTex<f32> {
     fn load(
         scene: &mut Scene,
         _path: &std::path::PathBuf,
@@ -42,7 +42,7 @@ impl Loadable for ScalarTex<f32> {
     }
 }
 
-impl Loadable for ScalarTex<Color> {
+impl LoadableSceneObject for ScalarTex<Color> {
     fn load(
         scene: &mut Scene,
         _path: &std::path::PathBuf,

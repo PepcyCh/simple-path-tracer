@@ -6,7 +6,6 @@ use crate::core::{
     primitive::{Aggregate, Primitive},
     ray::Ray,
     sampler::Sampler,
-    transform::Transform,
 };
 
 pub struct Group {
@@ -46,19 +45,15 @@ impl Primitive for Group {
         self.bbox
     }
 
-    fn sample<'a>(
-        &'a self,
-        trans: Transform,
-        sampler: &mut dyn Sampler,
-    ) -> (Intersection<'a>, f32) {
+    fn sample<'a>(&'a self, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
         let index = sampler.uniform_1d() * self.primitives.len() as f32;
         let index = (index as usize).min(self.primitives.len() - 1);
-        let (inter, pdf) = self.primitives[index].sample(trans, sampler);
+        let (inter, pdf) = self.primitives[index].sample(sampler);
         (inter, pdf / self.primitives.len() as f32)
     }
 
-    fn pdf(&self, trans: Transform, inter: &Intersection<'_>) -> f32 {
-        inter.primitive.unwrap().pdf(trans, inter) / self.primitives.len() as f32
+    fn pdf(&self, inter: &Intersection<'_>) -> f32 {
+        inter.primitive.unwrap().pdf(inter) / self.primitives.len() as f32
     }
 }
 

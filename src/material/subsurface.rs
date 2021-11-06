@@ -5,7 +5,7 @@ use crate::{
         color::Color, intersection::Intersection, material::Material, scatter::Scatter,
         scene::Scene, texture::Texture,
     },
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
     scatter::{FresnelDielectricRSsr, MicrofacetReflect, SpecularReflect, SubsurfaceReflect},
 };
 
@@ -54,7 +54,7 @@ impl Material for Subsurface {
     }
 }
 
-impl Loadable for Subsurface {
+impl LoadableSceneObject for Subsurface {
     fn load(
         scene: &mut Scene,
         _path: &std::path::PathBuf,

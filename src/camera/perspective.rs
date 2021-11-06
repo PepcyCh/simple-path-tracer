@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     core::{camera::Camera, ray::Ray, scene::Scene},
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
 };
 
 pub struct PerspectiveCamera {
@@ -41,7 +41,7 @@ impl Camera for PerspectiveCamera {
     }
 }
 
-impl Loadable for PerspectiveCamera {
+impl LoadableSceneObject for PerspectiveCamera {
     fn load(
         scene: &mut Scene,
         _path: &std::path::PathBuf,

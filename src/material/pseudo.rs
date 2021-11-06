@@ -5,7 +5,7 @@ use crate::{
         color::Color, intersection::Intersection, material::Material, scatter::Scatter,
         scene::Scene,
     },
-    loader::{self, JsonObject, Loadable},
+    loader::{self, JsonObject, LoadableSceneObject},
     scatter::SpecularTransmit,
 };
 
@@ -23,7 +23,7 @@ impl Material for PseudoMaterial {
     }
 }
 
-impl Loadable for PseudoMaterial {
+impl LoadableSceneObject for PseudoMaterial {
     fn load(
         scene: &mut Scene,
         _path: &std::path::PathBuf,
