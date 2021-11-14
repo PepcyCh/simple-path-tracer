@@ -101,6 +101,21 @@
   },
   {
     "type": "metal",
+    "name": "metal_yellow_smooth2",
+    "ior": "color_yellow",
+    "ior_k": "color_black",
+    "roughness": "scalar_0.4"
+  },
+  {
+    "type": "metal",
+    "name": "metal_yellow_aniso",
+    "ior": "color_yellow",
+    "ior_k": "color_black",
+    "roughness_x": "scalar_0.2",
+    "roughness_y": "scalar_0.8"
+  },
+  {
+    "type": "metal",
     "name": "metal_blue2_smooth",
     "ior": "color_blue2",
     "ior_k": "color_black",

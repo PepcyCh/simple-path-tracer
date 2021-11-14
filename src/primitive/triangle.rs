@@ -89,10 +89,10 @@ impl TriMesh {
 
         for i in 0..vertex_count {
             if tangents_cnt[i] != 0 {
-                vertices[i].tangent = tangents_sum[i] / tangents_cnt[i] as f32;
+                vertices[i].tangent = (tangents_sum[i] / tangents_cnt[i] as f32).normalize();
             }
             if bitangents_cnt[i] != 0 {
-                vertices[i].bitangent = bitangents_sum[i] / bitangents_cnt[i] as f32;
+                vertices[i].bitangent = (bitangents_sum[i] / bitangents_cnt[i] as f32).normalize();
             }
         }
 

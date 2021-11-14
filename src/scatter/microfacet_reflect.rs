@@ -6,17 +6,16 @@ use crate::core::{
 
 pub struct MicrofacetReflect {
     reflectance: Color,
-    _roughness: f32,
-    roughness_sqr: f32,
+    roughness_x: f32,
+    roughness_y: f32,
 }
 
 impl MicrofacetReflect {
-    pub fn new(reflectance: Color, roughness: f32) -> Self {
-        let roughness_sqr = roughness * roughness;
+    pub fn new(reflectance: Color, roughness_x: f32, roughness_y: f32) -> Self {
         Self {
             reflectance,
-            _roughness: roughness,
-            roughness_sqr,
+            roughness_x,
+            roughness_y,
         }
     }
 }
@@ -29,22 +28,23 @@ impl Scatter for MicrofacetReflect {
         _pi: glam::Vec3A,
         sampler: &mut dyn Sampler,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
-        let (rand_x, rand_y) = sampler.uniform_2d();
-        let cos_theta_sqr = crate::scatter::util::ggx_ndf_cdf_inverse(self.roughness_sqr, rand_x);
-        let cos_theta = cos_theta_sqr.sqrt();
-        let sin_theta = (1.0 - cos_theta_sqr).sqrt();
-        let phi = 2.0 * std::f32::consts::PI * rand_y;
-        let half = glam::Vec3A::new(sin_theta * phi.cos(), sin_theta * phi.sin(), cos_theta);
+        let (half, pdf) = crate::scatter::util::ggx_smith_vndf_sample(
+            wo,
+            self.roughness_x,
+            self.roughness_y,
+            sampler.uniform_2d(),
+        );
 
         let wi = crate::scatter::util::reflect_n(wo, half);
         if wi.z * wo.z >= 0.0 {
-            let ndf = crate::scatter::util::ggx_ndf(half.z, self.roughness_sqr);
-            let visible = crate::scatter::util::smith_separable_visible(
-                wo.z.abs(),
-                wi.z.abs(),
-                self.roughness_sqr,
+            let ndf = crate::scatter::util::ggx_ndf_aniso(half, self.roughness_x, self.roughness_y);
+            let visible = crate::scatter::util::smith_separable_visible_aniso(
+                wo,
+                wi,
+                self.roughness_x,
+                self.roughness_y,
             );
-            let pdf = ndf * half.z / (4.0 * wo.dot(half).abs());
+            let pdf = pdf / (4.0 * wo.dot(half).abs());
             let bxdf = self.reflectance * ndf * visible;
             (wi, pdf, bxdf, ScatterType::glossy_reflect())
         } else {
@@ -55,8 +55,13 @@ impl Scatter for MicrofacetReflect {
     fn pdf(&self, _po: glam::Vec3A, wo: glam::Vec3A, _pi: glam::Vec3A, wi: glam::Vec3A) -> f32 {
         if wo.z * wi.z >= 0.0 {
             let half = crate::scatter::util::half_from_reflect(wo, wi);
-            let ndf = crate::scatter::util::ggx_ndf(half.z, self.roughness_sqr);
-            ndf * half.z / (4.0 * wo.dot(half).abs())
+            let pdf = crate::scatter::util::ggx_smith_vndf_pdf(
+                half,
+                wo,
+                self.roughness_x,
+                self.roughness_y,
+            );
+            pdf / (4.0 * wo.dot(half).abs())
         } else {
             1.0
         }
@@ -66,11 +71,12 @@ impl Scatter for MicrofacetReflect {
         if wo.z * wi.z >= 0.0 {
             let half = crate::scatter::util::half_from_reflect(wo, wi);
 
-            let ndf = crate::scatter::util::ggx_ndf(half.z, self.roughness_sqr);
-            let visible = crate::scatter::util::smith_separable_visible(
-                wo.z.abs(),
-                wi.z.abs(),
-                self.roughness_sqr,
+            let ndf = crate::scatter::util::ggx_ndf_aniso(half, self.roughness_x, self.roughness_y);
+            let visible = crate::scatter::util::smith_separable_visible_aniso(
+                wo,
+                wi,
+                self.roughness_x,
+                self.roughness_y,
             );
 
             self.reflectance * ndf * visible

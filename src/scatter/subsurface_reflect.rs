@@ -106,11 +106,7 @@ impl Scatter for SubsurfaceReflect {
                 // TODO - check if the intersected one is the same as self
                 let surf = inter.surface.unwrap();
                 let coord_temp = surf.coord(&ray, &inter);
-                intersects.push((
-                    ray.point_at(inter.t),
-                    inter.normal,
-                    coord_temp.to_world(glam::Vec3A::Z),
-                ));
+                intersects.push((ray.point_at(inter.t), inter.normal, coord_temp));
                 ray.t_min = inter.t + Ray::T_MIN_EPS;
             } else {
                 break;
@@ -121,7 +117,7 @@ impl Scatter for SubsurfaceReflect {
             return (po, coord_po, 1.0, Color::BLACK);
         }
         let sample_inter = ((rand_u * intersects.len() as f32) as usize).min(intersects.len() - 1);
-        let (pi, sample_normal, sample_shade_normal) = intersects[sample_inter];
+        let (pi, sample_normal, sample_coord) = intersects[sample_inter];
 
         let sp = self.albedo * self.sp(pi.distance(po));
 
@@ -135,12 +131,7 @@ impl Scatter for SubsurfaceReflect {
         let pdf_zx = 0.25 * normal_local.y.abs() * self.sp(r_zx).avg();
         let pdf = (pdf_xy + pdf_yz + pdf_zx) / intersects.len() as f32;
 
-        (
-            pi,
-            Coordinate::from_z(sample_shade_normal, sample_normal),
-            pdf,
-            sp,
-        )
+        (pi, sample_coord, pdf, sp)
     }
 
     fn sample_wi(

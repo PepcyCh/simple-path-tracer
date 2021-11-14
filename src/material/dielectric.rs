@@ -12,19 +12,22 @@ use crate::{
 pub struct Dielectric {
     ior: f32,
     albedo: Arc<dyn Texture<Color>>,
-    roughness: Arc<dyn Texture<f32>>,
+    roughness_x: Arc<dyn Texture<f32>>,
+    roughness_y: Arc<dyn Texture<f32>>,
 }
 
 impl Dielectric {
     pub fn new(
         ior: f32,
         albedo: Arc<dyn Texture<Color>>,
-        roughness: Arc<dyn Texture<f32>>,
+        roughness_x: Arc<dyn Texture<f32>>,
+        roughness_y: Arc<dyn Texture<f32>>,
     ) -> Self {
         Self {
             ior,
             albedo,
-            roughness,
+            roughness_x,
+            roughness_y,
         }
     }
 }
@@ -32,9 +35,10 @@ impl Dielectric {
 impl Material for Dielectric {
     fn scatter(&self, inter: &Intersection<'_>) -> Box<dyn Scatter> {
         let albedo = self.albedo.value_at(inter);
-        let roughness = self.roughness.value_at(inter).powi(2);
+        let roughness_x = self.roughness_x.value_at(inter).powi(2);
+        let roughness_y = self.roughness_y.value_at(inter).powi(2);
 
-        if roughness < 0.001 {
+        if roughness_x < 0.001 || roughness_y < 0.001 {
             Box::new(FresnelDielectricRR::new(
                 self.ior,
                 SpecularReflect::new(Color::WHITE),
@@ -43,7 +47,7 @@ impl Material for Dielectric {
         } else {
             Box::new(FresnelDielectricRR::new(
                 self.ior,
-                MicrofacetReflect::new(Color::WHITE, roughness),
+                MicrofacetReflect::new(Color::WHITE, roughness_x, roughness_y),
                 LambertReflect::new(albedo),
             )) as Box<dyn Scatter>
         }
@@ -71,14 +75,31 @@ impl LoadableSceneObject for Dielectric {
             anyhow::bail!(format!("{}: albedo '{}' not found", env, albedo))
         };
 
-        let roughness = loader::get_str_field(json_value, &env, "roughness")?;
-        let roughness = if let Some(tex) = scene.textures_f32.get(roughness) {
-            tex.clone()
+        let (roughness_x, roughness_y) = if json_value.contains_key("roughness") {
+            let roughness = loader::get_str_field(json_value, &env, "roughness")?;
+            let roughness = if let Some(tex) = scene.textures_f32.get(roughness) {
+                tex.clone()
+            } else {
+                anyhow::bail!(format!("{}: roughness '{}' not found", env, roughness))
+            };
+            (roughness.clone(), roughness)
         } else {
-            anyhow::bail!(format!("{}: roughness '{}' not found", env, roughness))
+            let roughness_x = loader::get_str_field(json_value, &env, "roughness_x")?;
+            let roughness_x = if let Some(tex) = scene.textures_f32.get(roughness_x) {
+                tex.clone()
+            } else {
+                anyhow::bail!(format!("{}: roughness_x '{}' not found", env, roughness_x))
+            };
+            let roughness_y = loader::get_str_field(json_value, &env, "roughness_y")?;
+            let roughness_y = if let Some(tex) = scene.textures_f32.get(roughness_y) {
+                tex.clone()
+            } else {
+                anyhow::bail!(format!("{}: roughness_y '{}' not found", env, roughness_y))
+            };
+            (roughness_x, roughness_y)
         };
 
-        let mat = Dielectric::new(ior, albedo, roughness);
+        let mat = Dielectric::new(ior, albedo, roughness_x, roughness_y);
         scene.materials.insert(name.to_owned(), Arc::new(mat));
 
         Ok(())

@@ -134,7 +134,7 @@ impl Material for PndfDielectric {
             } else {
                 Box::new(FresnelDielectricRR::new(
                     self.ior,
-                    MicrofacetReflect::new(Color::WHITE, roughness),
+                    MicrofacetReflect::new(Color::WHITE, roughness, roughness),
                     LambertReflect::new(albedo),
                 )) as Box<dyn Scatter>
             }

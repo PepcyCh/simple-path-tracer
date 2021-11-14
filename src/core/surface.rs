@@ -66,7 +66,8 @@ impl Surface {
         };
 
         let hit_back = ray.direction.dot(inter.normal) > 0.0;
-        let coord = Coordinate::from_z(
+        let coord = Coordinate::from_tangent_normal(
+            inter.tangent,
             if self.double_sided && hit_back {
                 -shade_normal
             } else {

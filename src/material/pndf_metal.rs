@@ -131,7 +131,7 @@ impl Material for PndfMetal {
                 Box::new(FresnelConductor::new(
                     albedo,
                     Color::BLACK,
-                    MicrofacetReflect::new(Color::WHITE, roughness),
+                    MicrofacetReflect::new(Color::WHITE, roughness, roughness),
                 )) as Box<dyn Scatter>
             }
         }

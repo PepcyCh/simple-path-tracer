@@ -142,19 +142,74 @@ pub fn half_from_refract(i: glam::Vec3A, o: glam::Vec3A, ior: f32) -> glam::Vec3
     half
 }
 
+#[allow(dead_code)]
 pub fn ggx_ndf(ndoth: f32, a2: f32) -> f32 {
     a2 * std::f32::consts::FRAC_1_PI / (pow2(ndoth * ndoth * (a2 - 1.0) + 1.0)).max(0.0001)
 }
 
+pub fn ggx_ndf_aniso(h: glam::Vec3A, ax: f32, ay: f32) -> f32 {
+    std::f32::consts::FRAC_1_PI
+        / (ax * ay * pow2(pow2(h.x / ax) + pow2(h.y / ay) + pow2(h.z))).max(0.0001)
+}
+
 /// return sampled (n dot h)^2
+#[allow(dead_code)]
 pub fn ggx_ndf_cdf_inverse(a2: f32, rand: f32) -> f32 {
     (1.0 - rand) / (1.0 - rand * (1.0 - a2))
 }
 
+pub fn smith_g1_aniso(v: glam::Vec3A, ax: f32, ay: f32) -> f32 {
+    2.0 / (1.0 + (1.0 + (pow2(ax * v.x) + pow2(ay * v.y)) / pow2(v.z).max(0.0001)).sqrt())
+}
+
+pub fn smith_separable_visible_aniso(v: glam::Vec3A, l: glam::Vec3A, ax: f32, ay: f32) -> f32 {
+    let v = v.z.abs() + (pow2(ax * v.x) + pow2(ay * v.y) + pow2(v.z)).sqrt();
+    let l = l.z.abs() + (pow2(ax * l.x) + pow2(ay * l.y) + pow2(l.z)).sqrt();
+    1.0 / (v * l)
+}
+
+#[allow(dead_code)]
 pub fn smith_separable_visible(ndotv: f32, ndotl: f32, a2: f32) -> f32 {
     let v = ndotv.abs() + ((1.0 - a2) * ndotv * ndotv + a2).sqrt();
     let l = ndotl.abs() + ((1.0 - a2) * ndotl * ndotl + a2).sqrt();
     1.0 / (v * l)
+}
+
+pub fn ggx_smith_vndf_pdf(h: glam::Vec3A, v: glam::Vec3A, ax: f32, ay: f32) -> f32 {
+    let v = if v.z >= 0.0 { v } else { -v };
+
+    return smith_g1_aniso(v, ax, ay) * ggx_ndf_aniso(h, ax, ay) * v.dot(h).max(0.0)
+        / v.z.max(0.0001);
+}
+
+pub fn ggx_smith_vndf_sample(
+    ve: glam::Vec3A,
+    ax: f32,
+    ay: f32,
+    rand: (f32, f32),
+) -> (glam::Vec3A, f32) {
+    let ve = if ve.z >= 0.0 { ve } else { -ve };
+
+    let vh = glam::Vec3A::new(ax * ve.x, ay * ve.y, ve.z).normalize();
+    let len_sqr = vh.x * vh.x + vh.y * vh.y;
+    let t_vec1 = if len_sqr > 0.0 {
+        glam::Vec3A::new(-vh.y, vh.x, 0.0) / len_sqr.sqrt()
+    } else {
+        glam::Vec3A::X
+    };
+    let t_vec2 = vh.cross(t_vec1);
+
+    let r = rand.0.sqrt();
+    let phi = 2.0 * std::f32::consts::PI * rand.1;
+    let t1 = r * phi.cos();
+    let t2 = r * phi.sin();
+    let s = 0.5 * (1.0 + vh.z);
+    let t2 = (1.0 - s) * (1.0 - t1 * t1).sqrt() + s * t2;
+    let nh = t1 * t_vec1 + t2 * t_vec2 + (1.0 - t1 * t1 - t2 * t2).max(0.0).sqrt() * vh;
+    let ne = glam::Vec3A::new(ax * nh.x, ay * nh.y, nh.z.max(0.0)).normalize();
+
+    let pdf = ggx_smith_vndf_pdf(ne, ve, ax, ay);
+    return (ne, pdf);
 }
 
 fn pow2(x: f32) -> f32 {
