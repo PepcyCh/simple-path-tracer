@@ -474,6 +474,7 @@ pub fn get_sampler_field(
     match ty {
         "random" => Ok("random"),
         "jittered" => Ok("jittered"),
+        "recurrence" => Ok("recurrence"),
         _ => anyhow::bail!(format!("sampler: unknown type '{}'", ty)),
     }
 }
