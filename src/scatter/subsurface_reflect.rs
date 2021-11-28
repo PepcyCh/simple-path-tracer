@@ -1,12 +1,9 @@
-use crate::core::{
-    color::Color,
-    coord::Coordinate,
-    intersection::Intersection,
-    primitive::Aggregate,
-    ray::Ray,
-    sampler::Sampler,
-    scatter::{Scatter, ScatterType, SsReflect},
+use crate::{
+    core::{color::Color, coord::Coordinate, intersection::Intersection, ray::Ray, rng::Rng},
+    primitive::{Primitive, PrimitiveT},
 };
+
+use super::{ScatterT, ScatterType, SsReflect};
 
 pub struct SubsurfaceReflect {
     albedo: Color,
@@ -48,14 +45,14 @@ impl SubsurfaceReflect {
     }
 }
 
-impl Scatter for SubsurfaceReflect {
+impl ScatterT for SubsurfaceReflect {
     fn sample_pi(
         &self,
         po: glam::Vec3A,
         _wo: glam::Vec3A,
         coord_po: Coordinate,
-        sampler: &mut dyn Sampler,
-        scene: &dyn Aggregate,
+        sampler: &mut Rng,
+        scene: &Primitive,
     ) -> (glam::Vec3A, Coordinate, f32, Color) {
         let mut rand_u = sampler.uniform_1d();
         let (rand_x, rand_y) = sampler.uniform_2d();
@@ -139,7 +136,7 @@ impl Scatter for SubsurfaceReflect {
         po: glam::Vec3A,
         wo: glam::Vec3A,
         pi: glam::Vec3A,
-        sampler: &mut dyn Sampler,
+        sampler: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         let mut wi = sampler.cosine_weighted_on_hemisphere();
         if wo.z < 0.0 {

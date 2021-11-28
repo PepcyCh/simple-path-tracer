@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
-use crate::core::{
-    color::Color, intersection::Intersection, light::Light, primitive::Primitive, ray::Ray,
-    sampler::Sampler, scene::Instance,
+use crate::{
+    core::{color::Color, intersection::Intersection, ray::Ray, rng::Rng},
+    primitive::{Instance, PrimitiveT},
 };
+
+use super::LightT;
 
 pub struct ShapeLight {
     shape: Arc<Instance>,
@@ -15,12 +17,8 @@ impl ShapeLight {
     }
 }
 
-impl Light for ShapeLight {
-    fn sample(
-        &self,
-        position: glam::Vec3A,
-        sampler: &mut dyn Sampler,
-    ) -> (glam::Vec3A, f32, Color, f32) {
+impl LightT for ShapeLight {
+    fn sample(&self, position: glam::Vec3A, sampler: &mut Rng) -> (glam::Vec3A, f32, Color, f32) {
         let (inter, pdf) = self.shape.sample(sampler);
         let emissive = inter.surface.unwrap().emissive(&inter);
 

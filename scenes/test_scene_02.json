@@ -1,6 +1,7 @@
 {
-  "camera": {
+  "cameras": {
     "type": "perspective",
+    "name": "default_camera",
     "eye": [0.0, 0.0, 7.0],
     "forward": [0.0, 0.0, -1.0],
     "up": [0.0, 1.0, 0.0],
@@ -44,6 +45,7 @@
   "lights": [
     {
       "type": "directional",
+      "name": "light0",
       "direction": [-0.5, -1.0, -0.5],
       "strength": [5.0, 5.0, 5.0]
     }

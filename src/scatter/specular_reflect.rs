@@ -1,8 +1,6 @@
-use crate::core::{
-    color::Color,
-    sampler::Sampler,
-    scatter::{Reflect, Scatter, ScatterType},
-};
+use crate::core::{color::Color, rng::Rng};
+
+use super::{Reflect, ScatterT, ScatterType};
 
 pub struct SpecularReflect {
     reflectance: Color,
@@ -14,13 +12,13 @@ impl SpecularReflect {
     }
 }
 
-impl Scatter for SpecularReflect {
+impl ScatterT for SpecularReflect {
     fn sample_wi(
         &self,
         _po: glam::Vec3A,
         wo: glam::Vec3A,
         _pi: glam::Vec3A,
-        _sampler: &mut dyn Sampler,
+        _sampler: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         let wi = crate::scatter::util::reflect(wo);
         (

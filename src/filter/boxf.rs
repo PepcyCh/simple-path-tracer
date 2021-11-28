@@ -1,4 +1,6 @@
-use crate::core::filter::Filter;
+use crate::core::loader::InputParams;
+
+use super::FilterT;
 
 pub struct BoxFilter {
     radius: f32,
@@ -10,9 +12,14 @@ impl BoxFilter {
         let radius_int = (radius - 0.5).ceil() as i32;
         Self { radius, radius_int }
     }
+
+    pub fn load(params: &mut InputParams) -> anyhow::Result<Self> {
+        let radius = params.get_float("radius")?;
+        Ok(Self::new(radius))
+    }
 }
 
-impl Filter for BoxFilter {
+impl FilterT for BoxFilter {
     fn radius(&self) -> i32 {
         self.radius_int
     }

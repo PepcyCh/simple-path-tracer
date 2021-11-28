@@ -1,12 +1,8 @@
-use std::sync::Arc;
-
-use crate::{
-    core::{
-        bbox::Bbox, intersection::Intersection, primitive::Primitive, ray::Ray, sampler::Sampler,
-        scene::Scene,
-    },
-    loader::{self, JsonObject, LoadableSceneObject},
+use crate::core::{
+    bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng, scene::Scene,
 };
+
+use super::{BasicPrimitiveRef, PrimitiveT};
 
 pub struct Sphere {
     center: glam::Vec3A,
@@ -40,9 +36,17 @@ impl Sphere {
             None
         }
     }
+
+    pub fn load(_scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+        let center = params.get_float3_or("center", [0.0, 0.0, 0.0]);
+
+        let radius = params.get_float("radius")?;
+
+        Ok(Sphere::new(center.into(), radius))
+    }
 }
 
-impl Primitive for Sphere {
+impl PrimitiveT for Sphere {
     fn intersect_test(&self, ray: &Ray, t_max: f32) -> bool {
         if let Some((min, max)) = self.intersect_ray(ray) {
             min < t_max && max > ray.t_min
@@ -71,7 +75,7 @@ impl Primitive for Sphere {
                     inter.tangent = -glam::Vec3A::Z;
                 }
                 inter.texcoords = sphere_normal_to_texcoords(norm);
-                inter.primitive = Some(self);
+                inter.primitive = Some(BasicPrimitiveRef::Sphere(self));
                 return true;
             }
         }
@@ -82,7 +86,7 @@ impl Primitive for Sphere {
         self.bbox
     }
 
-    fn sample<'a>(&'a self, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+    fn sample<'a>(&'a self, sampler: &mut Rng) -> (Intersection<'a>, f32) {
         let norm = sampler.uniform_on_sphere();
         let pos = self.center + norm * self.radius;
 
@@ -90,7 +94,7 @@ impl Primitive for Sphere {
             position: pos,
             normal: norm,
             texcoords: sphere_normal_to_texcoords(norm),
-            primitive: Some(self),
+            primitive: Some(BasicPrimitiveRef::Sphere(self)),
             ..Default::default()
         };
 
@@ -122,27 +126,4 @@ fn sphere_normal_to_texcoords(p: glam::Vec3A) -> glam::Vec2 {
         phi * 0.5 * std::f32::consts::FRAC_1_PI,
         theta * std::f32::consts::FRAC_1_PI,
     )
-}
-
-impl LoadableSceneObject for Sphere {
-    fn load(
-        scene: &mut Scene,
-        _path: &std::path::PathBuf,
-        json_value: &JsonObject,
-    ) -> anyhow::Result<()> {
-        let name = loader::get_str_field(json_value, "primitive-sphere", "name")?;
-        let env = format!("primitive-sphere({})", name);
-        if scene.primitives.contains_key(name) {
-            anyhow::bail!(format!("{}: name is duplicated", env));
-        }
-
-        let center =
-            loader::get_float_array3_field_or(json_value, &env, "center", [0.0, 0.0, 0.0])?;
-        let radius = loader::get_float_field(json_value, &env, "radius")?;
-
-        let sphere = Sphere::new(center.into(), radius);
-        scene.primitives.insert(name.to_owned(), Arc::new(sphere));
-
-        Ok(())
-    }
 }

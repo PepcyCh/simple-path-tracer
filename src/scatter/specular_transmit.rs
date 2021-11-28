@@ -1,8 +1,6 @@
-use crate::core::{
-    color::Color,
-    sampler::Sampler,
-    scatter::{Scatter, ScatterType, Transmit},
-};
+use crate::core::{color::Color, rng::Rng};
+
+use super::{ScatterT, ScatterType, Transmit};
 
 pub struct SpecularTransmit {
     transmittance: Color,
@@ -15,13 +13,13 @@ impl SpecularTransmit {
     }
 }
 
-impl Scatter for SpecularTransmit {
+impl ScatterT for SpecularTransmit {
     fn sample_wi(
         &self,
         _po: glam::Vec3A,
         wo: glam::Vec3A,
         _pi: glam::Vec3A,
-        _sampler: &mut dyn Sampler,
+        _sampler: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         if let Some(wi) = crate::scatter::util::refract(wo, self.ior) {
             let ior_ratio = if wo.z >= 0.0 {

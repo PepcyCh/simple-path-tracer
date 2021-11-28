@@ -1,9 +1,6 @@
-use std::sync::Arc;
+use crate::core::{loader::InputParams, ray::Ray, scene::Scene};
 
-use crate::{
-    core::{camera::Camera, ray::Ray, scene::Scene},
-    loader::{self, JsonObject, LoadableSceneObject},
-};
+use super::CameraT;
 
 pub struct PerspectiveCamera {
     eye: glam::Vec3A,
@@ -29,34 +26,23 @@ impl PerspectiveCamera {
             half_cot_half_fov: 0.5 / (fov * 0.5).tan(),
         }
     }
+
+    pub fn load(_scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+        let eye = params.get_float3("eye")?.into();
+        let forward = params.get_float3("forward")?.into();
+        let up = params.get_float3("up")?.into();
+        let fov_deg = params.get_float("fov")?;
+
+        Ok(PerspectiveCamera::new(eye, forward, up, fov_deg))
+    }
 }
 
-impl Camera for PerspectiveCamera {
+impl CameraT for PerspectiveCamera {
     fn generate_ray(&self, point: (f32, f32)) -> Ray {
         let origin = self.eye;
         let direction =
             (self.forward * self.half_cot_half_fov + self.right * point.0 + self.up * point.1)
                 .normalize();
         Ray::new(origin, direction)
-    }
-}
-
-impl LoadableSceneObject for PerspectiveCamera {
-    fn load(
-        scene: &mut Scene,
-        _path: &std::path::PathBuf,
-        json_value: &JsonObject,
-    ) -> anyhow::Result<()> {
-        let env = "camera-perspective";
-
-        let eye = loader::get_float_array3_field(json_value, &env, "eye")?;
-        let forward = loader::get_float_array3_field(json_value, &env, "forward")?;
-        let up = loader::get_float_array3_field(json_value, &env, "up")?;
-        let fov_deg = loader::get_float_field(json_value, &env, "fov")?;
-
-        let cam = PerspectiveCamera::new(eye.into(), forward.into(), up.into(), fov_deg);
-        scene.camera = Some(Arc::new(cam));
-
-        Ok(())
     }
 }

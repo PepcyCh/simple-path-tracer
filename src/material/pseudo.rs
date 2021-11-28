@@ -1,13 +1,9 @@
-use std::sync::Arc;
-
 use crate::{
-    core::{
-        color::Color, intersection::Intersection, material::Material, scatter::Scatter,
-        scene::Scene,
-    },
-    loader::{self, JsonObject, LoadableSceneObject},
-    scatter::SpecularTransmit,
+    core::{color::Color, intersection::Intersection, loader::InputParams, scene::Scene},
+    scatter::{Scatter, SpecularTransmit},
 };
+
+use super::MaterialT;
 
 pub struct PseudoMaterial {}
 
@@ -15,29 +11,14 @@ impl PseudoMaterial {
     pub fn new() -> Self {
         Self {}
     }
-}
 
-impl Material for PseudoMaterial {
-    fn scatter(&self, _inter: &Intersection<'_>) -> Box<dyn Scatter> {
-        Box::new(SpecularTransmit::new(Color::WHITE, 1.0)) as Box<dyn Scatter>
+    pub fn load(_scene: &Scene, _params: &mut InputParams) -> anyhow::Result<Self> {
+        Ok(PseudoMaterial::new())
     }
 }
 
-impl LoadableSceneObject for PseudoMaterial {
-    fn load(
-        scene: &mut Scene,
-        _path: &std::path::PathBuf,
-        json_value: &JsonObject,
-    ) -> anyhow::Result<()> {
-        let name = loader::get_str_field(json_value, "material-pseudo", "name")?;
-        let env = format!("material-pseudo({})", name);
-        if scene.materials.contains_key(name) {
-            anyhow::bail!(format!("{}: name is duplicated", env));
-        }
-
-        let mat = PseudoMaterial::new();
-        scene.materials.insert(name.to_owned(), Arc::new(mat));
-
-        Ok(())
+impl MaterialT for PseudoMaterial {
+    fn scatter(&self, _inter: &Intersection<'_>) -> Scatter {
+        SpecularTransmit::new(Color::WHITE, 1.0).into()
     }
 }

@@ -1,52 +1,43 @@
 use std::sync::{Arc, Mutex};
 
 use crate::{
+    camera::CameraT,
     core::{
-        color::Color,
-        film::Film,
-        filter::Filter,
-        intersection::Intersection,
-        light::Light,
-        medium::Medium,
-        primitive::Primitive,
-        ray::Ray,
-        renderer::{OutputConfig, Renderer},
-        sampler::Sampler,
-        scene::Scene,
+        color::Color, film::Film, intersection::Intersection, ray::Ray, rng::Rng, scene::Scene,
     },
-    sampler::sampler_from,
+    filter::Filter,
+    light::LightT,
+    medium::{Medium, MediumT},
+    pixel_sampler::{PixelSampler, PixelSamplerT},
+    primitive::{BasicPrimitiveRef, PrimitiveT},
+    scatter::ScatterT,
 };
 
+use super::{OutputConfig, RendererT};
+
 pub struct PathTracer {
-    spp: u32,
     max_depth: u32,
-    sampler_type: &'static str,
-    filter: Box<dyn Filter>,
+    pixel_sampler: PixelSampler,
+    filter: Filter,
 }
 
 impl PathTracer {
     const CUTOFF_LUMINANCE: f32 = 0.001;
 
-    pub fn new(
-        spp: u32,
-        max_depth: u32,
-        sampler_type: &'static str,
-        filter: Box<dyn Filter>,
-    ) -> Self {
+    pub fn new(max_depth: u32, pixel_sampler: PixelSampler, filter: Filter) -> Self {
         Self {
-            spp,
-            sampler_type,
             max_depth,
+            pixel_sampler,
             filter,
         }
     }
 
-    fn trace_ray(&self, scene: &Scene, mut ray: Ray, sampler: &mut dyn Sampler) -> Color {
+    fn trace_ray(&self, scene: &Scene, mut ray: Ray, sampler: &mut Rng) -> Color {
         let mut final_color = Color::BLACK;
         let mut color_coe = Color::WHITE;
         let mut curr_depth = 0;
-        let mut curr_medium: Option<&dyn Medium> = None;
-        let mut curr_primitive: Option<&dyn Primitive>;
+        let mut curr_medium: Option<&Medium> = None;
+        let mut curr_primitive: Option<BasicPrimitiveRef<'_>>;
 
         while curr_depth < self.max_depth {
             let mut inter = Intersection::default();
@@ -68,7 +59,7 @@ impl PathTracer {
                 } else {
                     // I found that sampling to lights for medium make less influence to the result...
                     let mut li = Color::BLACK;
-                    for light in &scene.lights {
+                    for light in scene.lights.values() {
                         let (light_dir, pdf, light_strength, dist) = light.sample(pi, sampler);
                         let phase = medium.phase(wo, light_dir);
 
@@ -153,7 +144,7 @@ impl PathTracer {
                     Color::BLACK
                 };
 
-                for light in &scene.lights {
+                for light in scene.lights.values() {
                     let (light_dir, pdf, light_strength, dist) = light.sample(pi, sampler);
                     let wi = coord_pi.to_local(light_dir);
                     let bxdf = scatter.bxdf(po, wo, pi, wi);
@@ -231,7 +222,7 @@ impl PathTracer {
         p: glam::Vec3A,
         light_dir: glam::Vec3A,
         light_dist: f32,
-        medium_primitive: &dyn Primitive,
+        medium_primitive: BasicPrimitiveRef<'_>,
     ) -> (Ray, f32) {
         let mut shadow_ray = Ray::new(p, light_dir);
 
@@ -250,7 +241,7 @@ impl PathTracer {
     }
 }
 
-impl Renderer for PathTracer {
+impl RendererT for PathTracer {
     fn render(&self, scene: &Scene, config: &OutputConfig) {
         let film = Arc::new(Mutex::new(Film::new(config.width, config.height)));
         let aspect = config.width as f32 / config.height as f32;
@@ -284,29 +275,35 @@ impl Renderer for PathTracer {
             for t in 0..num_cpus as usize {
                 let width_inv = 1.0 / config.width as f32;
                 let height_inv = 1.0 / config.height as f32;
-                let spp = self.spp;
+                let mut pixel_sampler = self.pixel_sampler;
+                let spp = pixel_sampler.spp();
                 let spp_sqrt_inv = 1.0 / (spp as f32).sqrt();
-                let sampler_type = self.sampler_type;
                 let film = film.clone();
                 let progress_bar = progress_bar.clone();
                 let path_tracer = &self;
                 let ImageRange { from, to } = ranges[t];
 
                 scope.spawn(move |_| {
-                    let mut sampler = sampler_from(sampler_type, spp);
+                    let mut rng = Rng::new();
                     for j in from..to {
                         for i in 0..config.width {
-                            let samples = sampler.pixel_samples(spp);
-                            for (offset_x, offset_y) in samples {
+                            pixel_sampler.start_pixel();
+                            while let Some((offset_x, offset_y)) =
+                                pixel_sampler.next_sample(&mut rng)
+                            {
                                 let x = ((i as f32 + offset_x) * width_inv - 0.5) * aspect;
                                 let y =
                                     ((config.height - j - 1) as f32 + offset_y) * height_inv - 0.5;
-                                // let ray = path_tracer.camera.generate_ray((x, y));
-                                let ray = scene.camera().generate_ray_with_aux_ray(
-                                    (x, y),
-                                    (aspect * width_inv * spp_sqrt_inv, height_inv * spp_sqrt_inv),
-                                );
-                                let color = path_tracer.trace_ray(scene, ray, sampler.as_mut());
+                                let ray = scene
+                                    .get_camera(&config.used_camera_name)
+                                    .generate_ray_with_aux_ray(
+                                        (x, y),
+                                        (
+                                            aspect * width_inv * spp_sqrt_inv,
+                                            height_inv * spp_sqrt_inv,
+                                        ),
+                                    );
+                                let color = path_tracer.trace_ray(scene, ray, &mut rng);
                                 let mut film = film.lock().unwrap();
                                 film.add_sample(i, j, (offset_x - 0.5, offset_y - 0.5), color);
                             }
@@ -320,7 +317,7 @@ impl Renderer for PathTracer {
 
         let film = film.lock().unwrap();
         // TODO - filter_to_image can also be multi-threaded
-        let image = film.filter_to_image(self.filter.as_ref());
+        let image = film.filter_to_image(&self.filter);
         if let Err(err) = image.save(&config.output_filename) {
             println!("Failed to save image, err: {}", err);
         }

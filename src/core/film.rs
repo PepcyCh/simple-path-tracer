@@ -1,6 +1,9 @@
 use image::{Rgb, RgbImage};
 
-use crate::core::{color::Color, filter::Filter};
+use crate::{
+    core::color::Color,
+    filter::{Filter, FilterT},
+};
 
 #[derive(Copy, Clone)]
 struct SampleData {
@@ -45,7 +48,7 @@ impl Film {
         self.data[index].push(data);
     }
 
-    pub fn filter_to_image(&self, filter: &dyn Filter) -> RgbImage {
+    pub fn filter_to_image(&self, filter: &Filter) -> RgbImage {
         let mut image: RgbImage = RgbImage::new(self.width, self.height);
         for y in 0..self.height {
             for x in 0..self.width {
@@ -60,7 +63,7 @@ impl Film {
         (y * self.width + x) as usize
     }
 
-    fn filter_pixel(&self, x: u32, y: u32, filter: &dyn Filter) -> Color {
+    fn filter_pixel(&self, x: u32, y: u32, filter: &Filter) -> Color {
         let radius = filter.radius();
 
         let mut color = Color::BLACK;

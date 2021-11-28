@@ -159,7 +159,7 @@
   {
     "type": "glass",
     "name": "glass_red_large_ior",
-    "ior": 12,
+    "ior": 12.0,
     "reflectance": "color_red2",
     "transmittance": "color_red",
     "roughness": "scalar_0"
@@ -234,25 +234,5 @@
     "albedo": "color_white",
     "ld": "scalar_3",
     "roughness": "scalar_1"
-  },
-  {
-    "type": "pndf_metal",
-    "name": "pndf_metal_green",
-    "albedo": "color_green_light",
-    "sigma_r": 0.005,
-    "base_normal": "textures/scratched_low.jpg",
-    "base_normal_tiling": [16.0, 16.0],
-    "h": 1.0,
-    "fallback_roughness": "scalar_0.2"
-  },
-  {
-    "type": "pndf_metal",
-    "name": "pndf_metal_orange",
-    "albedo": "color_orange",
-    "sigma_r": 0.02,
-    "base_normal": "textures/brushed_low.jpg",
-    "base_normal_tiling": [16.0, 16.0],
-    "h": 1.0,
-    "fallback_roughness": "scalar_0.2"
   }
 ]

@@ -1,16 +1,12 @@
 use std::{collections::HashSet, sync::Arc};
 
-use crate::core::{
-    bbox::Bbox,
-    intersection::Intersection,
-    primitive::{Aggregate, Primitive},
-    ray::Ray,
-    sampler::Sampler,
-};
+use crate::core::{bbox::Bbox, intersection::Intersection, ray::Ray, rng::Rng};
 
-pub struct BvhAccel {
+use super::PrimitiveT;
+
+pub struct BvhAccel<P: PrimitiveT> {
     bvh_root: Option<Box<BvhNode>>,
-    primitives: Vec<Arc<dyn Primitive>>,
+    primitives: Vec<Arc<P>>,
 }
 
 struct BvhNode {
@@ -21,12 +17,8 @@ struct BvhNode {
     end: usize,
 }
 
-impl BvhAccel {
-    pub fn new(
-        mut primitives: Vec<Arc<dyn Primitive>>,
-        max_leaf_size: usize,
-        bucket_number: usize,
-    ) -> Self {
+impl<P: PrimitiveT> BvhAccel<P> {
+    pub fn new(mut primitives: Vec<Arc<P>>, max_leaf_size: usize, bucket_number: usize) -> Self {
         if primitives.is_empty() {
             return Self {
                 bvh_root: None,
@@ -184,7 +176,7 @@ impl BvhAccel {
         bucket_number: usize,
         boxes: &Vec<Bbox>,
         prim_indices: &mut Vec<Vec<usize>>,
-        primitives: &mut Vec<Arc<dyn Primitive>>,
+        primitives: &mut Vec<Arc<P>>,
         start: usize,
         end: usize,
     ) -> (Box<BvhNode>, Box<BvhNode>) {
@@ -240,7 +232,7 @@ impl BvhNode {
     }
 }
 
-impl Primitive for BvhAccel {
+impl<P: PrimitiveT> PrimitiveT for BvhAccel<P> {
     fn intersect_test(&self, ray: &Ray, t_max: f32) -> bool {
         if self.bvh_root.is_none() {
             return false;
@@ -296,7 +288,7 @@ impl Primitive for BvhAccel {
         }
     }
 
-    fn sample<'a>(&'a self, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+    fn sample<'a>(&'a self, sampler: &mut Rng) -> (Intersection<'a>, f32) {
         let index = sampler.uniform_1d() * self.primitives.len() as f32;
         let index = (index as usize).min(self.primitives.len() - 1);
         let (inter, pdf) = self.primitives[index].sample(sampler);
@@ -307,5 +299,3 @@ impl Primitive for BvhAccel {
         inter.primitive.unwrap().pdf(inter) / self.primitives.len() as f32
     }
 }
-
-impl Aggregate for BvhAccel {}

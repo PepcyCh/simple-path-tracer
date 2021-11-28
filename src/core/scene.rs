@@ -3,255 +3,197 @@ use std::{collections::HashMap, sync::Arc};
 use anyhow::Context;
 
 use crate::{
-    core::{
-        bbox::Bbox,
-        camera::Camera,
-        color::Color,
-        intersection::Intersection,
-        light::Light,
-        material::Material,
-        medium::Medium,
-        primitive::{Aggregate, Primitive},
-        ray::Ray,
-        sampler::Sampler,
-        surface::Surface,
-        texture::Texture,
-        transform::Transform,
-    },
-    light::{EnvLight, ShapeLight},
-    loader::{self, JsonObject, LoadableSceneObject},
+    camera::Camera,
+    core::surface::Surface,
+    light::{EnvLight, Light, ShapeLight},
+    material::Material,
+    medium::Medium,
+    primitive::{BvhAccel, Group, Instance, Primitive},
+    texture::Texture,
 };
-
-pub struct Instance {
-    primitive: Arc<dyn Primitive>,
-    trans: Transform,
-    trans_inv: glam::Affine3A,
-    bbox: Bbox,
-    surface: Arc<Surface>,
-}
 
 #[derive(Default)]
 pub struct Scene {
-    pub camera: Option<Arc<dyn Camera>>,
-    pub aggregate: Option<Arc<dyn Aggregate>>,
+    pub cameras: HashMap<String, Arc<Camera>>,
+    pub aggregate: Option<Primitive>,
     pub instances: HashMap<String, Arc<Instance>>,
-    pub primitives: HashMap<String, Arc<dyn Primitive>>,
+    pub primitives: HashMap<String, Arc<Primitive>>,
     pub surfaces: HashMap<String, Arc<Surface>>,
-    pub materials: HashMap<String, Arc<dyn Material>>,
-    pub mediums: HashMap<String, Arc<dyn Medium>>,
-    pub textures_color: HashMap<String, Arc<dyn Texture<Color>>>,
-    pub textures_f32: HashMap<String, Arc<dyn Texture<f32>>>,
-    pub lights: Vec<Arc<dyn Light>>,
-    pub environment: Option<Arc<EnvLight>>,
-}
-
-impl Instance {
-    pub fn new(
-        primitive: Arc<dyn Primitive>,
-        trans: glam::Affine3A,
-        surface: Arc<Surface>,
-    ) -> Self {
-        let trans_inv = trans.inverse();
-        let bbox = primitive.bbox().transformed_by(trans);
-        Self {
-            primitive,
-            trans: Transform::new(trans),
-            trans_inv,
-            bbox,
-            surface,
-        }
-    }
-
-    pub fn surface(&self) -> &Arc<Surface> {
-        &self.surface
-    }
+    pub materials: HashMap<String, Arc<Material>>,
+    pub mediums: HashMap<String, Arc<Medium>>,
+    pub textures: HashMap<String, Arc<Texture>>,
+    pub lights: HashMap<String, Arc<Light>>,
+    pub environment: Option<Arc<Light>>,
 }
 
 impl Scene {
-    pub fn aggregate(&self) -> &dyn Aggregate {
-        self.aggregate
-            .as_ref()
-            .map(|aggregate| aggregate.as_ref())
-            .unwrap()
+    pub fn aggregate(&self) -> &Primitive {
+        self.aggregate.as_ref().unwrap()
     }
 
-    pub fn camera(&self) -> &dyn Camera {
-        self.camera.as_ref().map(|camera| camera.as_ref()).unwrap()
+    pub fn build_aggregate(&mut self, ty: Option<&str>) -> anyhow::Result<()> {
+        let instances = self
+            .instances
+            .iter()
+            .map(|(_, inst)| inst.clone())
+            .collect::<Vec<_>>();
+
+        self.aggregate = Some(if let Some(ty) = ty {
+            match ty {
+                "group" => Group::new(instances).into(),
+                "bvh" => BvhAccel::new(instances, 4, 16).into(),
+                _ => anyhow::bail!(format!("Unknown aggregate type '{}'", ty)),
+            }
+        } else {
+            BvhAccel::new(instances, 4, 16).into()
+        });
+
+        Ok(())
     }
 
     pub fn collect_shape_lights(&mut self) {
-        for instance in self.instances.values() {
+        for (name, instance) in &self.instances {
             if instance.surface().is_emissive() {
                 let light = ShapeLight::new(instance.clone());
-                self.lights.push(Arc::new(light));
+                self.lights
+                    .insert(format!("$${}", name), Arc::new(light.into()));
             }
         }
     }
-}
 
-impl Primitive for Instance {
-    fn intersect_test(&self, ray: &Ray, t_max: f32) -> bool {
-        let transformed_ray = ray.transformed_by(self.trans_inv);
-        self.primitive.intersect_test(&transformed_ray, t_max)
-    }
-
-    fn intersect<'a>(&'a self, ray: &Ray, inter: &mut Intersection<'a>) -> bool {
-        let transformed_ray = ray.transformed_by(self.trans_inv);
-        if self.primitive.intersect(&transformed_ray, inter) {
-            inter.surface = Some(self.surface.as_ref());
-            inter.position = ray.point_at(inter.t);
-
-            inter.normal = self.trans.transform_normal3a(inter.normal);
-            inter.tangent = self.trans.transform_vector3a(inter.tangent);
-            inter.bitangent = self.trans.transform_vector3a(inter.bitangent);
-            true
+    pub fn add_camera(&mut self, name: String, camera: Camera) -> anyhow::Result<()> {
+        if self.cameras.contains_key(&name) {
+            anyhow::bail!(format!("Duplicated camera name '{}'", name));
         } else {
-            false
+            self.cameras.insert(name, Arc::new(camera));
+            Ok(())
         }
     }
 
-    fn bbox(&self) -> Bbox {
-        self.bbox
-    }
-
-    fn sample<'a>(&'a self, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
-        let (mut inter, pdf) = self.primitive.sample(sampler);
-        inter.surface = Some(self.surface.as_ref());
-
-        let original_area = inter.tangent.cross(inter.bitangent).length();
-
-        inter.position = self.trans.transform_point3a(inter.position);
-        inter.normal = self.trans.transform_normal3a(inter.normal);
-        inter.bitangent = self.trans.transform_vector3a(inter.bitangent);
-        inter.tangent = self.trans.transform_vector3a(inter.tangent);
-
-        let transformed_area = inter.tangent.cross(inter.bitangent).length();
-
-        (inter, pdf * original_area / transformed_area)
-    }
-
-    fn pdf(&self, inter: &Intersection<'_>) -> f32 {
-        let trans_inv = self.trans.inverse();
-
-        let tangent = trans_inv.transform_vector3a(inter.tangent);
-        let bitangent = trans_inv.transform_vector3a(inter.bitangent);
-
-        let original_area = tangent.cross(bitangent).length();
-        let transformed_area = inter.tangent.cross(inter.bitangent).length();
-
-        self.primitive.pdf(inter) * original_area / transformed_area
-    }
-}
-
-impl LoadableSceneObject for Instance {
-    fn load(
-        scene: &mut Scene,
-        _path: &std::path::PathBuf,
-        json_value: &JsonObject,
-    ) -> anyhow::Result<()> {
-        let name = loader::get_str_field(json_value, "instance", "name")?;
-        let env = format!("instance({})", name);
-        if scene.instances.contains_key(name) {
-            anyhow::bail!(format!("{}: name is duplicated", env));
-        }
-
-        let mut trans = glam::Affine3A::IDENTITY;
-        if let Some(mat_value) = json_value.get("matrix") {
-            let error_info = format!("{}: 'matrix' should be an array with 16 floats", env);
-
-            let mat_arr = mat_value.as_array().context(error_info.clone())?;
-            if mat_arr.len() != 16 {
-                anyhow::bail!(error_info.clone());
-            }
-            let mut matrix = glam::Mat4::IDENTITY;
-            matrix.col_mut(0).x = mat_arr[0].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(0).y = mat_arr[1].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(0).z = mat_arr[2].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(0).w = mat_arr[3].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(1).x = mat_arr[4].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(1).y = mat_arr[5].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(1).z = mat_arr[6].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(1).w = mat_arr[7].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(2).x = mat_arr[8].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(2).y = mat_arr[9].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(2).z = mat_arr[10].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(2).w = mat_arr[11].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(3).x = mat_arr[12].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(3).y = mat_arr[13].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(3).z = mat_arr[14].as_f64().context(error_info.clone())? as f32;
-            matrix.col_mut(3).w = mat_arr[15].as_f64().context(error_info.clone())? as f32;
-            trans = glam::Affine3A::from_mat4(matrix);
-        }
-        if let Some(_) = json_value.get("scale") {
-            let scale = loader::get_float_array3_field(json_value, &env, "scale")?;
-            trans =
-                glam::Affine3A::from_scale(glam::Vec3::new(scale[0], scale[1], scale[2])) * trans;
-        }
-        if let Some(_) = json_value.get("rotate") {
-            let rotate = loader::get_float_array3_field(json_value, &env, "rotate")?;
-            trans = glam::Affine3A::from_rotation_z(rotate[2] * std::f32::consts::PI / 180.0)
-                * glam::Affine3A::from_rotation_x(rotate[0] * std::f32::consts::PI / 180.0)
-                * glam::Affine3A::from_rotation_y(rotate[1] * std::f32::consts::PI / 180.0)
-                * trans;
-        }
-        if let Some(_) = json_value.get("translate") {
-            let translate = loader::get_float_array3_field(json_value, &env, "translate")?;
-            trans = glam::Affine3A::from_translation(glam::Vec3::new(
-                translate[0],
-                translate[1],
-                translate[2],
-            )) * trans;
-        }
-        if trans.matrix3.determinant() == 0.0 {
-            anyhow::bail!(format!("{}: matrix is singular", env))
-        }
-
-        let surface = if json_value.contains_key("surface") {
-            let surf_name = loader::get_str_field(json_value, &env, "surface")?;
-            if let Some(surf) = scene.surfaces.get(surf_name) {
-                surf.clone()
-            } else {
-                anyhow::bail!(format!("{}: surface '{}' not found", env, surf_name))
-            }
-        } else if json_value.contains_key("material") {
-            let mat_name = loader::get_str_field(json_value, &env, "material")?;
-            if let Some(mat) = scene.materials.get(mat_name) {
-                let surf_name = format!("${}", mat_name);
-                scene
-                    .surfaces
-                    .entry(surf_name)
-                    .or_insert(Arc::new(Surface::new(
-                        mat.clone(),
-                        None,
-                        None,
-                        Color::BLACK,
-                        None,
-                        false,
-                        None,
-                    )))
-                    .clone()
-            } else {
-                anyhow::bail!(format!("{}: material '{}' not found", env, mat_name))
-            }
+    pub fn get_camera(&self, name: &Option<String>) -> &Camera {
+        if let Some(name) = name {
+            self.cameras
+                .get(name)
+                .context(format!("There is no camera names {}", name))
+                .unwrap()
+        } else if self.cameras.len() == 1 {
+            self.cameras.values().next().unwrap()
         } else {
-            anyhow::bail!(format!(
-                "{}: neither 'surface' nor 'material' is found",
-                env
-            ))
-        };
+            panic!("There are multiple cameras so a name must be given");
+        }
+    }
 
-        let prim_name = loader::get_str_field(json_value, &env, "primitive")?;
-        let primitive = if let Some(prim) = scene.primitives.get(prim_name) {
-            prim.clone()
+    pub fn add_light(&mut self, name: String, light: Light) -> anyhow::Result<()> {
+        if self.lights.contains_key(&name) {
+            anyhow::bail!(format!("Duplicated light name '{}'", name));
         } else {
-            anyhow::bail!(format!("{}: primitive '{}' not found", env, prim_name))
-        };
+            self.lights.insert(name, Arc::new(light));
+            Ok(())
+        }
+    }
 
-        scene.instances.insert(
-            name.to_owned(),
-            Arc::new(Self::new(primitive, trans, surface)),
-        );
+    pub fn add_environment(&mut self, env: EnvLight) -> anyhow::Result<()> {
+        if self.environment.is_some() {
+            anyhow::bail!("Environment has been set before");
+        } else {
+            let env: Arc<Light> = Arc::new(env.into());
+            self.lights.insert("$env".to_owned(), env.clone());
+            self.environment = Some(env);
+            Ok(())
+        }
+    }
 
-        Ok(())
+    pub fn add_instance(&mut self, name: String, instance: Instance) -> anyhow::Result<()> {
+        if self.instances.contains_key(&name) {
+            anyhow::bail!(format!("Duplicated instance name '{}'", name));
+        } else {
+            self.instances.insert(name, Arc::new(instance));
+            Ok(())
+        }
+    }
+
+    pub fn add_material(&mut self, name: String, material: Material) -> anyhow::Result<()> {
+        if self.materials.contains_key(&name) {
+            anyhow::bail!(format!("Duplicated material name '{}'", name));
+        } else {
+            self.materials.insert(name, Arc::new(material));
+            Ok(())
+        }
+    }
+
+    pub fn clone_material(&self, name: String) -> anyhow::Result<Arc<Material>> {
+        if let Some(material) = self.materials.get(&name) {
+            Ok(material.clone())
+        } else {
+            anyhow::bail!(format!("There is no material named '{}'", name))
+        }
+    }
+
+    pub fn add_medium(&mut self, name: String, medium: Medium) -> anyhow::Result<()> {
+        if self.mediums.contains_key(&name) {
+            anyhow::bail!(format!("Duplicated medium name '{}'", name));
+        } else {
+            self.mediums.insert(name, Arc::new(medium));
+            Ok(())
+        }
+    }
+
+    pub fn clone_medium(&self, name: String) -> anyhow::Result<Arc<Medium>> {
+        if let Some(medium) = self.mediums.get(&name) {
+            Ok(medium.clone())
+        } else {
+            anyhow::bail!(format!("There is no medium named '{}'", name))
+        }
+    }
+
+    pub fn add_primitive(&mut self, name: String, primitive: Primitive) -> anyhow::Result<()> {
+        if self.primitives.contains_key(&name) {
+            anyhow::bail!(format!("Duplicated primitive name '{}'", name));
+        } else {
+            self.primitives.insert(name, Arc::new(primitive));
+            Ok(())
+        }
+    }
+
+    pub fn clone_primitive(&self, name: String) -> anyhow::Result<Arc<Primitive>> {
+        if let Some(primitive) = self.primitives.get(&name) {
+            Ok(primitive.clone())
+        } else {
+            anyhow::bail!(format!("There is no primitive named '{}'", name))
+        }
+    }
+
+    pub fn add_surface(&mut self, name: String, surface: Surface) -> anyhow::Result<()> {
+        if self.surfaces.contains_key(&name) {
+            anyhow::bail!(format!("Duplicated surface name '{}'", name));
+        } else {
+            self.surfaces.insert(name, Arc::new(surface));
+            Ok(())
+        }
+    }
+
+    pub fn clone_surface(&self, name: String) -> anyhow::Result<Arc<Surface>> {
+        if let Some(surface) = self.surfaces.get(&name) {
+            Ok(surface.clone())
+        } else {
+            anyhow::bail!(format!("There is no surface named '{}'", name))
+        }
+    }
+
+    pub fn add_texture(&mut self, name: String, texture: Texture) -> anyhow::Result<()> {
+        if self.textures.contains_key(&name) {
+            anyhow::bail!(format!("Duplicated texture name '{}'", name));
+        } else {
+            self.textures.insert(name, Arc::new(texture));
+            Ok(())
+        }
+    }
+
+    pub fn clone_texture(&self, name: String) -> anyhow::Result<Arc<Texture>> {
+        if let Some(texture) = self.textures.get(&name) {
+            Ok(texture.clone())
+        } else {
+            anyhow::bail!(format!("There is no texture named '{}'", name))
+        }
     }
 }

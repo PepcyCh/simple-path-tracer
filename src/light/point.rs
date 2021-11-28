@@ -1,9 +1,6 @@
-use std::sync::Arc;
+use crate::core::{color::Color, loader::InputParams, rng::Rng, scene::Scene};
 
-use crate::{
-    core::{color::Color, light::Light, sampler::Sampler, scene::Scene},
-    loader::{self, JsonObject, LoadableSceneObject},
-};
+use super::LightT;
 
 pub struct PointLight {
     position: glam::Vec3A,
@@ -14,14 +11,17 @@ impl PointLight {
     pub fn new(position: glam::Vec3A, strength: Color) -> Self {
         Self { position, strength }
     }
+
+    pub fn load(_scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+        let position = params.get_float3("position")?.into();
+        let strength = params.get_float3("strength")?.into();
+
+        Ok(PointLight::new(position, strength))
+    }
 }
 
-impl Light for PointLight {
-    fn sample(
-        &self,
-        position: glam::Vec3A,
-        _sampler: &mut dyn Sampler,
-    ) -> (glam::Vec3A, f32, Color, f32) {
+impl LightT for PointLight {
+    fn sample(&self, position: glam::Vec3A, _sampler: &mut Rng) -> (glam::Vec3A, f32, Color, f32) {
         let sample = self.position - position;
         let dist_sqr = sample.length_squared();
         let dist = dist_sqr.sqrt();
@@ -43,23 +43,5 @@ impl Light for PointLight {
 
     fn is_delta(&self) -> bool {
         true
-    }
-}
-
-impl LoadableSceneObject for PointLight {
-    fn load(
-        scene: &mut Scene,
-        _path: &std::path::PathBuf,
-        json_value: &JsonObject,
-    ) -> anyhow::Result<()> {
-        let env = "light-point";
-
-        let position = loader::get_float_array3_field(json_value, &env, "position")?;
-        let strength = loader::get_float_array3_field(json_value, &env, "strength")?;
-
-        let light = PointLight::new(position.into(), strength.into());
-        scene.lights.push(Arc::new(light));
-
-        Ok(())
     }
 }

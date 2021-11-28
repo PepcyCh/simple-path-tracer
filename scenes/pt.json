@@ -1,9 +1,10 @@
 {
   "type": "pt",
-  "spp": 256,
   "max_depth": 8,
-  "#sampler": "jittered",
-  "sampler": "recurrence",
+  "sampler": {
+    "type": "recurrence",
+    "spp": 256
+  },
   "filter": {
     "type": "box",
     "radius": 0.5

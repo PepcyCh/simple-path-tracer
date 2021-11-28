@@ -1,8 +1,6 @@
-use crate::core::{
-    color::Color,
-    sampler::Sampler,
-    scatter::{Reflect, Scatter, ScatterType},
-};
+use crate::core::{color::Color, rng::Rng};
+
+use super::{Reflect, ScatterT, ScatterType};
 
 pub struct FresnelConductor<R> {
     ior: Color,
@@ -21,13 +19,13 @@ impl<R: Reflect> FresnelConductor<R> {
     }
 }
 
-impl<R: Reflect> Scatter for FresnelConductor<R> {
+impl<R: Reflect> ScatterT for FresnelConductor<R> {
     fn sample_wi(
         &self,
         po: glam::Vec3A,
         wo: glam::Vec3A,
         pi: glam::Vec3A,
-        sampler: &mut dyn Sampler,
+        sampler: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         // let fresnel = crate::scatter::util::fresnel_conductor(self.ior, self.ior_k, wo);
         let fresnel = crate::scatter::util::schlick_fresnel_with_r0(self.ior, wo.z.abs());

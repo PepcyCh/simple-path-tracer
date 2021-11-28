@@ -1,8 +1,6 @@
-use crate::core::{
-    color::Color,
-    sampler::Sampler,
-    scatter::{Scatter, ScatterType, Transmit},
-};
+use crate::core::{color::Color, rng::Rng};
+
+use super::{ScatterT, ScatterType, Transmit};
 
 pub struct MicrofacetTransmit {
     transmittance: Color,
@@ -22,13 +20,13 @@ impl MicrofacetTransmit {
     }
 }
 
-impl Scatter for MicrofacetTransmit {
+impl ScatterT for MicrofacetTransmit {
     fn sample_wi(
         &self,
         _po: glam::Vec3A,
         wo: glam::Vec3A,
         _pi: glam::Vec3A,
-        sampler: &mut dyn Sampler,
+        sampler: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         // let (rand_x, rand_y) = sampler.uniform_2d();
         // let cos_theta_sqr = crate::scatter::util::ggx_ndf_cdf_inverse(self.roughness_x * self.roughness_y, rand_x);

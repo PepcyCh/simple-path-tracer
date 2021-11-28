@@ -180,14 +180,3 @@ impl Into<(f32, f32, f32)> for Color {
         (self.r, self.g, self.b)
     }
 }
-
-impl From<image::Rgba<u8>> for Color {
-    fn from(value: image::Rgba<u8>) -> Self {
-        let inv = 1.0 / 255.0;
-        Color::new(
-            value.0[0] as f32 * inv,
-            value.0[1] as f32 * inv,
-            value.0[2] as f32 * inv,
-        )
-    }
-}

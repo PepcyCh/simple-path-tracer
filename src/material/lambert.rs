@@ -1,53 +1,31 @@
 use std::sync::Arc;
 
 use crate::{
-    core::{
-        color::Color, intersection::Intersection, material::Material, scatter::Scatter,
-        scene::Scene, texture::Texture,
-    },
-    loader::{self, JsonObject, LoadableSceneObject},
-    scatter::LambertReflect,
+    core::{intersection::Intersection, loader::InputParams, scene::Scene},
+    scatter::{LambertReflect, Scatter},
+    texture::{Texture, TextureT},
 };
 
+use super::MaterialT;
+
 pub struct Lambert {
-    albedo: Arc<dyn Texture<Color>>,
+    albedo: Arc<Texture>,
 }
 
 impl Lambert {
-    pub fn new(albedo: Arc<dyn Texture<Color>>) -> Self {
+    pub fn new(albedo: Arc<Texture>) -> Self {
         Self { albedo }
     }
-}
 
-impl Material for Lambert {
-    fn scatter(&self, inter: &Intersection<'_>) -> Box<dyn Scatter> {
-        let albedo = self.albedo.value_at(inter);
-        Box::new(LambertReflect::new(albedo)) as Box<dyn Scatter>
+    pub fn load(scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+        let albedo = scene.clone_texture(params.get_str("albedo")?)?;
+        Ok(Lambert::new(albedo))
     }
 }
 
-impl LoadableSceneObject for Lambert {
-    fn load(
-        scene: &mut Scene,
-        _path: &std::path::PathBuf,
-        json_value: &JsonObject,
-    ) -> anyhow::Result<()> {
-        let name = loader::get_str_field(json_value, "material-lambert", "name")?;
-        let env = format!("material-lambert({})", name);
-        if scene.materials.contains_key(name) {
-            anyhow::bail!(format!("{}: name is duplicated", env));
-        }
-
-        let albedo = loader::get_str_field(json_value, &env, "albedo")?;
-        let albedo = if let Some(tex) = scene.textures_color.get(albedo) {
-            tex.clone()
-        } else {
-            anyhow::bail!(format!("{}: albedo '{}' not found", env, albedo))
-        };
-
-        let mat = Lambert::new(albedo);
-        scene.materials.insert(name.to_owned(), Arc::new(mat));
-
-        Ok(())
+impl MaterialT for Lambert {
+    fn scatter(&self, inter: &Intersection<'_>) -> Scatter {
+        let albedo = self.albedo.color_at(inter);
+        LambertReflect::new(albedo).into()
     }
 }

@@ -1,9 +1,6 @@
-use std::sync::Arc;
+use crate::core::{color::Color, loader::InputParams, rng::Rng, scene::Scene};
 
-use crate::{
-    core::{color::Color, medium::Medium, sampler::Sampler, scene::Scene},
-    loader::{self, JsonObject, LoadableSceneObject},
-};
+use super::MediumT;
 
 pub struct Homogeneous {
     sigma_t: Color,
@@ -20,15 +17,23 @@ impl Homogeneous {
             asymmetric,
         }
     }
+
+    pub fn load(_scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+        let sigma_a = params.get_float3("sigma_a")?.into();
+        let sigma_s = params.get_float3("sigma_a")?.into();
+        let asymmetric = params.get_float("asymmetric")?;
+
+        Ok(Homogeneous::new(sigma_a, sigma_s, asymmetric))
+    }
 }
 
-impl Medium for Homogeneous {
+impl MediumT for Homogeneous {
     fn sample_pi(
         &self,
         po: glam::Vec3A,
         wo: glam::Vec3A,
         t_max: f32,
-        sampler: &mut dyn Sampler,
+        sampler: &mut Rng,
     ) -> (glam::Vec3A, bool, Color) {
         let (rand_x, rand_y) = sampler.uniform_2d();
         let sample_sigma_t = {
@@ -54,7 +59,7 @@ impl Medium for Homogeneous {
         }
     }
 
-    fn sample_wi(&self, wo: glam::Vec3A, sampler: &mut dyn Sampler) -> (glam::Vec3A, f32) {
+    fn sample_wi(&self, wo: glam::Vec3A, sampler: &mut Rng) -> (glam::Vec3A, f32) {
         let (rand_x, rand_y) = sampler.uniform_2d();
         let cos_theta = crate::medium::util::henyey_greenstein_cdf_inverse(self.asymmetric, rand_x);
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
@@ -75,28 +80,5 @@ impl Medium for Homogeneous {
     fn phase(&self, wo: glam::Vec3A, wi: glam::Vec3A) -> f32 {
         let cos = wo.dot(wi);
         crate::medium::util::henyey_greenstein(self.asymmetric, cos)
-    }
-}
-
-impl LoadableSceneObject for Homogeneous {
-    fn load(
-        scene: &mut Scene,
-        _path: &std::path::PathBuf,
-        json_value: &JsonObject,
-    ) -> anyhow::Result<()> {
-        let name = loader::get_str_field(json_value, "medium-homogeneous", "name")?;
-        let env = format!("medium-homogeneous({})", name);
-        if scene.mediums.contains_key(name) {
-            anyhow::bail!(format!("{}: name is duplicated", env));
-        }
-
-        let sigma_a = loader::get_float_array3_field(json_value, &env, "sigma_a")?;
-        let sigma_s = loader::get_float_array3_field(json_value, &env, "sigma_s")?;
-        let asymmetric = loader::get_float_field(json_value, &env, "asymmetric")?;
-
-        let homo = Homogeneous::new(sigma_a.into(), sigma_s.into(), asymmetric);
-        scene.mediums.insert(name.to_owned(), Arc::new(homo));
-
-        Ok(())
     }
 }

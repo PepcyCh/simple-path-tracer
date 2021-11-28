@@ -1,8 +1,6 @@
-use crate::core::{
-    color::Color,
-    sampler::Sampler,
-    scatter::{Scatter, ScatterType, Transmit},
-};
+use crate::core::{color::Color, rng::Rng};
+
+use super::{ScatterT, ScatterType, Transmit};
 
 pub struct LambertTransmit {
     transmittance: Color,
@@ -15,13 +13,13 @@ impl LambertTransmit {
     }
 }
 
-impl Scatter for LambertTransmit {
+impl ScatterT for LambertTransmit {
     fn sample_wi(
         &self,
         _po: glam::Vec3A,
         wo: glam::Vec3A,
         _pi: glam::Vec3A,
-        sampler: &mut dyn Sampler,
+        sampler: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         let mut wi = sampler.cosine_weighted_on_hemisphere();
         if wo.z > 0.0 {

@@ -1,20 +1,16 @@
 use std::sync::Arc;
 
-use crate::core::{
-    bbox::Bbox,
-    intersection::Intersection,
-    primitive::{Aggregate, Primitive},
-    ray::Ray,
-    sampler::Sampler,
-};
+use crate::core::{bbox::Bbox, intersection::Intersection, ray::Ray, rng::Rng};
 
-pub struct Group {
-    primitives: Vec<Arc<dyn Primitive>>,
+use super::PrimitiveT;
+
+pub struct Group<P: PrimitiveT> {
+    primitives: Vec<Arc<P>>,
     bbox: Bbox,
 }
 
-impl Group {
-    pub fn new(primitives: Vec<Arc<dyn Primitive>>) -> Self {
+impl<P: PrimitiveT> Group<P> {
+    pub fn new(primitives: Vec<Arc<P>>) -> Self {
         let bbox = primitives
             .iter()
             .map(|prim| prim.bbox())
@@ -23,7 +19,7 @@ impl Group {
     }
 }
 
-impl Primitive for Group {
+impl<P: PrimitiveT> PrimitiveT for Group<P> {
     fn intersect_test(&self, ray: &Ray, t_max: f32) -> bool {
         for prim in &self.primitives {
             if prim.intersect_test(ray, t_max) {
@@ -45,7 +41,7 @@ impl Primitive for Group {
         self.bbox
     }
 
-    fn sample<'a>(&'a self, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+    fn sample<'a>(&'a self, sampler: &mut Rng) -> (Intersection<'a>, f32) {
         let index = sampler.uniform_1d() * self.primitives.len() as f32;
         let index = (index as usize).min(self.primitives.len() - 1);
         let (inter, pdf) = self.primitives[index].sample(sampler);
@@ -56,5 +52,3 @@ impl Primitive for Group {
         inter.primitive.unwrap().pdf(inter) / self.primitives.len() as f32
     }
 }
-
-impl Aggregate for Group {}

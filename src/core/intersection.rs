@@ -1,4 +1,7 @@
-use crate::core::{primitive::Primitive, ray::Ray, surface::Surface};
+use crate::{
+    core::{ray::Ray, surface::Surface},
+    primitive::BasicPrimitiveRef,
+};
 
 pub struct Intersection<'a> {
     pub t: f32,
@@ -9,7 +12,7 @@ pub struct Intersection<'a> {
     pub bitangent: glam::Vec3A,
     pub normal: glam::Vec3A,
     pub texcoords: glam::Vec2,
-    pub primitive: Option<&'a dyn Primitive>,
+    pub primitive: Option<BasicPrimitiveRef<'a>>,
     pub surface: Option<&'a Surface>,
     pub duvdx: glam::Vec2,
     pub duvdy: glam::Vec2,

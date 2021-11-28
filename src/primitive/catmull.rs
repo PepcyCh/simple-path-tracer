@@ -2,20 +2,11 @@ use std::{collections::HashSet, sync::Arc};
 
 use pep_mesh::{halfedge, io::ply};
 
-use crate::{
-    core::{
-        bbox::Bbox,
-        intersection::Intersection,
-        primitive::{Aggregate, Primitive},
-        ray::Ray,
-        sampler::Sampler,
-        scene::Scene,
-    },
-    loader::{self, JsonObject, LoadableSceneObject},
-    primitive::BvhAccel,
+use crate::core::{
+    bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng, scene::Scene,
 };
 
-use super::CubicBezier;
+use super::{BvhAccel, CubicBezier, PrimitiveT};
 
 pub struct VData {
     pos: glam::Vec3A,
@@ -94,7 +85,7 @@ type Mesh = halfedge::HalfEdgeMesh<VData, EData, FData>;
 
 pub struct CatmullClark {
     bbox: Bbox,
-    patches: Box<dyn Aggregate>,
+    patches: BvhAccel<CubicBezier>,
 }
 
 impl CatmullClark {
@@ -104,9 +95,18 @@ impl CatmullClark {
 
         Self { bbox, patches }
     }
+
+    pub fn load(_scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+        let ply_file = params.get_file_path("ply_file")?;
+        let mesh = ply::load_to_halfedge(ply_file)?;
+
+        let fas_times = params.get_int_or("fas_times", 4) as u32;
+
+        Ok(CatmullClark::new(mesh, fas_times))
+    }
 }
 
-impl Primitive for CatmullClark {
+impl PrimitiveT for CatmullClark {
     fn intersect_test(&self, ray: &Ray, t_max: f32) -> bool {
         self.patches.intersect_test(ray, t_max)
     }
@@ -119,7 +119,7 @@ impl Primitive for CatmullClark {
         self.bbox
     }
 
-    fn sample<'a>(&'a self, _sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+    fn sample<'a>(&'a self, _sampler: &mut Rng) -> (Intersection<'a>, f32) {
         unimplemented!("<CatmullClark as Primitive>::sample() not supported yet")
     }
 
@@ -128,7 +128,7 @@ impl Primitive for CatmullClark {
     }
 }
 
-fn feature_adaptive_subdivision(mesh: &mut Mesh, max_iter_times: u32) -> Box<dyn Aggregate> {
+fn feature_adaptive_subdivision(mesh: &mut Mesh, max_iter_times: u32) -> BvhAccel<CubicBezier> {
     let mut process_faces = mesh.faces().collect::<Vec<_>>();
 
     let mut patches = vec![];
@@ -437,7 +437,7 @@ fn feature_adaptive_subdivision(mesh: &mut Mesh, max_iter_times: u32) -> Box<dyn
         }
     }
 
-    Box::new(BvhAccel::new(patches, 4, 16))
+    BvhAccel::new(patches, 4, 16)
 }
 
 fn check_if_regular(face: &halfedge::FaceRef, mesh: &Mesh) -> bool {
@@ -464,7 +464,7 @@ fn check_if_regular(face: &halfedge::FaceRef, mesh: &Mesh) -> bool {
     is_regular
 }
 
-fn get_bezier_patch(face: &halfedge::FaceRef, mesh: &Mesh) -> Arc<dyn Primitive> {
+fn get_bezier_patch(face: &halfedge::FaceRef, mesh: &Mesh) -> Arc<CubicBezier> {
     let mut control_points = [[glam::Vec3A::new(0.0, 0.0, 0.0); 4]; 4];
 
     let order = [
@@ -547,7 +547,7 @@ fn get_bezier_patch(face: &halfedge::FaceRef, mesh: &Mesh) -> Arc<dyn Primitive>
     Arc::new(CubicBezier::new(control_points))
 }
 
-fn get_gregory_patch(face: &halfedge::FaceRef, mesh: &Mesh) -> Arc<dyn Primitive> {
+fn get_gregory_patch(face: &halfedge::FaceRef, mesh: &Mesh) -> Arc<CubicBezier> {
     let mut control_points = [[glam::Vec3A::new(0.0, 0.0, 0.0); 4]; 4];
 
     let he = face.halfedge(mesh);
@@ -756,27 +756,4 @@ fn calc_face_control_points_neg(
     let c0 = (2.0 * std::f32::consts::PI / n0).cos();
     let c1 = (2.0 * std::f32::consts::PI / n3).cos();
     (c1 * pos0 + (3.0 - 2.0 * c0 - c1) * e0_neg + 2.0 * c0 * e3_pos + r) / 3.0
-}
-
-impl LoadableSceneObject for CatmullClark {
-    fn load(
-        scene: &mut Scene,
-        path: &std::path::PathBuf,
-        json_value: &JsonObject,
-    ) -> anyhow::Result<()> {
-        let name = loader::get_str_field(json_value, "primitive-catmull_clark", "name")?;
-        let env = format!("primitive-catmull_clark({})", name);
-        if scene.primitives.contains_key(name) {
-            anyhow::bail!(format!("{}: name is duplicated", env));
-        }
-
-        let file = loader::get_str_field(json_value, &env, "ply_file")?;
-        let mesh = ply::load_to_halfedge(path.with_file_name(file))?;
-        let fas_times = loader::get_int_field_or(json_value, &env, "fas_times", 4)?;
-
-        let catmull = CatmullClark::new(mesh, fas_times);
-        scene.primitives.insert(name.to_owned(), Arc::new(catmull));
-
-        Ok(())
-    }
 }

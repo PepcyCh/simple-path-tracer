@@ -1,8 +1,6 @@
-use crate::core::{
-    color::Color,
-    sampler::Sampler,
-    scatter::{Reflect, Scatter, ScatterType},
-};
+use crate::core::{color::Color, rng::Rng};
+
+use super::{Reflect, ScatterT, ScatterType};
 
 pub struct LambertReflect {
     reflectance: Color,
@@ -14,13 +12,13 @@ impl LambertReflect {
     }
 }
 
-impl Scatter for LambertReflect {
+impl ScatterT for LambertReflect {
     fn sample_wi(
         &self,
         _po: glam::Vec3A,
         wo: glam::Vec3A,
         _pi: glam::Vec3A,
-        sampler: &mut dyn Sampler,
+        sampler: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         let mut wi = sampler.cosine_weighted_on_hemisphere();
         if wo.z < 0.0 {

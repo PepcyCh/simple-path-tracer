@@ -1,14 +1,10 @@
 use std::sync::Arc;
 
-use crate::{
-    core::{
-        bbox::Bbox, intersection::Intersection, primitive::Primitive, ray::Ray, sampler::Sampler,
-        scene::Scene,
-    },
-    loader::{self, JsonObject, LoadableSceneObject},
+use crate::core::{
+    bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng, scene::Scene,
 };
 
-use super::BvhAccel;
+use super::{BasicPrimitiveRef, BvhAccel, PrimitiveT};
 
 #[derive(Copy, Clone)]
 pub struct MeshVertex {
@@ -20,7 +16,7 @@ pub struct MeshVertex {
 }
 
 pub struct TriMesh {
-    triangles: BvhAccel,
+    triangles: BvhAccel<Triangle>,
 }
 
 pub struct Triangle {
@@ -103,11 +99,62 @@ impl TriMesh {
             let i0 = indices[3 * i] as usize;
             let i1 = indices[3 * i + 1] as usize;
             let i2 = indices[3 * i + 2] as usize;
-            triangles.push(Arc::new(Triangle::new(vertices.clone(), [i0, i1, i2])) as Arc<dyn Primitive>);
+            triangles.push(Arc::new(Triangle::new(vertices.clone(), [i0, i1, i2])));
         }
         let triangles = BvhAccel::new(triangles, 4, 16);
 
         Self { triangles }
+    }
+
+    pub fn load(_scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+        let obj_file = params.get_file_path("obj_file")?;
+
+        let mut load_options = tobj::LoadOptions::default();
+        load_options.triangulate = true;
+        load_options.single_index = true;
+        let (models, _) = tobj::load_obj(obj_file, &load_options)?;
+
+        let mut vertices = vec![];
+        let mut indices = vec![];
+        for model in models {
+            let vertex_count = model.mesh.positions.len() / 3;
+            let mut model_vertices = vec![MeshVertex::default(); vertex_count];
+            for i in 0..vertex_count {
+                let i0 = 3 * i;
+                let i1 = 3 * i + 1;
+                let i2 = 3 * i + 2;
+                if i2 < model.mesh.positions.len() {
+                    model_vertices[i].position = glam::Vec3A::new(
+                        model.mesh.positions[i0],
+                        model.mesh.positions[i1],
+                        model.mesh.positions[i2],
+                    );
+                }
+                if i2 < model.mesh.normals.len() {
+                    model_vertices[i].normal = glam::Vec3A::new(
+                        model.mesh.normals[i0],
+                        model.mesh.normals[i1],
+                        model.mesh.normals[i2],
+                    );
+                }
+                if 2 * i + 1 < model.mesh.texcoords.len() {
+                    model_vertices[i].texcoords = glam::Vec2::new(
+                        model.mesh.texcoords[2 * i],
+                        model.mesh.texcoords[2 * i + 1],
+                    );
+                }
+            }
+            vertices.append(&mut model_vertices);
+            let mut model_indices = model
+                .mesh
+                .indices
+                .into_iter()
+                .map(|ind| ind + indices.len() as u32)
+                .collect::<Vec<_>>();
+            indices.append(&mut model_indices);
+        }
+
+        Ok(TriMesh::new(vertices, indices))
     }
 }
 
@@ -150,7 +197,7 @@ impl Triangle {
     }
 }
 
-impl Primitive for TriMesh {
+impl PrimitiveT for TriMesh {
     fn intersect_test(&self, ray: &Ray, t_max: f32) -> bool {
         self.triangles.intersect_test(ray, t_max)
     }
@@ -163,7 +210,7 @@ impl Primitive for TriMesh {
         self.triangles.bbox()
     }
 
-    fn sample<'a>(&'a self, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+    fn sample<'a>(&'a self, sampler: &mut Rng) -> (Intersection<'a>, f32) {
         self.triangles.sample(sampler)
     }
 
@@ -172,7 +219,7 @@ impl Primitive for TriMesh {
     }
 }
 
-impl Primitive for Triangle {
+impl PrimitiveT for Triangle {
     fn intersect_test(&self, ray: &Ray, t_max: f32) -> bool {
         if let Some((t, _, _, _)) = self.intersect_ray(ray) {
             t > ray.t_min && t < t_max
@@ -209,7 +256,7 @@ impl Primitive for Triangle {
                     let b2 = self.vertices[self.indices[2]].bitangent;
                     b0 * u + b1 * v + b2 * w
                 };
-                inter.primitive = Some(self);
+                inter.primitive = Some(BasicPrimitiveRef::Triangle(self));
                 return true;
             }
         }
@@ -220,7 +267,7 @@ impl Primitive for Triangle {
         self.bbox
     }
 
-    fn sample<'a>(&'a self, sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+    fn sample<'a>(&'a self, sampler: &mut Rng) -> (Intersection<'a>, f32) {
         let rand = sampler.uniform_2d();
         let r0_sqrt = rand.0.sqrt();
         let u = 1.0 - r0_sqrt;
@@ -261,7 +308,7 @@ impl Primitive for Triangle {
             tangent: tan,
             bitangent: bitan,
             texcoords: uv,
-            primitive: Some(self),
+            primitive: Some(BasicPrimitiveRef::Triangle(self)),
             ..Default::default()
         };
 
@@ -290,69 +337,4 @@ fn lerp_point2(
     let x = p0.x * u + p1.x * v + p2.x * w;
     let y = p0.y * u + p1.y * v + p2.y * w;
     glam::Vec2::new(x, y)
-}
-
-impl LoadableSceneObject for TriMesh {
-    fn load(
-        scene: &mut Scene,
-        path: &std::path::PathBuf,
-        json_value: &JsonObject,
-    ) -> anyhow::Result<()> {
-        let name = loader::get_str_field(json_value, "primitive-trimesh", "name")?;
-        let env = format!("primitive-trimesh({})", name);
-        if scene.primitives.contains_key(name) {
-            anyhow::bail!(format!("{}: name is duplicated", env));
-        }
-
-        let file = loader::get_str_field(json_value, &env, "obj_file")?;
-        let mut load_options = tobj::LoadOptions::default();
-        load_options.triangulate = true;
-        load_options.single_index = true;
-        let (models, _) = tobj::load_obj(path.with_file_name(file), &load_options)?;
-
-        let mut vertices = vec![];
-        let mut indices = vec![];
-        for model in models {
-            let vertex_count = model.mesh.positions.len() / 3;
-            let mut model_vertices = vec![MeshVertex::default(); vertex_count];
-            for i in 0..vertex_count {
-                let i0 = 3 * i;
-                let i1 = 3 * i + 1;
-                let i2 = 3 * i + 2;
-                if i2 < model.mesh.positions.len() {
-                    model_vertices[i].position = glam::Vec3A::new(
-                        model.mesh.positions[i0],
-                        model.mesh.positions[i1],
-                        model.mesh.positions[i2],
-                    );
-                }
-                if i2 < model.mesh.normals.len() {
-                    model_vertices[i].normal = glam::Vec3A::new(
-                        model.mesh.normals[i0],
-                        model.mesh.normals[i1],
-                        model.mesh.normals[i2],
-                    );
-                }
-                if 2 * i + 1 < model.mesh.texcoords.len() {
-                    model_vertices[i].texcoords = glam::Vec2::new(
-                        model.mesh.texcoords[2 * i],
-                        model.mesh.texcoords[2 * i + 1],
-                    );
-                }
-            }
-            vertices.append(&mut model_vertices);
-            let mut model_indices = model
-                .mesh
-                .indices
-                .into_iter()
-                .map(|ind| ind + indices.len() as u32)
-                .collect::<Vec<_>>();
-            indices.append(&mut model_indices);
-        }
-
-        let mesh = TriMesh::new(vertices, indices);
-        scene.primitives.insert(name.to_owned(), Arc::new(mesh));
-
-        Ok(())
-    }
 }

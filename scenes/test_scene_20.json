@@ -1,6 +1,7 @@
 {
-  "camera": {
+  "cameras": {
     "type": "perspective",
+    "name": "default_camera",
     "eye": [0.0, 0.0, 4.0],
     "forward": [0.0, 0.0, -1.0],
     "up": [0.0, 1.0, 0.0],

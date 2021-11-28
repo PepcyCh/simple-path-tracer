@@ -1,10 +1,9 @@
-use crate::core::{
-    color::Color,
-    coord::Coordinate,
-    primitive::Aggregate,
-    sampler::Sampler,
-    scatter::{Reflect, Scatter, ScatterType, SsReflect, Transmit},
+use crate::{
+    core::{color::Color, coord::Coordinate, rng::Rng},
+    primitive::Primitive,
 };
+
+use super::{Reflect, ScatterT, ScatterType, SsReflect, Transmit};
 
 struct FresnelDielectric<R, T> {
     ior: f32,
@@ -50,13 +49,13 @@ impl<R: Reflect, T: SsReflect> FresnelDielectricRSsr<R, T> {
     }
 }
 
-impl<R: Reflect, T: Transmit> Scatter for FresnelDielectricRT<R, T> {
+impl<R: Reflect, T: Transmit> ScatterT for FresnelDielectricRT<R, T> {
     fn sample_wi(
         &self,
         po: glam::Vec3A,
         wo: glam::Vec3A,
         pi: glam::Vec3A,
-        sampler: &mut dyn Sampler,
+        sampler: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         // TODO - half vector fresnel ?
         let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
@@ -93,13 +92,13 @@ impl<R: Reflect, T: Transmit> Scatter for FresnelDielectricRT<R, T> {
     }
 }
 
-impl<R: Reflect, T: Reflect> Scatter for FresnelDielectricRR<R, T> {
+impl<R: Reflect, T: Reflect> ScatterT for FresnelDielectricRR<R, T> {
     fn sample_wi(
         &self,
         po: glam::Vec3A,
         wo: glam::Vec3A,
         pi: glam::Vec3A,
-        sampler: &mut dyn Sampler,
+        sampler: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
         let rand = sampler.uniform_1d();
@@ -148,14 +147,14 @@ impl<R: Reflect, T: Reflect> Scatter for FresnelDielectricRR<R, T> {
     }
 }
 
-impl<R: Reflect, T: SsReflect> Scatter for FresnelDielectricRSsr<R, T> {
+impl<R: Reflect, T: SsReflect> ScatterT for FresnelDielectricRSsr<R, T> {
     fn sample_pi(
         &self,
         po: glam::Vec3A,
         wo: glam::Vec3A,
         coord_po: Coordinate,
-        sampler: &mut dyn Sampler,
-        scene: &dyn Aggregate,
+        sampler: &mut Rng,
+        scene: &Primitive,
     ) -> (glam::Vec3A, Coordinate, f32, Color) {
         let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
         let rand = sampler.uniform_1d();
@@ -171,7 +170,7 @@ impl<R: Reflect, T: SsReflect> Scatter for FresnelDielectricRSsr<R, T> {
         po: glam::Vec3A,
         wo: glam::Vec3A,
         pi: glam::Vec3A,
-        sampler: &mut dyn Sampler,
+        sampler: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
         if po == pi {

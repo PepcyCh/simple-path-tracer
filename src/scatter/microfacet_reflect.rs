@@ -1,8 +1,6 @@
-use crate::core::{
-    color::Color,
-    sampler::Sampler,
-    scatter::{Reflect, Scatter, ScatterType},
-};
+use crate::core::{color::Color, rng::Rng};
+
+use super::{Reflect, ScatterT, ScatterType};
 
 pub struct MicrofacetReflect {
     reflectance: Color,
@@ -20,13 +18,13 @@ impl MicrofacetReflect {
     }
 }
 
-impl Scatter for MicrofacetReflect {
+impl ScatterT for MicrofacetReflect {
     fn sample_wi(
         &self,
         _po: glam::Vec3A,
         wo: glam::Vec3A,
         _pi: glam::Vec3A,
-        sampler: &mut dyn Sampler,
+        sampler: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         let (half, pdf) = crate::scatter::util::ggx_smith_vndf_sample(
             wo,

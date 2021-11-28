@@ -1,4 +1,4 @@
-use super::scatter::ScatterDirType;
+use crate::scatter::ScatterDirType;
 
 #[derive(Copy, Clone)]
 pub struct Coordinate {

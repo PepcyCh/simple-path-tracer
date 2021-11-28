@@ -1,14 +1,8 @@
-use std::sync::Arc;
-
-use anyhow::Context;
-
-use crate::{
-    core::{
-        bbox::Bbox, intersection::Intersection, primitive::Primitive, ray::Ray, sampler::Sampler,
-        scene::Scene,
-    },
-    loader::{self, JsonObject, LoadableSceneObject},
+use crate::core::{
+    bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng, scene::Scene,
 };
+
+use super::{BasicPrimitiveRef, PrimitiveT};
 
 // Newton's iteration
 #[cfg(feature = "bezier_ni")]
@@ -137,9 +131,23 @@ impl CubicBezier {
         }
         result
     }
+
+    pub fn load(_scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+        let cp_value = params.get_float_3darray("control_points", Some(4), Some(4), Some(3))?;
+
+        let mut control_points = [[glam::Vec3A::new(0.0, 0.0, 0.0); 4]; 4];
+        for i in 0..4 {
+            for j in 0..4 {
+                control_points[i][j] =
+                    glam::Vec3A::new(cp_value[i][j][0], cp_value[i][j][1], cp_value[i][j][2]);
+            }
+        }
+
+        Ok(CubicBezier::new(control_points))
+    }
 }
 
-impl Primitive for CubicBezier {
+impl PrimitiveT for CubicBezier {
     fn intersect_test(&self, ray: &Ray, t_max: f32) -> bool {
         if let Some((_, _, t)) = self.intersect_ray(ray) {
             t > ray.t_min && t < t_max
@@ -156,7 +164,7 @@ impl Primitive for CubicBezier {
                 inter.tangent = self.tangent_at(u, v);
                 inter.bitangent = self.bitangent_at(u, v);
                 inter.normal = (inter.tangent.cross(inter.bitangent)).normalize();
-                inter.primitive = Some(self);
+                inter.primitive = Some(BasicPrimitiveRef::CubicBezier(self));
                 return true;
             }
         }
@@ -167,7 +175,7 @@ impl Primitive for CubicBezier {
         self.bbox
     }
 
-    fn sample<'a>(&'a self, _sampler: &mut dyn Sampler) -> (Intersection<'a>, f32) {
+    fn sample<'a>(&'a self, _sampler: &mut Rng) -> (Intersection<'a>, f32) {
         unimplemented!("<CubicBezier as Primitive>::sample() not supported yet")
     }
 
@@ -469,50 +477,4 @@ fn clip_bezier_at_midpoint(points: [glam::Vec2; 4]) -> ([glam::Vec2; 4], [glam::
             points[3],
         ],
     )
-}
-
-impl LoadableSceneObject for CubicBezier {
-    fn load(
-        scene: &mut Scene,
-        _path: &std::path::PathBuf,
-        json_value: &JsonObject,
-    ) -> anyhow::Result<()> {
-        let name = loader::get_str_field(json_value, "primitive-cubic_bezier", "name")?;
-        let env = format!("primitive-cubic_bezier({})", name);
-        if scene.primitives.contains_key(name) {
-            anyhow::bail!(format!("{}: name is duplicated", env));
-        }
-
-        let cp_value = json_value
-            .get("control_points")
-            .context(format!("{}: no 'control_points' field", env))?;
-        let error_info = format!("{}: 'control_points' should be a 4x4 array of float3", env);
-        let cp_arr = cp_value.as_array().context(error_info.clone())?;
-        if cp_arr.len() != 4 {
-            anyhow::bail!(error_info.clone());
-        }
-        let mut control_points = [[glam::Vec3A::new(0.0, 0.0, 0.0); 4]; 4];
-        for i in 0..4 {
-            let cp_row_arr = cp_arr[i].as_array().context(error_info.clone())?;
-            if cp_row_arr.len() != 4 {
-                anyhow::bail!(error_info.clone());
-            }
-            for j in 0..4 {
-                let cp_point_arr = cp_row_arr[j].as_array().context(error_info.clone())?;
-                if cp_point_arr.len() != 3 {
-                    anyhow::bail!(error_info.clone());
-                }
-                control_points[i][j] = glam::Vec3A::new(
-                    cp_point_arr[0].as_f64().context(error_info.clone())? as f32,
-                    cp_point_arr[1].as_f64().context(error_info.clone())? as f32,
-                    cp_point_arr[2].as_f64().context(error_info.clone())? as f32,
-                );
-            }
-        }
-
-        let bezier = CubicBezier::new(control_points);
-        scene.primitives.insert(name.to_owned(), Arc::new(bezier));
-
-        Ok(())
-    }
 }
