@@ -106,7 +106,6 @@
   },
   {
     "type": "scalar",
-    "ele": "color",
     "name": "color_blue_dark",
     "value": [0.2, 0.3, 0.5]
   },

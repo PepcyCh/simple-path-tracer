@@ -10,7 +10,6 @@
   "textures": [
     {
       "type": "scalar",
-      "ele": "color",
       "name": "tex_blue",
       "value": [0.5, 0.7, 1.0]
     }

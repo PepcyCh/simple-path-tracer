@@ -10,7 +10,6 @@
   "textures": [
     {
       "type": "scalar",
-      "ele": "color",
       "name": "tex_white",
       "value": [1.0, 1.0, 1.0]
     }
