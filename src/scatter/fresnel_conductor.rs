@@ -1,6 +1,6 @@
 use crate::core::{color::Color, rng::Rng};
 
-use super::{Reflect, ScatterT, ScatterType};
+use super::{util, Reflect, ScatterT, ScatterType};
 
 pub struct FresnelConductor<R> {
     ior: Color,
@@ -27,8 +27,8 @@ impl<R: Reflect> ScatterT for FresnelConductor<R> {
         pi: glam::Vec3A,
         rng: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
-        // let fresnel = crate::scatter::util::fresnel_conductor(self.ior, self.ior_k, wo);
-        let fresnel = crate::scatter::util::schlick_fresnel_with_r0(self.ior, wo.z.abs());
+        let fresnel = util::fresnel_conductor(self.ior, self.ior_k, wo);
+        // let fresnel = util::schlick_fresnel_with_r0(self.ior, wo.z.abs());
         let (wi, pdf, bxdf, ty) = self.reflect.sample_wi(po, wo, pi, rng);
         (wi, pdf, fresnel * bxdf, ty)
     }
@@ -42,8 +42,8 @@ impl<R: Reflect> ScatterT for FresnelConductor<R> {
     }
 
     fn bxdf(&self, po: glam::Vec3A, wo: glam::Vec3A, pi: glam::Vec3A, wi: glam::Vec3A) -> Color {
-        // let fresnel = crate::scatter::util::fresnel_conductor(self.ior, self.ior_k, wo);
-        let fresnel = crate::scatter::util::schlick_fresnel_with_r0(self.ior, wo.z.abs());
+        let fresnel = util::fresnel_conductor(self.ior, self.ior_k, wo);
+        // let fresnel = util::schlick_fresnel_with_r0(self.ior, wo.z.abs());
         if wo.z * wi.z >= 0.0 {
             fresnel * self.reflect.bxdf(po, wo, pi, wi)
         } else {

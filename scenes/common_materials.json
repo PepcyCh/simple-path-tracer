@@ -86,53 +86,53 @@
     "roughness": "fimage_earth"
   },
   {
-    "type": "metal",
+    "type": "pbr_metallic",
     "name": "metal_white_smooth",
-    "ior": "color_white",
-    "ior_k": "color_black",
+    "base_color": "color_white",
+    "metallic": "color_white",
     "roughness": "scalar_0.2"
   },
   {
-    "type": "metal",
+    "type": "pbr_metallic",
     "name": "metal_yellow_smooth",
-    "ior": "color_yellow",
-    "ior_k": "color_black",
+    "base_color": "color_yellow",
+    "metallic": "color_white",
     "roughness": "scalar_0.2"
   },
   {
-    "type": "metal",
+    "type": "pbr_metallic",
     "name": "metal_yellow_smooth2",
-    "ior": "color_yellow",
-    "ior_k": "color_black",
+    "base_color": "color_yellow",
+    "metallic": "color_white",
     "roughness": "scalar_0.4"
   },
   {
-    "type": "metal",
+    "type": "pbr_metallic",
     "name": "metal_yellow_aniso",
-    "ior": "color_yellow",
-    "ior_k": "color_black",
+    "base_color": "color_yellow",
+    "metallic": "color_white",
     "roughness_x": "scalar_0.2",
     "roughness_y": "scalar_0.8"
   },
   {
-    "type": "metal",
+    "type": "pbr_metallic",
     "name": "metal_blue2_smooth",
-    "ior": "color_blue2",
-    "ior_k": "color_black",
+    "base_color": "color_blue2",
+    "metallic": "color_white",
     "roughness": "scalar_0.2"
   },
   {
-    "type": "metal",
+    "type": "pbr_metallic",
     "name": "metal_green_smooth",
-    "ior": "color_green_light",
-    "ior_k": "color_black",
+    "base_color": "color_green_light",
+    "metallic": "color_white",
     "roughness": "scalar_0.2"
   },
   {
-    "type": "metal",
+    "type": "pbr_metallic",
     "name": "metal_orange_smooth",
-    "ior": "color_orange",
-    "ior_k": "color_black",
+    "base_color": "color_orange",
+    "metallic": "color_white",
     "roughness": "scalar_0.2"
   },
   {

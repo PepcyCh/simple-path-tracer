@@ -1,6 +1,6 @@
 use crate::core::{color::Color, rng::Rng};
 
-use super::{Reflect, ScatterT, ScatterType};
+use super::{util, Reflect, ScatterT, ScatterType};
 
 pub struct SpecularReflect {
     reflectance: Color,
@@ -20,7 +20,7 @@ impl ScatterT for SpecularReflect {
         _pi: glam::Vec3A,
         _rng: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
-        let wi = crate::scatter::util::reflect(wo);
+        let wi = util::reflect(wo);
         (
             wi,
             1.0,
@@ -34,7 +34,7 @@ impl ScatterT for SpecularReflect {
     }
 
     fn bxdf(&self, _po: glam::Vec3A, wo: glam::Vec3A, _pi: glam::Vec3A, wi: glam::Vec3A) -> Color {
-        let expected_wi = crate::scatter::util::reflect(wo);
+        let expected_wi = util::reflect(wo);
         if expected_wi.dot(wi) >= 0.99 {
             self.reflectance / wi.z.abs()
         } else {

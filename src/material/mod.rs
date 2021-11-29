@@ -2,6 +2,8 @@ mod dielectric;
 mod glass;
 mod lambert;
 mod metal;
+mod pbr_metallic;
+mod pbr_specular;
 mod pseudo;
 mod subsurface;
 
@@ -9,6 +11,8 @@ pub use dielectric::*;
 pub use glass::*;
 pub use lambert::*;
 pub use metal::*;
+pub use pbr_metallic::*;
+pub use pbr_specular::*;
 pub use pseudo::*;
 pub use subsurface::*;
 
@@ -28,6 +32,8 @@ pub enum Material {
     Glass,
     Lambert,
     Metal,
+    PbrMetallic,
+    PbrSpecular,
     PseudoMaterial,
     Subsurface,
 }
@@ -46,6 +52,8 @@ pub fn create_material_from_params(
         "glass" => Glass::load(scene, params)?.into(),
         "lambert" => Lambert::load(scene, params)?.into(),
         "metal" => Metal::load(scene, params)?.into(),
+        "pbr_metallic" => PbrMetallic::load(scene, params)?.into(),
+        "pbr_specular" => PbrSpecular::load(scene, params)?.into(),
         "pseudo" => PseudoMaterial::load(scene, params)?.into(),
         "subsurface" => Subsurface::load(scene, params)?.into(),
         _ => anyhow::bail!(format!("{}: unknown type '{}'", params.name(), ty)),

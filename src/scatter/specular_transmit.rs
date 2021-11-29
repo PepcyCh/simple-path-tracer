@@ -1,6 +1,6 @@
 use crate::core::{color::Color, rng::Rng};
 
-use super::{ScatterT, ScatterType, Transmit};
+use super::{util, ScatterT, ScatterType, Transmit};
 
 pub struct SpecularTransmit {
     transmittance: Color,
@@ -21,7 +21,7 @@ impl ScatterT for SpecularTransmit {
         _pi: glam::Vec3A,
         _rng: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
-        if let Some(wi) = crate::scatter::util::refract(wo, self.ior) {
+        if let Some(wi) = util::refract(wo, self.ior) {
             let ior_ratio = if wo.z >= 0.0 {
                 1.0 / self.ior
             } else {
@@ -43,7 +43,7 @@ impl ScatterT for SpecularTransmit {
     }
 
     fn bxdf(&self, _po: glam::Vec3A, wo: glam::Vec3A, _pi: glam::Vec3A, wi: glam::Vec3A) -> Color {
-        if let Some(expected_wi) = crate::scatter::util::refract(wo, self.ior) {
+        if let Some(expected_wi) = util::refract(wo, self.ior) {
             if expected_wi.dot(wi) >= 0.99 {
                 let ior_ratio = if wo.z >= 0.0 {
                     1.0 / self.ior

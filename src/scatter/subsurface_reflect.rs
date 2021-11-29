@@ -3,7 +3,7 @@ use crate::{
     primitive::{Primitive, PrimitiveT},
 };
 
-use super::{ScatterT, ScatterType, SsReflect};
+use super::{util, ScatterT, ScatterType, SsReflect};
 
 pub struct SubsurfaceReflect {
     albedo: Color,
@@ -159,8 +159,8 @@ impl ScatterT for SubsurfaceReflect {
     }
 
     fn bxdf(&self, _po: glam::Vec3A, wo: glam::Vec3A, _pi: glam::Vec3A, wi: glam::Vec3A) -> Color {
-        let fresnel_wo = crate::scatter::util::fresnel(self.ior, wo);
-        let fresnel_wi = crate::scatter::util::fresnel(self.ior, wi);
+        let fresnel_wo = util::fresnel(self.ior, wo);
+        let fresnel_wi = util::fresnel(self.ior, wi);
         let value = (1.0 - fresnel_wo) * (1.0 - fresnel_wi) * std::f32::consts::FRAC_1_PI;
         Color::new(value, value, value)
     }
