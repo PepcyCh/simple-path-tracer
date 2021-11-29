@@ -23,6 +23,12 @@ pub trait TextureT: Send + Sync {
     fn color_at(&self, inter: &Intersection<'_>) -> Color;
 
     fn float_at(&self, inter: &Intersection<'_>, chan: TextureChannel) -> f32;
+
+    /// returns an estimated value, not need to be accurate
+    fn average_color(&self) -> Color;
+
+    /// returns an estimated value, not need to be accurate
+    fn average_float(&self, chan: TextureChannel) -> f32;
 }
 
 #[enum_dispatch::enum_dispatch]

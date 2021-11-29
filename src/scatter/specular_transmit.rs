@@ -19,7 +19,7 @@ impl ScatterT for SpecularTransmit {
         _po: glam::Vec3A,
         wo: glam::Vec3A,
         _pi: glam::Vec3A,
-        _sampler: &mut Rng,
+        _rng: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         if let Some(wi) = crate::scatter::util::refract(wo, self.ior) {
             let ior_ratio = if wo.z >= 0.0 {

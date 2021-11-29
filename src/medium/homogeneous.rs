@@ -33,9 +33,9 @@ impl MediumT for Homogeneous {
         po: glam::Vec3A,
         wo: glam::Vec3A,
         t_max: f32,
-        sampler: &mut Rng,
+        rng: &mut Rng,
     ) -> (glam::Vec3A, bool, Color) {
-        let (rand_x, rand_y) = sampler.uniform_2d();
+        let (rand_x, rand_y) = rng.uniform_2d();
         let sample_sigma_t = {
             if rand_x < 1.0 / 3.0 {
                 self.sigma_t.r
@@ -59,8 +59,8 @@ impl MediumT for Homogeneous {
         }
     }
 
-    fn sample_wi(&self, wo: glam::Vec3A, sampler: &mut Rng) -> (glam::Vec3A, f32) {
-        let (rand_x, rand_y) = sampler.uniform_2d();
+    fn sample_wi(&self, wo: glam::Vec3A, rng: &mut Rng) -> (glam::Vec3A, f32) {
+        let (rand_x, rand_y) = rng.uniform_2d();
         let cos_theta = crate::medium::util::henyey_greenstein_cdf_inverse(self.asymmetric, rand_x);
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
         let phi = 2.0 * std::f32::consts::PI * rand_y;

@@ -9,6 +9,7 @@ mod camera;
 mod core;
 mod filter;
 mod light;
+mod light_sampler;
 mod loader;
 mod material;
 mod medium;

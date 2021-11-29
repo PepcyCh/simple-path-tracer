@@ -110,8 +110,8 @@ impl PrimitiveT for Instance {
         self.bbox
     }
 
-    fn sample<'a>(&'a self, sampler: &mut Rng) -> (Intersection<'a>, f32) {
-        let (mut inter, pdf) = self.primitive.sample(sampler);
+    fn sample<'a>(&'a self, rng: &mut Rng) -> (Intersection<'a>, f32) {
+        let (mut inter, pdf) = self.primitive.sample(rng);
         inter.surface = Some(self.surface.as_ref());
 
         let original_area = inter.tangent.cross(inter.bitangent).length();
@@ -136,5 +136,10 @@ impl PrimitiveT for Instance {
         let transformed_area = inter.tangent.cross(inter.bitangent).length();
 
         self.primitive.pdf(inter) * original_area / transformed_area
+    }
+
+    fn surface_area(&self, trans: Transform) -> f32 {
+        let trans = trans * self.trans;
+        self.primitive.surface_area(trans)
     }
 }

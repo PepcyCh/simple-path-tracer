@@ -5,6 +5,11 @@ pub struct Transform {
 }
 
 impl Transform {
+    pub const IDENTITY: Self = Self {
+        trans: glam::Affine3A::IDENTITY,
+        trans_it: glam::Mat3A::IDENTITY,
+    };
+
     pub fn new(trans: glam::Affine3A) -> Self {
         let trans_inv = trans.inverse();
         let trans_it = trans_inv.matrix3.transpose();

@@ -55,16 +55,16 @@ impl<R: Reflect, T: Transmit> ScatterT for FresnelDielectricRT<R, T> {
         po: glam::Vec3A,
         wo: glam::Vec3A,
         pi: glam::Vec3A,
-        sampler: &mut Rng,
+        rng: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         // TODO - half vector fresnel ?
         let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
-        let rand = sampler.uniform_1d();
+        let rand = rng.uniform_1d();
         if rand <= fresnel {
-            let (wi, pdf, bxdf, ty) = self.0.reflect.sample_wi(po, wo, pi, sampler);
+            let (wi, pdf, bxdf, ty) = self.0.reflect.sample_wi(po, wo, pi, rng);
             (wi, fresnel * pdf, fresnel * bxdf, ty)
         } else {
-            let (wi, pdf, bxdf, ty) = self.0.transmit.sample_wi(po, wo, pi, sampler);
+            let (wi, pdf, bxdf, ty) = self.0.transmit.sample_wi(po, wo, pi, rng);
             (wi, (1.0 - fresnel) * pdf, (1.0 - fresnel) * bxdf, ty)
         }
     }
@@ -98,20 +98,19 @@ impl<R: Reflect, T: Reflect> ScatterT for FresnelDielectricRR<R, T> {
         po: glam::Vec3A,
         wo: glam::Vec3A,
         pi: glam::Vec3A,
-        sampler: &mut Rng,
+        rng: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
-        let rand = sampler.uniform_1d();
+        let rand = rng.uniform_1d();
         if rand <= fresnel {
-            let (wi, reflect_pdf, reflect_bxdf, ty) = self.0.reflect.sample_wi(po, wo, pi, sampler);
+            let (wi, reflect_pdf, reflect_bxdf, ty) = self.0.reflect.sample_wi(po, wo, pi, rng);
             let transmit_pdf = self.0.transmit.pdf(po, wo, pi, wi);
             let transmit_bxdf = self.0.transmit.bxdf(po, wo, pi, wi);
             let pdf = fresnel * reflect_pdf + (1.0 - fresnel) * transmit_pdf;
             let bxdf = fresnel * reflect_bxdf + (1.0 - fresnel) * transmit_bxdf;
             (wi, pdf, bxdf, ty)
         } else {
-            let (wi, transmit_pdf, transmit_bxdf, ty) =
-                self.0.transmit.sample_wi(po, wo, pi, sampler);
+            let (wi, transmit_pdf, transmit_bxdf, ty) = self.0.transmit.sample_wi(po, wo, pi, rng);
             let reflect_pdf = self.0.reflect.pdf(po, wo, pi, wi);
             let reflect_bxdf = self.0.reflect.bxdf(po, wo, pi, wi);
             let pdf = fresnel * reflect_pdf + (1.0 - fresnel) * transmit_pdf;
@@ -153,15 +152,15 @@ impl<R: Reflect, T: SsReflect> ScatterT for FresnelDielectricRSsr<R, T> {
         po: glam::Vec3A,
         wo: glam::Vec3A,
         coord_po: Coordinate,
-        sampler: &mut Rng,
+        rng: &mut Rng,
         scene: &Primitive,
     ) -> (glam::Vec3A, Coordinate, f32, Color) {
         let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
-        let rand = sampler.uniform_1d();
+        let rand = rng.uniform_1d();
         if rand <= fresnel {
             (po, coord_po, 1.0, Color::WHITE)
         } else {
-            self.0.transmit.sample_pi(po, wo, coord_po, sampler, scene)
+            self.0.transmit.sample_pi(po, wo, coord_po, rng, scene)
         }
     }
 
@@ -170,14 +169,14 @@ impl<R: Reflect, T: SsReflect> ScatterT for FresnelDielectricRSsr<R, T> {
         po: glam::Vec3A,
         wo: glam::Vec3A,
         pi: glam::Vec3A,
-        sampler: &mut Rng,
+        rng: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         let fresnel = crate::scatter::util::fresnel(self.0.ior, wo);
         if po == pi {
-            let (wi, pdf, bxdf, ty) = self.0.reflect.sample_wi(po, wo, pi, sampler);
+            let (wi, pdf, bxdf, ty) = self.0.reflect.sample_wi(po, wo, pi, rng);
             (wi, fresnel * pdf, fresnel * bxdf, ty)
         } else {
-            let (wi, pdf, bxdf, ty) = self.0.transmit.sample_wi(po, wo, pi, sampler);
+            let (wi, pdf, bxdf, ty) = self.0.transmit.sample_wi(po, wo, pi, rng);
             (wi, (1.0 - fresnel) * pdf, (1.0 - fresnel) * bxdf, ty)
         }
     }

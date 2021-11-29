@@ -60,6 +60,21 @@ impl TextureT for ImageTex {
             TextureChannel::A => value.w,
         }
     }
+
+    fn average_color(&self) -> Color {
+        let value = rgba_to_vec4(self.images.last().unwrap().get_pixel(0, 0));
+        Color::new(value.x, value.y, value.z)
+    }
+
+    fn average_float(&self, chan: TextureChannel) -> f32 {
+        let value = rgba_to_vec4(self.images.last().unwrap().get_pixel(0, 0));
+        match chan {
+            TextureChannel::R => value.x,
+            TextureChannel::G => value.y,
+            TextureChannel::B => value.z,
+            TextureChannel::A => value.w,
+        }
+    }
 }
 
 fn generate_mipmap(image: image::DynamicImage) -> Vec<image::DynamicImage> {

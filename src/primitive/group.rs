@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use crate::core::{bbox::Bbox, intersection::Intersection, ray::Ray, rng::Rng};
+use crate::core::{
+    bbox::Bbox, intersection::Intersection, ray::Ray, rng::Rng, transform::Transform,
+};
 
 use super::PrimitiveT;
 
@@ -41,14 +43,21 @@ impl<P: PrimitiveT> PrimitiveT for Group<P> {
         self.bbox
     }
 
-    fn sample<'a>(&'a self, sampler: &mut Rng) -> (Intersection<'a>, f32) {
-        let index = sampler.uniform_1d() * self.primitives.len() as f32;
+    fn sample<'a>(&'a self, rng: &mut Rng) -> (Intersection<'a>, f32) {
+        let index = rng.uniform_1d() * self.primitives.len() as f32;
         let index = (index as usize).min(self.primitives.len() - 1);
-        let (inter, pdf) = self.primitives[index].sample(sampler);
+        let (inter, pdf) = self.primitives[index].sample(rng);
         (inter, pdf / self.primitives.len() as f32)
     }
 
     fn pdf(&self, inter: &Intersection<'_>) -> f32 {
         inter.primitive.unwrap().pdf(inter) / self.primitives.len() as f32
+    }
+
+    fn surface_area(&self, trans: Transform) -> f32 {
+        self.primitives
+            .iter()
+            .map(|prim| prim.surface_area(trans))
+            .sum()
     }
 }

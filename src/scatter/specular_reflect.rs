@@ -18,7 +18,7 @@ impl ScatterT for SpecularReflect {
         _po: glam::Vec3A,
         wo: glam::Vec3A,
         _pi: glam::Vec3A,
-        _sampler: &mut Rng,
+        _rng: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         let wi = crate::scatter::util::reflect(wo);
         (

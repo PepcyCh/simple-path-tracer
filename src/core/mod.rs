@@ -1,3 +1,4 @@
+pub mod alias_table;
 pub mod bbox;
 pub mod color;
 pub mod coord;

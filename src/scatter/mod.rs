@@ -53,7 +53,7 @@ pub trait ScatterT {
         po: glam::Vec3A,
         _wo: glam::Vec3A,
         coord_po: Coordinate,
-        _sampler: &mut Rng,
+        _rng: &mut Rng,
         _scene: &Primitive,
     ) -> (glam::Vec3A, Coordinate, f32, Color) {
         (po, coord_po, 1.0, Color::WHITE)
@@ -66,7 +66,7 @@ pub trait ScatterT {
         po: glam::Vec3A,
         wo: glam::Vec3A,
         pi: glam::Vec3A,
-        sampler: &mut Rng,
+        rng: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType);
 
     /// only wo -> wi, no po -> wi

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    core::{color::Color, intersection::Intersection, ray::Ray, rng::Rng},
+    core::{color::Color, intersection::Intersection, ray::Ray, rng::Rng, transform::Transform},
     primitive::{Instance, PrimitiveT},
 };
 
@@ -18,8 +18,8 @@ impl ShapeLight {
 }
 
 impl LightT for ShapeLight {
-    fn sample(&self, position: glam::Vec3A, sampler: &mut Rng) -> (glam::Vec3A, f32, Color, f32) {
-        let (inter, pdf) = self.shape.sample(sampler);
+    fn sample(&self, position: glam::Vec3A, rng: &mut Rng) -> (glam::Vec3A, f32, Color, f32) {
+        let (inter, pdf) = self.shape.sample(rng);
         let emissive = inter.surface.unwrap().emissive(&inter);
 
         let light_vec = inter.position - position;
@@ -73,5 +73,10 @@ impl LightT for ShapeLight {
 
     fn is_delta(&self) -> bool {
         false
+    }
+
+    fn power(&self) -> f32 {
+        self.shape.surface_area(Transform::IDENTITY)
+            * self.shape.surface().average_emissive().luminance()
     }
 }

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::core::{
     bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng, scene::Scene,
+    transform::Transform,
 };
 
 use super::{BasicPrimitiveRef, BvhAccel, PrimitiveT};
@@ -210,12 +211,16 @@ impl PrimitiveT for TriMesh {
         self.triangles.bbox()
     }
 
-    fn sample<'a>(&'a self, sampler: &mut Rng) -> (Intersection<'a>, f32) {
-        self.triangles.sample(sampler)
+    fn sample<'a>(&'a self, rng: &mut Rng) -> (Intersection<'a>, f32) {
+        self.triangles.sample(rng)
     }
 
     fn pdf(&self, inter: &Intersection<'_>) -> f32 {
         self.triangles.pdf(inter)
+    }
+
+    fn surface_area(&self, trans: Transform) -> f32 {
+        self.triangles.surface_area(trans)
     }
 }
 
@@ -267,8 +272,8 @@ impl PrimitiveT for Triangle {
         self.bbox
     }
 
-    fn sample<'a>(&'a self, sampler: &mut Rng) -> (Intersection<'a>, f32) {
-        let rand = sampler.uniform_2d();
+    fn sample<'a>(&'a self, rng: &mut Rng) -> (Intersection<'a>, f32) {
+        let rand = rng.uniform_2d();
         let r0_sqrt = rand.0.sqrt();
         let u = 1.0 - r0_sqrt;
         let v = r0_sqrt * (1.0 - rand.1);
@@ -323,6 +328,14 @@ impl PrimitiveT for Triangle {
         let area = (p1 - p0).cross(p2 - p0).length() * 0.5;
 
         1.0 / area.max(0.001)
+    }
+
+    fn surface_area(&self, trans: Transform) -> f32 {
+        let p0 = trans.transform_point3a(self.vertices[self.indices[0]].position);
+        let p1 = trans.transform_point3a(self.vertices[self.indices[1]].position);
+        let p2 = trans.transform_point3a(self.vertices[self.indices[2]].position);
+
+        (p1 - p0).cross(p2 - p0).length() * 0.5
     }
 }
 

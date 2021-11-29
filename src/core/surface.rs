@@ -54,6 +54,14 @@ impl Surface {
                 .map_or(Color::WHITE, |map| map.color_at(inter))
     }
 
+    pub fn average_emissive(&self) -> Color {
+        self.emissive
+            * self
+                .emissive_map
+                .as_ref()
+                .map_or(Color::WHITE, |map| map.average_color())
+    }
+
     pub fn coord(&self, ray: &Ray, inter: &Intersection<'_>) -> Coordinate {
         let shade_normal = if let Some(normal_map) = &self.normal_map {
             let value = normal_map.color_at(inter);

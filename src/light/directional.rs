@@ -24,7 +24,7 @@ impl DirLight {
 }
 
 impl LightT for DirLight {
-    fn sample(&self, _position: glam::Vec3A, _sampler: &mut Rng) -> (glam::Vec3A, f32, Color, f32) {
+    fn sample(&self, _position: glam::Vec3A, _rng: &mut Rng) -> (glam::Vec3A, f32, Color, f32) {
         (-self.direction, 1.0, self.strength, f32::MAX)
     }
 
@@ -38,5 +38,9 @@ impl LightT for DirLight {
 
     fn is_delta(&self) -> bool {
         true
+    }
+
+    fn power(&self) -> f32 {
+        self.strength.luminance()
     }
 }

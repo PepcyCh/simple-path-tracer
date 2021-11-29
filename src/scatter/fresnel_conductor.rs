@@ -25,11 +25,11 @@ impl<R: Reflect> ScatterT for FresnelConductor<R> {
         po: glam::Vec3A,
         wo: glam::Vec3A,
         pi: glam::Vec3A,
-        sampler: &mut Rng,
+        rng: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         // let fresnel = crate::scatter::util::fresnel_conductor(self.ior, self.ior_k, wo);
         let fresnel = crate::scatter::util::schlick_fresnel_with_r0(self.ior, wo.z.abs());
-        let (wi, pdf, bxdf, ty) = self.reflect.sample_wi(po, wo, pi, sampler);
+        let (wi, pdf, bxdf, ty) = self.reflect.sample_wi(po, wo, pi, rng);
         (wi, pdf, fresnel * bxdf, ty)
     }
 

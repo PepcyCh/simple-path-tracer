@@ -24,13 +24,13 @@ impl ScatterT for MicrofacetReflect {
         _po: glam::Vec3A,
         wo: glam::Vec3A,
         _pi: glam::Vec3A,
-        sampler: &mut Rng,
+        rng: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         let (half, pdf) = crate::scatter::util::ggx_smith_vndf_sample(
             wo,
             self.roughness_x,
             self.roughness_y,
-            sampler.uniform_2d(),
+            rng.uniform_2d(),
         );
 
         let wi = crate::scatter::util::reflect_n(wo, half);

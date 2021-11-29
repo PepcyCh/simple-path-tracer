@@ -4,6 +4,7 @@ use pep_mesh::{halfedge, io::ply};
 
 use crate::core::{
     bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng, scene::Scene,
+    transform::Transform,
 };
 
 use super::{BvhAccel, CubicBezier, PrimitiveT};
@@ -119,12 +120,16 @@ impl PrimitiveT for CatmullClark {
         self.bbox
     }
 
-    fn sample<'a>(&'a self, _sampler: &mut Rng) -> (Intersection<'a>, f32) {
+    fn sample<'a>(&'a self, _rng: &mut Rng) -> (Intersection<'a>, f32) {
         unimplemented!("<CatmullClark as Primitive>::sample() not supported yet")
     }
 
     fn pdf(&self, _inter: &Intersection<'_>) -> f32 {
         unimplemented!("<CatmullClark as Primitive>::pdf() not supported yet")
+    }
+
+    fn surface_area(&self, _trans: Transform) -> f32 {
+        unimplemented!("<CatmullClark as Primitive>::surface_area() not supported yet")
     }
 }
 

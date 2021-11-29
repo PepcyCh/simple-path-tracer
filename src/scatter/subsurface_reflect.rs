@@ -51,11 +51,11 @@ impl ScatterT for SubsurfaceReflect {
         po: glam::Vec3A,
         _wo: glam::Vec3A,
         coord_po: Coordinate,
-        sampler: &mut Rng,
+        rng: &mut Rng,
         scene: &Primitive,
     ) -> (glam::Vec3A, Coordinate, f32, Color) {
-        let mut rand_u = sampler.uniform_1d();
-        let (rand_x, rand_y) = sampler.uniform_2d();
+        let mut rand_u = rng.uniform_1d();
+        let (rand_x, rand_y) = rng.uniform_2d();
 
         // p for primitive
         let pt = coord_po.to_world(glam::Vec3A::X);
@@ -136,9 +136,9 @@ impl ScatterT for SubsurfaceReflect {
         po: glam::Vec3A,
         wo: glam::Vec3A,
         pi: glam::Vec3A,
-        sampler: &mut Rng,
+        rng: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
-        let mut wi = sampler.cosine_weighted_on_hemisphere();
+        let mut wi = rng.cosine_weighted_on_hemisphere();
         if wo.z < 0.0 {
             wi.z = -wi.z;
         }

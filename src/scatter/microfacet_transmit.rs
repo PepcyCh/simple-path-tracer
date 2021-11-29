@@ -26,7 +26,7 @@ impl ScatterT for MicrofacetTransmit {
         _po: glam::Vec3A,
         wo: glam::Vec3A,
         _pi: glam::Vec3A,
-        sampler: &mut Rng,
+        rng: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
         // let (rand_x, rand_y) = sampler.uniform_2d();
         // let cos_theta_sqr = crate::scatter::util::ggx_ndf_cdf_inverse(self.roughness_x * self.roughness_y, rand_x);
@@ -38,7 +38,7 @@ impl ScatterT for MicrofacetTransmit {
             wo,
             self.roughness_x,
             self.roughness_y,
-            sampler.uniform_2d(),
+            rng.uniform_2d(),
         );
 
         if let Some(wi) = crate::scatter::util::refract_n(wo, half, self.ior) {

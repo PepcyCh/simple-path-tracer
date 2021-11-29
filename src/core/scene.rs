@@ -6,6 +6,7 @@ use crate::{
     camera::Camera,
     core::surface::Surface,
     light::{EnvLight, Light, ShapeLight},
+    light_sampler::{LightSampler, PowerIsLightSampler, UniformLightSampler},
     material::Material,
     medium::Medium,
     primitive::{BvhAccel, Group, Instance, Primitive},
@@ -14,16 +15,17 @@ use crate::{
 
 #[derive(Default)]
 pub struct Scene {
-    pub cameras: HashMap<String, Arc<Camera>>,
-    pub aggregate: Option<Primitive>,
-    pub instances: HashMap<String, Arc<Instance>>,
-    pub primitives: HashMap<String, Arc<Primitive>>,
-    pub surfaces: HashMap<String, Arc<Surface>>,
-    pub materials: HashMap<String, Arc<Material>>,
-    pub mediums: HashMap<String, Arc<Medium>>,
-    pub textures: HashMap<String, Arc<Texture>>,
-    pub lights: HashMap<String, Arc<Light>>,
-    pub environment: Option<Arc<Light>>,
+    cameras: HashMap<String, Arc<Camera>>,
+    aggregate: Option<Primitive>,
+    instances: HashMap<String, Arc<Instance>>,
+    primitives: HashMap<String, Arc<Primitive>>,
+    surfaces: HashMap<String, Arc<Surface>>,
+    materials: HashMap<String, Arc<Material>>,
+    mediums: HashMap<String, Arc<Medium>>,
+    textures: HashMap<String, Arc<Texture>>,
+    lights: HashMap<String, Arc<Light>>,
+    light_sampler: Option<LightSampler>,
+    environment: Option<Arc<Light>>,
 }
 
 impl Scene {
@@ -51,6 +53,30 @@ impl Scene {
         Ok(())
     }
 
+    pub fn light_sampler(&self) -> &LightSampler {
+        self.light_sampler.as_ref().unwrap()
+    }
+
+    pub fn build_light_sampler(&mut self, ty: Option<&str>) -> anyhow::Result<()> {
+        let lights = self
+            .lights
+            .iter()
+            .map(|(_, inst)| inst.clone())
+            .collect::<Vec<_>>();
+
+        self.light_sampler = Some(if let Some(ty) = ty {
+            match ty {
+                "uniform" => UniformLightSampler::new(lights).into(),
+                "power_is" => PowerIsLightSampler::new(lights).into(),
+                _ => anyhow::bail!(format!("Unknown light sampler type '{}'", ty)),
+            }
+        } else {
+            UniformLightSampler::new(lights).into()
+        });
+
+        Ok(())
+    }
+
     pub fn collect_shape_lights(&mut self) {
         for (name, instance) in &self.instances {
             if instance.surface().is_emissive() {
@@ -70,14 +96,15 @@ impl Scene {
         }
     }
 
-    pub fn get_camera(&self, name: &Option<String>) -> &Camera {
+    pub fn get_camera(&self, name: &Option<String>) -> Arc<Camera> {
         if let Some(name) = name {
             self.cameras
                 .get(name)
                 .context(format!("There is no camera names {}", name))
                 .unwrap()
+                .clone()
         } else if self.cameras.len() == 1 {
-            self.cameras.values().next().unwrap()
+            self.cameras.values().next().unwrap().clone()
         } else {
             panic!("There are multiple cameras so a name must be given");
         }
@@ -101,6 +128,10 @@ impl Scene {
             self.environment = Some(env);
             Ok(())
         }
+    }
+
+    pub fn environment(&self) -> Option<&Light> {
+        self.environment.as_ref().map(|env| env.as_ref())
     }
 
     pub fn add_instance(&mut self, name: String, instance: Instance) -> anyhow::Result<()> {

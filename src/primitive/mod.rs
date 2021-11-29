@@ -17,9 +17,10 @@ pub use triangle::*;
 
 use crate::core::{
     bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng, scene::Scene,
+    transform::Transform,
 };
 
-#[enum_dispatch::enum_dispatch(Primitive, PrimitiveRef)]
+#[enum_dispatch::enum_dispatch(Primitive)]
 pub trait PrimitiveT: Send + Sync {
     fn intersect_test(&self, ray: &Ray, t_max: f32) -> bool;
 
@@ -27,10 +28,13 @@ pub trait PrimitiveT: Send + Sync {
 
     fn bbox(&self) -> Bbox;
 
-    fn sample<'a>(&'a self, sampler: &mut Rng) -> (Intersection<'a>, f32);
+    fn sample<'a>(&'a self, rng: &mut Rng) -> (Intersection<'a>, f32);
 
     /// sample pdf relative to area
     fn pdf(&self, inter: &Intersection<'_>) -> f32;
+
+    /// returns an estimated value, not need to be accurate
+    fn surface_area(&self, trans: Transform) -> f32;
 }
 
 #[enum_dispatch::enum_dispatch]
@@ -104,11 +108,11 @@ impl<'a> PrimitiveT for BasicPrimitiveRef<'a> {
         }
     }
 
-    fn sample<'b>(&'b self, sampler: &mut Rng) -> (Intersection<'b>, f32) {
+    fn sample<'b>(&'b self, rng: &mut Rng) -> (Intersection<'b>, f32) {
         match self {
-            BasicPrimitiveRef::CubicBezier(ele) => ele.sample(sampler),
-            BasicPrimitiveRef::Sphere(ele) => ele.sample(sampler),
-            BasicPrimitiveRef::Triangle(ele) => ele.sample(sampler),
+            BasicPrimitiveRef::CubicBezier(ele) => ele.sample(rng),
+            BasicPrimitiveRef::Sphere(ele) => ele.sample(rng),
+            BasicPrimitiveRef::Triangle(ele) => ele.sample(rng),
         }
     }
 
@@ -117,6 +121,14 @@ impl<'a> PrimitiveT for BasicPrimitiveRef<'a> {
             BasicPrimitiveRef::CubicBezier(ele) => ele.pdf(inter),
             BasicPrimitiveRef::Sphere(ele) => ele.pdf(inter),
             BasicPrimitiveRef::Triangle(ele) => ele.pdf(inter),
+        }
+    }
+
+    fn surface_area(&self, trans: Transform) -> f32 {
+        match self {
+            BasicPrimitiveRef::CubicBezier(ele) => ele.surface_area(trans),
+            BasicPrimitiveRef::Sphere(ele) => ele.surface_area(trans),
+            BasicPrimitiveRef::Triangle(ele) => ele.surface_area(trans),
         }
     }
 }

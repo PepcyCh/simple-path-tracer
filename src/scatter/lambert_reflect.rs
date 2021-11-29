@@ -18,9 +18,9 @@ impl ScatterT for LambertReflect {
         _po: glam::Vec3A,
         wo: glam::Vec3A,
         _pi: glam::Vec3A,
-        sampler: &mut Rng,
+        rng: &mut Rng,
     ) -> (glam::Vec3A, f32, Color, ScatterType) {
-        let mut wi = sampler.cosine_weighted_on_hemisphere();
+        let mut wi = rng.cosine_weighted_on_hemisphere();
         if wo.z < 0.0 {
             wi.z = -wi.z;
         }

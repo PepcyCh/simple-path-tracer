@@ -18,14 +18,14 @@ pub trait MediumT: Send + Sync {
         po: glam::Vec3A,
         wo: glam::Vec3A,
         t_max: f32,
-        sampler: &mut Rng,
+        rng: &mut Rng,
     ) -> (glam::Vec3A, bool, Color);
 
     /// return (
     ///   sample direction wi,
     ///   phase pdf
     /// )
-    fn sample_wi(&self, wo: glam::Vec3A, sampler: &mut Rng) -> (glam::Vec3A, f32);
+    fn sample_wi(&self, wo: glam::Vec3A, rng: &mut Rng) -> (glam::Vec3A, f32);
 
     fn transport_attenuation(&self, dist: f32) -> Color;
 

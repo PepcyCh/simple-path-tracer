@@ -178,6 +178,17 @@ pub fn load_scene<P: AsRef<Path>>(path: P) -> anyhow::Result<Scene> {
 
     scene.collect_shape_lights();
 
+    let light_sampler_type = if let Some(ls_value) = json_value.get("light_sampler") {
+        Some(
+            ls_value
+                .as_str()
+                .context("scene - 'light_sampler' should be string")?,
+        )
+    } else {
+        None
+    };
+    scene.build_light_sampler(light_sampler_type)?;
+
     Ok(scene)
 }
 

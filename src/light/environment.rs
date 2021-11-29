@@ -1,4 +1,6 @@
-use crate::core::{color::Color, loader::InputParams, rng::Rng, scene::Scene};
+use crate::core::{
+    alias_table::AliasTable, color::Color, loader::InputParams, rng::Rng, scene::Scene,
+};
 
 use super::LightT;
 
@@ -8,12 +10,7 @@ pub struct EnvLight {
     height: usize,
     width: usize,
     alias_table: AliasTable,
-}
-
-struct AliasTable {
-    props: Vec<f32>,
-    u: Vec<f32>,
-    k: Vec<usize>,
+    avg_power: f32,
 }
 
 impl EnvLight {
@@ -33,9 +30,12 @@ impl EnvLight {
                 props.push(prop);
             }
         }
+
+        let sum_inv = 1.0 / sum;
         for prop in &mut props {
-            *prop /= sum;
+            *prop *= sum_inv;
         }
+        let avg_power = sum / props.len() as f32;
 
         let alias_table = AliasTable::new(props);
         Self {
@@ -44,6 +44,7 @@ impl EnvLight {
             height,
             width,
             alias_table,
+            avg_power,
         }
     }
 
@@ -70,10 +71,10 @@ impl EnvLight {
         let c1 = c10 * (1.0 - yt) + c11 * yt;
         let c = c0 * (1.0 - xt) + c1 * xt;
 
-        let p00 = self.alias_table.props[y0 * self.width + x0];
-        let p01 = self.alias_table.props[y1 * self.width + x0];
-        let p10 = self.alias_table.props[y0 * self.width + x1];
-        let p11 = self.alias_table.props[y1 * self.width + x1];
+        let p00 = self.alias_table.probability(y0 * self.width + x0);
+        let p01 = self.alias_table.probability(y1 * self.width + x0);
+        let p10 = self.alias_table.probability(y0 * self.width + x1);
+        let p11 = self.alias_table.probability(y1 * self.width + x1);
         let p0 = p00 * (1.0 - yt) + p01 * yt;
         let p1 = p10 * (1.0 - yt) + p11 * yt;
         let p = p0 * (1.0 - xt) * p1 * xt;
@@ -106,13 +107,13 @@ impl EnvLight {
 }
 
 impl LightT for EnvLight {
-    fn sample(&self, _position: glam::Vec3A, sampler: &mut Rng) -> (glam::Vec3A, f32, Color, f32) {
-        let rand = sampler.uniform_1d();
+    fn sample(&self, _position: glam::Vec3A, rng: &mut Rng) -> (glam::Vec3A, f32, Color, f32) {
+        let rand = rng.uniform_1d();
         let (ind, _) = self.alias_table.sample(rand);
         let x = ind % self.width;
         let y = ind / self.width;
 
-        let (rand_x, rand_y) = sampler.uniform_2d();
+        let (rand_x, rand_y) = rng.uniform_2d();
         let theta = (y as f32 + rand_y) / self.height as f32 * std::f32::consts::PI;
         let phi = (x as f32 + rand_x) / self.width as f32 * 2.0 * std::f32::consts::PI;
         let sin_theta = theta.sin();
@@ -133,67 +134,8 @@ impl LightT for EnvLight {
     fn is_delta(&self) -> bool {
         false
     }
-}
 
-impl AliasTable {
-    fn new(props: Vec<f32>) -> Self {
-        let n = props.len();
-        let mut u: Vec<f32> = props.iter().map(|prop| *prop * n as f32).collect();
-        let mut k: Vec<usize> = (0..n).collect();
-
-        let mut poor = u
-            .iter()
-            .enumerate()
-            .find(|(_, val)| **val < 1.0)
-            .map(|(ind, _)| ind);
-        let mut poor_max = poor;
-        let mut rich = u
-            .iter()
-            .enumerate()
-            .find(|(_, val)| **val > 1.0)
-            .map(|(ind, _)| ind);
-
-        while poor.is_some() && rich.is_some() {
-            let poor_ind = poor.unwrap();
-            let rich_ind = rich.unwrap();
-
-            let diff = 1.0 - u[poor_ind];
-            u[rich_ind] -= diff;
-            k[poor_ind] = rich_ind;
-
-            if u[rich_ind] < 1.0 && rich_ind < poor_max.unwrap() {
-                poor = Some(rich_ind);
-            } else {
-                poor = None;
-                for i in poor_max.unwrap() + 1..u.len() {
-                    if u[i] < 1.0 {
-                        poor = Some(i);
-                        poor_max = Some(i);
-                        break;
-                    }
-                }
-            }
-
-            rich = None;
-            for i in rich_ind..u.len() {
-                if u[i] > 1.0 {
-                    rich = Some(i);
-                    break;
-                }
-            }
-        }
-
-        Self { props, u, k }
-    }
-
-    fn sample(&self, rand: f32) -> (usize, f32) {
-        let temp = rand * self.props.len() as f32;
-        let x = temp as usize;
-        let y = temp - x as f32;
-        if y < self.u[x] {
-            (x, self.props[x])
-        } else {
-            (self.k[x], self.props[self.k[x]])
-        }
+    fn power(&self) -> f32 {
+        self.avg_power * 4.0 * std::f32::consts::PI
     }
 }

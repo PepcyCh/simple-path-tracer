@@ -31,4 +31,17 @@ impl TextureT for ScalarTex {
             TextureChannel::A => 1.0,
         }
     }
+
+    fn average_color(&self) -> Color {
+        self.value
+    }
+
+    fn average_float(&self, chan: TextureChannel) -> f32 {
+        match chan {
+            TextureChannel::R => self.value.r,
+            TextureChannel::G => self.value.g,
+            TextureChannel::B => self.value.b,
+            TextureChannel::A => 1.0,
+        }
+    }
 }

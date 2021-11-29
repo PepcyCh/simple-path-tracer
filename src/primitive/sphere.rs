@@ -1,5 +1,6 @@
 use crate::core::{
     bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng, scene::Scene,
+    transform::Transform,
 };
 
 use super::{BasicPrimitiveRef, PrimitiveT};
@@ -86,8 +87,8 @@ impl PrimitiveT for Sphere {
         self.bbox
     }
 
-    fn sample<'a>(&'a self, sampler: &mut Rng) -> (Intersection<'a>, f32) {
-        let norm = sampler.uniform_on_sphere();
+    fn sample<'a>(&'a self, rng: &mut Rng) -> (Intersection<'a>, f32) {
+        let norm = rng.uniform_on_sphere();
         let pos = self.center + norm * self.radius;
 
         let mut inter = Intersection {
@@ -116,6 +117,21 @@ impl PrimitiveT for Sphere {
 
     fn pdf(&self, _inter: &Intersection<'_>) -> f32 {
         0.25 * std::f32::consts::FRAC_1_PI
+    }
+
+    fn surface_area(&self, trans: Transform) -> f32 {
+        let r = self.radius * 0.5;
+        let v0 = trans.transform_vector3a(glam::Vec3A::new(-r, -r, -r));
+        let v1 = trans.transform_vector3a(glam::Vec3A::new(-r, -r, r));
+        let v2 = trans.transform_vector3a(glam::Vec3A::new(-r, r, -r));
+        let v3 = trans.transform_vector3a(glam::Vec3A::new(r, -r, -r));
+        let a2 = v0.distance_squared(v1);
+        let b2 = v0.distance_squared(v2);
+        let c2 = v0.distance_squared(v3);
+        // Knud Thomsen's formula, p = 2
+        // p = 1.6075 gives more accurate result but p = 2 is simple and fast
+        // and we don't need an accurate result
+        4.0 * std::f32::consts::PI * ((a2 * b2 + b2 * c2 + c2 * a2) / 3.0).sqrt()
     }
 }
 

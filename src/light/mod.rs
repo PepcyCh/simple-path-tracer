@@ -13,12 +13,14 @@ use crate::core::{color::Color, loader::InputParams, rng::Rng, scene::Scene};
 #[enum_dispatch::enum_dispatch(Light)]
 pub trait LightT: Send + Sync {
     /// return (sampled direction, pdf, light strength, light dist)
-    fn sample(&self, position: glam::Vec3A, sampler: &mut Rng) -> (glam::Vec3A, f32, Color, f32);
+    fn sample(&self, position: glam::Vec3A, rng: &mut Rng) -> (glam::Vec3A, f32, Color, f32);
 
     /// return (light strength, light dist, pdf)
     fn strength_dist_pdf(&self, position: glam::Vec3A, wi: glam::Vec3A) -> (Color, f32, f32);
 
     fn is_delta(&self) -> bool;
+
+    fn power(&self) -> f32;
 }
 
 #[enum_dispatch::enum_dispatch]

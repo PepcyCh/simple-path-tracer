@@ -21,7 +21,7 @@ impl PointLight {
 }
 
 impl LightT for PointLight {
-    fn sample(&self, position: glam::Vec3A, _sampler: &mut Rng) -> (glam::Vec3A, f32, Color, f32) {
+    fn sample(&self, position: glam::Vec3A, _rng: &mut Rng) -> (glam::Vec3A, f32, Color, f32) {
         let sample = self.position - position;
         let dist_sqr = sample.length_squared();
         let dist = dist_sqr.sqrt();
@@ -43,5 +43,9 @@ impl LightT for PointLight {
 
     fn is_delta(&self) -> bool {
         true
+    }
+
+    fn power(&self) -> f32 {
+        self.strength.luminance()
     }
 }
