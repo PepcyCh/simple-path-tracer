@@ -1,5 +1,6 @@
 use crate::core::{
-    alias_table::AliasTable, color::Color, loader::InputParams, rng::Rng, scene::Scene,
+    alias_table::AliasTable, color::Color, loader::InputParams, rng::Rng,
+    scene_resources::SceneResources,
 };
 
 use super::LightT;
@@ -82,23 +83,23 @@ impl EnvLight {
         (c * self.scale, f32::INFINITY, p)
     }
 
-    pub fn load(scene: &mut Scene, params: &mut InputParams) -> anyhow::Result<()> {
+    pub fn load(rsc: &mut SceneResources, params: &mut InputParams) -> anyhow::Result<()> {
         let ty = params.get_str("type")?;
         let scale: Color = params.get_float3_or("scale", [1.0, 1.0, 1.0]).into();
 
         let res = match ty.as_str() {
             "color" => {
                 let color = params.get_float3("color")?.into();
-                EnvLight::new(vec![vec![color]], scale)
+                Self::new(vec![vec![color]], scale)
             }
             "exr" => {
                 let image = params.get_exr_image("exr_file")?;
-                EnvLight::new(image, scale)
+                Self::new(image, scale)
             }
             _ => anyhow::bail!(format!("{} - unknown type", params.name())),
         };
 
-        scene.add_environment(res)?;
+        rsc.add_environment(res)?;
 
         params.check_unused_keys();
 

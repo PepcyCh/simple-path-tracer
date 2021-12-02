@@ -4,7 +4,9 @@ mod scalar;
 pub use image_tex::*;
 pub use scalar::*;
 
-use crate::core::{color::Color, intersection::Intersection, loader::InputParams, scene::Scene};
+use crate::core::{
+    color::Color, intersection::Intersection, loader::InputParams, scene_resources::SceneResources,
+};
 
 #[derive(Clone, Copy)]
 pub enum TextureChannel {
@@ -38,7 +40,7 @@ pub enum Texture {
 }
 
 pub fn create_texture_from_params(
-    scene: &mut Scene,
+    rsc: &mut SceneResources,
     params: &mut InputParams,
 ) -> anyhow::Result<()> {
     params.set_name("texture".into());
@@ -47,12 +49,12 @@ pub fn create_texture_from_params(
     params.set_name(format!("texture-{}-{}", ty, name).into());
 
     let res = match ty.as_str() {
-        "scalar" => ScalarTex::load(scene, params)?.into(),
-        "image" => ImageTex::load(scene, params)?.into(),
+        "scalar" => ScalarTex::load(rsc, params)?.into(),
+        "image" => ImageTex::load(rsc, params)?.into(),
         _ => anyhow::bail!(format!("{}: unknown type '{}'", params.name(), ty)),
     };
 
-    scene.add_texture(name, res)?;
+    rsc.add_texture(name, res)?;
 
     params.check_unused_keys();
 

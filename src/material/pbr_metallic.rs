@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use crate::{
-    core::{color::Color, intersection::Intersection, loader::InputParams, scene::Scene},
+    core::{
+        color::Color, intersection::Intersection, loader::InputParams,
+        scene_resources::SceneResources,
+    },
     scatter::{
         LambertReflect, MicrofacetReflect, MixScatter, Scatter, SchlickFresnelDielectric,
         SchlickFresnelMetal, SpecularReflect,
@@ -33,26 +36,21 @@ impl PbrMetallic {
         }
     }
 
-    pub fn load(scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
-        let base_color = scene.clone_texture(params.get_str("base_color")?)?;
+    pub fn load(rsc: &SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
+        let base_color = rsc.clone_texture(params.get_str("base_color")?)?;
 
         let (roughness_x, roughness_y) = if params.contains_key("roughness") {
-            let roughness = scene.clone_texture(params.get_str("roughness")?)?;
+            let roughness = rsc.clone_texture(params.get_str("roughness")?)?;
             (roughness.clone(), roughness)
         } else {
-            let roughness_x = scene.clone_texture(params.get_str("roughness_x")?)?;
-            let roughness_y = scene.clone_texture(params.get_str("roughness_y")?)?;
+            let roughness_x = rsc.clone_texture(params.get_str("roughness_x")?)?;
+            let roughness_y = rsc.clone_texture(params.get_str("roughness_y")?)?;
             (roughness_x, roughness_y)
         };
 
-        let metallic = scene.clone_texture(params.get_str("metallic")?)?;
+        let metallic = rsc.clone_texture(params.get_str("metallic")?)?;
 
-        Ok(PbrMetallic::new(
-            base_color,
-            roughness_x,
-            roughness_y,
-            metallic,
-        ))
+        Ok(Self::new(base_color, roughness_x, roughness_y, metallic))
     }
 }
 
@@ -67,6 +65,7 @@ impl MaterialT for PbrMetallic {
             MixScatter::new(
                 metallic,
                 SchlickFresnelMetal::new(base_color, SpecularReflect::new(Color::WHITE)),
+                1.0 - metallic,
                 SchlickFresnelDielectric::new(
                     Color::gray(0.04),
                     SpecularReflect::new(Color::WHITE),
@@ -81,6 +80,7 @@ impl MaterialT for PbrMetallic {
                     base_color,
                     MicrofacetReflect::new(Color::WHITE, roughness_x, roughness_y),
                 ),
+                1.0 - metallic,
                 SchlickFresnelDielectric::new(
                     Color::gray(0.04),
                     MicrofacetReflect::new(Color::WHITE, roughness_x, roughness_y),

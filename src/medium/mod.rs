@@ -4,7 +4,7 @@ mod homogeneous;
 
 pub use homogeneous::*;
 
-use crate::core::{color::Color, loader::InputParams, rng::Rng, scene::Scene};
+use crate::core::{color::Color, loader::InputParams, rng::Rng, scene_resources::SceneResources};
 
 #[enum_dispatch::enum_dispatch(Medium)]
 pub trait MediumT: Send + Sync {
@@ -38,7 +38,7 @@ pub enum Medium {
 }
 
 pub fn create_medium_from_params(
-    scene: &mut Scene,
+    rsc: &mut SceneResources,
     params: &mut InputParams,
 ) -> anyhow::Result<()> {
     params.set_name("medium".into());
@@ -47,11 +47,11 @@ pub fn create_medium_from_params(
     params.set_name(format!("medium-{}-{}", ty, name).into());
 
     let res = match ty.as_str() {
-        "homogeneous" => Homogeneous::load(scene, params)?.into(),
+        "homogeneous" => Homogeneous::load(rsc, params)?.into(),
         _ => anyhow::bail!(format!("{}: unknown type '{}'", params.name(), ty)),
     };
 
-    scene.add_medium(name, res)?;
+    rsc.add_medium(name, res)?;
 
     params.check_unused_keys();
 

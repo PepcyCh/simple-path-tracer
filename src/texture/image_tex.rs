@@ -1,6 +1,8 @@
 use image::GenericImageView;
 
-use crate::core::{color::Color, intersection::Intersection, loader::InputParams, scene::Scene};
+use crate::core::{
+    color::Color, intersection::Intersection, loader::InputParams, scene_resources::SceneResources,
+};
 
 use super::{TextureChannel, TextureT};
 
@@ -20,12 +22,12 @@ impl ImageTex {
         }
     }
 
-    pub fn load(_scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+    pub fn load(_rsc: &SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
         let image = params.get_image("image_file")?;
         let tiling = params.get_float2_or("tiling", [1.0, 1.0]).into();
         let offset = params.get_float2_or("offset", [0.0, 0.0]).into();
 
-        Ok(ImageTex::new(image, tiling, offset))
+        Ok(Self::new(image, tiling, offset))
     }
 }
 

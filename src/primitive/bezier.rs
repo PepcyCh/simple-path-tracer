@@ -1,6 +1,6 @@
 use crate::core::{
-    bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng, scene::Scene,
-    transform::Transform,
+    bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng,
+    scene_resources::SceneResources, transform::Transform,
 };
 
 use super::{BasicPrimitiveRef, PrimitiveT};
@@ -133,7 +133,7 @@ impl CubicBezier {
         result
     }
 
-    pub fn load(_scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+    pub fn load(_rsc: &SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
         let cp_value = params.get_float_3darray("control_points", Some(4), Some(4), Some(3))?;
 
         let mut control_points = [[glam::Vec3A::new(0.0, 0.0, 0.0); 4]; 4];
@@ -144,7 +144,7 @@ impl CubicBezier {
             }
         }
 
-        Ok(CubicBezier::new(control_points))
+        Ok(Self::new(control_points))
     }
 }
 

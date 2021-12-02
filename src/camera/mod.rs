@@ -5,7 +5,7 @@ pub use perspective::*;
 use crate::core::{
     loader::InputParams,
     ray::{AuxiliaryRay, Ray},
-    scene::Scene,
+    scene_resources::SceneResources,
 };
 
 #[enum_dispatch::enum_dispatch(Camera)]
@@ -27,7 +27,7 @@ pub enum Camera {
 }
 
 pub fn create_camera_from_params(
-    scene: &mut Scene,
+    rsc: &mut SceneResources,
     params: &mut InputParams,
 ) -> anyhow::Result<()> {
     params.set_name("camera".into());
@@ -36,11 +36,11 @@ pub fn create_camera_from_params(
     params.set_name(format!("camera-{}-{}", ty, name).into());
 
     let res = match ty.as_str() {
-        "perspective" => PerspectiveCamera::load(scene, params)?.into(),
+        "perspective" => PerspectiveCamera::load(rsc, params)?.into(),
         _ => anyhow::bail!(format!("{}: unknown type '{}'", params.name(), ty)),
     };
 
-    scene.add_camera(name, res)?;
+    rsc.add_camera(name, res)?;
 
     params.check_unused_keys();
 

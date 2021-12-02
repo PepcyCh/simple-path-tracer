@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    core::{intersection::Intersection, loader::InputParams, scene::Scene},
+    core::{intersection::Intersection, loader::InputParams, scene_resources::SceneResources},
     scatter::{LambertReflect, Scatter},
     texture::{Texture, TextureT},
 };
@@ -17,9 +17,9 @@ impl Lambert {
         Self { albedo }
     }
 
-    pub fn load(scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
-        let albedo = scene.clone_texture(params.get_str("albedo")?)?;
-        Ok(Lambert::new(albedo))
+    pub fn load(rsc: &SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
+        let albedo = rsc.clone_texture(params.get_str("albedo")?)?;
+        Ok(Self::new(albedo))
     }
 }
 

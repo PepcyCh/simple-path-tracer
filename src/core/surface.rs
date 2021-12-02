@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     core::{
         color::Color, coord::Coordinate, intersection::Intersection, loader::InputParams, ray::Ray,
-        scene::Scene,
+        scene_resources::SceneResources,
     },
     material::{Material, MaterialT},
     medium::Medium,
@@ -114,27 +114,27 @@ impl Surface {
         self.double_sided
     }
 
-    pub fn load(scene: &mut Scene, params: &mut InputParams) -> anyhow::Result<()> {
+    pub fn load(rsc: &mut SceneResources, params: &mut InputParams) -> anyhow::Result<()> {
         params.set_name("surface".into());
         let name = params.get_str("name")?;
         params.set_name(format!("surface-{}", name).into());
 
-        let material = scene.clone_material(params.get_str("material")?)?;
+        let material = rsc.clone_material(params.get_str("material")?)?;
 
         let normal_map = if params.contains_key("normal_map") {
-            Some(scene.clone_texture(params.get_str("normal_map")?)?)
+            Some(rsc.clone_texture(params.get_str("normal_map")?)?)
         } else {
             None
         };
         let displacement_map = if params.contains_key("displacement_map") {
-            Some(scene.clone_texture(params.get_str("displacement_map")?)?)
+            Some(rsc.clone_texture(params.get_str("displacement_map")?)?)
         } else {
             None
         };
 
         let emissive = params.get_float3_or("emissive", [0.0, 0.0, 0.0]).into();
         let emissive_map = if params.contains_key("emissive_map") {
-            Some(scene.clone_texture(params.get_str("emissive_map")?)?)
+            Some(rsc.clone_texture(params.get_str("emissive_map")?)?)
         } else {
             None
         };
@@ -142,7 +142,7 @@ impl Surface {
         let double_sided = params.get_bool_or("double_sided", false);
 
         let inside_medium = if params.contains_key("inside_medium") {
-            Some(scene.clone_medium(params.get_str("inside_medium")?)?)
+            Some(rsc.clone_medium(params.get_str("inside_medium")?)?)
         } else {
             None
         };
@@ -156,7 +156,7 @@ impl Surface {
             double_sided,
             inside_medium,
         );
-        scene.add_surface(name, res)?;
+        rsc.add_surface(name, res)?;
 
         params.check_unused_keys();
 

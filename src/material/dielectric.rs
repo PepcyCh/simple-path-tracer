@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use crate::{
-    core::{color::Color, intersection::Intersection, loader::InputParams, scene::Scene},
+    core::{
+        color::Color, intersection::Intersection, loader::InputParams,
+        scene_resources::SceneResources,
+    },
     scatter::{FresnelDielectricRR, LambertReflect, MicrofacetReflect, Scatter, SpecularReflect},
     texture::{Texture, TextureChannel, TextureT},
 };
@@ -30,21 +33,21 @@ impl Dielectric {
         }
     }
 
-    pub fn load(scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+    pub fn load(rsc: &SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
         let ior = params.get_float("ior")?;
 
-        let albedo = scene.clone_texture(params.get_str("albedo")?)?;
+        let albedo = rsc.clone_texture(params.get_str("albedo")?)?;
 
         let (roughness_x, roughness_y) = if params.contains_key("roughness") {
-            let roughness = scene.clone_texture(params.get_str("roughness")?)?;
+            let roughness = rsc.clone_texture(params.get_str("roughness")?)?;
             (roughness.clone(), roughness)
         } else {
-            let roughness_x = scene.clone_texture(params.get_str("roughness_x")?)?;
-            let roughness_y = scene.clone_texture(params.get_str("roughness_y")?)?;
+            let roughness_x = rsc.clone_texture(params.get_str("roughness_x")?)?;
+            let roughness_y = rsc.clone_texture(params.get_str("roughness_y")?)?;
             (roughness_x, roughness_y)
         };
 
-        Ok(Dielectric::new(ior, albedo, roughness_x, roughness_y))
+        Ok(Self::new(ior, albedo, roughness_x, roughness_y))
     }
 }
 

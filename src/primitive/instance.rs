@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::core::{
     bbox::Bbox, color::Color, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng,
-    scene::Scene, surface::Surface, transform::Transform,
+    scene_resources::SceneResources, surface::Surface, transform::Transform,
 };
 
 use super::{Primitive, PrimitiveT};
@@ -32,7 +32,7 @@ impl Instance {
         &self.surface
     }
 
-    pub fn load(scene: &mut Scene, params: &mut InputParams) -> anyhow::Result<()> {
+    pub fn load(rsc: &mut SceneResources, params: &mut InputParams) -> anyhow::Result<()> {
         params.set_name("instance".into());
         let name = params.get_str("name")?;
         params.set_name(format!("instance-{}", name).into());
@@ -60,9 +60,9 @@ impl Instance {
         }
 
         let surface = if params.contains_key("surface") {
-            scene.clone_surface(params.get_str("surface")?)?
+            rsc.clone_surface(params.get_str("surface")?)?
         } else {
-            let material = scene.clone_material(params.get_str("material")?)?;
+            let material = rsc.clone_material(params.get_str("material")?)?;
             Arc::new(Surface::new(
                 material,
                 None,
@@ -74,10 +74,10 @@ impl Instance {
             ))
         };
 
-        let primitive = scene.clone_primitive(params.get_str("primitive")?)?;
+        let primitive = rsc.clone_primitive(params.get_str("primitive")?)?;
 
-        let res = Instance::new(primitive, trans, surface);
-        scene.add_instance(name, res)?;
+        let res = Self::new(primitive, trans, surface);
+        rsc.add_instance(name, res)?;
 
         params.check_unused_keys();
 

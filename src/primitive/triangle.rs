@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::core::{
-    bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng, scene::Scene,
-    transform::Transform,
+    bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng,
+    scene_resources::SceneResources, transform::Transform,
 };
 
 use super::{BasicPrimitiveRef, BvhAccel, PrimitiveT};
@@ -107,7 +107,7 @@ impl TriMesh {
         Self { triangles }
     }
 
-    pub fn load(_scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+    pub fn load(_rsc: &SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
         let obj_file = params.get_file_path("obj_file")?;
 
         let mut load_options = tobj::LoadOptions::default();
@@ -155,7 +155,7 @@ impl TriMesh {
             indices.append(&mut model_indices);
         }
 
-        Ok(TriMesh::new(vertices, indices))
+        Ok(Self::new(vertices, indices))
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::core::{
-    bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng, scene::Scene,
-    transform::Transform,
+    bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng,
+    scene_resources::SceneResources, transform::Transform,
 };
 
 use super::{BasicPrimitiveRef, PrimitiveT};
@@ -38,12 +38,12 @@ impl Sphere {
         }
     }
 
-    pub fn load(_scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+    pub fn load(_rsc: &SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
         let center = params.get_float3_or("center", [0.0, 0.0, 0.0]);
 
         let radius = params.get_float("radius")?;
 
-        Ok(Sphere::new(center.into(), radius))
+        Ok(Self::new(center.into(), radius))
     }
 }
 

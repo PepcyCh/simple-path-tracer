@@ -1,4 +1,4 @@
-use crate::core::{color::Color, loader::InputParams, rng::Rng, scene::Scene};
+use crate::core::{color::Color, loader::InputParams, rng::Rng, scene_resources::SceneResources};
 
 use super::LightT;
 
@@ -12,11 +12,11 @@ impl PointLight {
         Self { position, strength }
     }
 
-    pub fn load(_scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+    pub fn load(_rsc: &SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
         let position = params.get_float3("position")?.into();
         let strength = params.get_float3("strength")?.into();
 
-        Ok(PointLight::new(position, strength))
+        Ok(Self::new(position, strength))
     }
 }
 

@@ -1,6 +1,6 @@
-use crate::core::{color::Color, loader::InputParams, rng::Rng, scene::Scene};
+use crate::core::{color::Color, loader::InputParams, rng::Rng, scene_resources::SceneResources};
 
-use super::MediumT;
+use super::{util, MediumT};
 
 pub struct Homogeneous {
     sigma_t: Color,
@@ -18,12 +18,12 @@ impl Homogeneous {
         }
     }
 
-    pub fn load(_scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+    pub fn load(_rsc: &SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
         let sigma_a = params.get_float3("sigma_a")?.into();
         let sigma_s = params.get_float3("sigma_a")?.into();
         let asymmetric = params.get_float("asymmetric")?;
 
-        Ok(Homogeneous::new(sigma_a, sigma_s, asymmetric))
+        Ok(Self::new(sigma_a, sigma_s, asymmetric))
     }
 }
 
@@ -61,16 +61,13 @@ impl MediumT for Homogeneous {
 
     fn sample_wi(&self, wo: glam::Vec3A, rng: &mut Rng) -> (glam::Vec3A, f32) {
         let (rand_x, rand_y) = rng.uniform_2d();
-        let cos_theta = crate::medium::util::henyey_greenstein_cdf_inverse(self.asymmetric, rand_x);
+        let cos_theta = util::henyey_greenstein_cdf_inverse(self.asymmetric, rand_x);
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
         let phi = 2.0 * std::f32::consts::PI * rand_y;
         let wi = glam::Vec3A::new(sin_theta * phi.cos(), sin_theta * phi.sin(), cos_theta);
-        let wi = crate::medium::util::local_to_world(wo, wi);
+        let wi = util::local_to_world(wo, wi);
 
-        (
-            wi,
-            crate::medium::util::henyey_greenstein(self.asymmetric, cos_theta),
-        )
+        (wi, util::henyey_greenstein(self.asymmetric, cos_theta))
     }
 
     fn transport_attenuation(&self, dist: f32) -> Color {
@@ -79,6 +76,6 @@ impl MediumT for Homogeneous {
 
     fn phase(&self, wo: glam::Vec3A, wi: glam::Vec3A) -> f32 {
         let cos = wo.dot(wi);
-        crate::medium::util::henyey_greenstein(self.asymmetric, cos)
+        util::henyey_greenstein(self.asymmetric, cos)
     }
 }

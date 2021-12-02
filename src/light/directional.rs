@@ -1,4 +1,4 @@
-use crate::core::{color::Color, loader::InputParams, rng::Rng, scene::Scene};
+use crate::core::{color::Color, loader::InputParams, rng::Rng, scene_resources::SceneResources};
 
 use super::LightT;
 
@@ -15,11 +15,11 @@ impl DirLight {
         }
     }
 
-    pub fn load(_scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+    pub fn load(_rsc: &SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
         let direction = params.get_float3("direction")?.into();
         let strength = params.get_float3("strength")?.into();
 
-        Ok(DirLight::new(direction, strength))
+        Ok(Self::new(direction, strength))
     }
 }
 

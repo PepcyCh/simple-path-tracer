@@ -16,8 +16,8 @@ pub use sphere::*;
 pub use triangle::*;
 
 use crate::core::{
-    bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng, scene::Scene,
-    transform::Transform,
+    bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng,
+    scene_resources::SceneResources, transform::Transform,
 };
 
 #[enum_dispatch::enum_dispatch(Primitive)]
@@ -53,7 +53,7 @@ pub enum Primitive {
 }
 
 pub fn create_primitive_from_params(
-    scene: &mut Scene,
+    rsc: &mut SceneResources,
     params: &mut InputParams,
 ) -> anyhow::Result<()> {
     params.set_name("primitive".into());
@@ -62,14 +62,14 @@ pub fn create_primitive_from_params(
     params.set_name(format!("primitive-{}-{}", ty, name).into());
 
     let res = match ty.as_str() {
-        "sphere" => Sphere::load(scene, params)?.into(),
-        "trimesh" => TriMesh::load(scene, params)?.into(),
-        "cubic_bezier" => CubicBezier::load(scene, params)?.into(),
-        "catmull_clark" => CatmullClark::load(scene, params)?.into(),
+        "sphere" => Sphere::load(rsc, params)?.into(),
+        "trimesh" => TriMesh::load(rsc, params)?.into(),
+        "cubic_bezier" => CubicBezier::load(rsc, params)?.into(),
+        "catmull_clark" => CatmullClark::load(rsc, params)?.into(),
         _ => anyhow::bail!(format!("{}: unknown type '{}'", params.name(), ty)),
     };
 
-    scene.add_primitive(name, res)?;
+    rsc.add_primitive(name, res)?;
 
     params.check_unused_keys();
 

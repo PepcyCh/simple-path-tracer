@@ -3,8 +3,8 @@ use std::{collections::HashSet, sync::Arc};
 use pep_mesh::{halfedge, io::ply};
 
 use crate::core::{
-    bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng, scene::Scene,
-    transform::Transform,
+    bbox::Bbox, intersection::Intersection, loader::InputParams, ray::Ray, rng::Rng,
+    scene_resources::SceneResources, transform::Transform,
 };
 
 use super::{BvhAccel, CubicBezier, PrimitiveT};
@@ -97,13 +97,13 @@ impl CatmullClark {
         Self { bbox, patches }
     }
 
-    pub fn load(_scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+    pub fn load(_rsc: &SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
         let ply_file = params.get_file_path("ply_file")?;
         let mesh = ply::load_to_halfedge(ply_file)?;
 
         let fas_times = params.get_int_or("fas_times", 4) as u32;
 
-        Ok(CatmullClark::new(mesh, fas_times))
+        Ok(Self::new(mesh, fas_times))
     }
 }
 

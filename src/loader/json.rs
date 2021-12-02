@@ -7,7 +7,7 @@ use anyhow::Context;
 
 use crate::{
     camera,
-    core::{loader::InputParams, scene::Scene, surface::Surface},
+    core::{loader::InputParams, scene::Scene, scene_resources::SceneResources, surface::Surface},
     filter,
     light::{self, EnvLight},
     material, medium, pixel_sampler,
@@ -52,7 +52,7 @@ pub fn load_renderer<P: AsRef<Path>>(path: P) -> anyhow::Result<Renderer> {
 
 pub fn load_scene<P: AsRef<Path>>(path: P) -> anyhow::Result<Scene> {
     let path = path.as_ref().to_path_buf();
-    let mut scene = Scene::default();
+    let mut rsc = SceneResources::default();
 
     let json_file = std::fs::File::open(&path)?;
     let json_reader = std::io::BufReader::new(json_file);
@@ -62,7 +62,7 @@ pub fn load_scene<P: AsRef<Path>>(path: P) -> anyhow::Result<Scene> {
         .get("cameras")
         .context("scene - There is no 'cameras' field")?;
     load_from_value_or_external(
-        &mut scene,
+        &mut rsc,
         &path,
         camera_value,
         "json-cameras",
@@ -74,7 +74,7 @@ pub fn load_scene<P: AsRef<Path>>(path: P) -> anyhow::Result<Scene> {
         .get("textures")
         .context("scene - There is no 'textures' field")?;
     load_from_value_or_external(
-        &mut scene,
+        &mut rsc,
         &path,
         texture_value,
         "json-textures",
@@ -86,7 +86,7 @@ pub fn load_scene<P: AsRef<Path>>(path: P) -> anyhow::Result<Scene> {
         .get("materials")
         .context("scene - There is no 'materials' field")?;
     load_from_value_or_external(
-        &mut scene,
+        &mut rsc,
         &path,
         material_value,
         "json-materials",
@@ -98,7 +98,7 @@ pub fn load_scene<P: AsRef<Path>>(path: P) -> anyhow::Result<Scene> {
         .get("mediums")
         .context("scene - There is no 'mediums' field")?;
     load_from_value_or_external(
-        &mut scene,
+        &mut rsc,
         &path,
         medium_value,
         "json-mediums",
@@ -110,7 +110,7 @@ pub fn load_scene<P: AsRef<Path>>(path: P) -> anyhow::Result<Scene> {
         .get("primitives")
         .context("scene - There is no 'primitives' field")?;
     load_from_value_or_external(
-        &mut scene,
+        &mut rsc,
         &path,
         primitive_value,
         "json-primitives",
@@ -122,7 +122,7 @@ pub fn load_scene<P: AsRef<Path>>(path: P) -> anyhow::Result<Scene> {
         .get("surfaces")
         .context("scene - There is no 'surfaces' field")?;
     load_from_value_or_external(
-        &mut scene,
+        &mut rsc,
         &path,
         surface_value,
         "json-surfaces",
@@ -134,7 +134,7 @@ pub fn load_scene<P: AsRef<Path>>(path: P) -> anyhow::Result<Scene> {
         .get("instances")
         .context("scene - There is no 'instances' field")?;
     load_from_value_or_external(
-        &mut scene,
+        &mut rsc,
         &path,
         instance_value,
         "json-instances",
@@ -146,7 +146,7 @@ pub fn load_scene<P: AsRef<Path>>(path: P) -> anyhow::Result<Scene> {
         .get("lights")
         .context("scene - There is no 'lights' field")?;
     load_from_value_or_external(
-        &mut scene,
+        &mut rsc,
         &path,
         light_value,
         "json-lights",
@@ -156,7 +156,7 @@ pub fn load_scene<P: AsRef<Path>>(path: P) -> anyhow::Result<Scene> {
 
     if let Some(env_value) = json_value.get("environment") {
         load_from_value_or_external(
-            &mut scene,
+            &mut rsc,
             &path,
             env_value,
             "json-environment",
@@ -174,9 +174,6 @@ pub fn load_scene<P: AsRef<Path>>(path: P) -> anyhow::Result<Scene> {
     } else {
         None
     };
-    scene.build_aggregate(aggregate_type)?;
-
-    scene.collect_shape_lights();
 
     let light_sampler_type = if let Some(ls_value) = json_value.get("light_sampler") {
         Some(
@@ -187,24 +184,26 @@ pub fn load_scene<P: AsRef<Path>>(path: P) -> anyhow::Result<Scene> {
     } else {
         None
     };
-    scene.build_light_sampler(light_sampler_type)?;
 
+    let scene = rsc.to_scene(aggregate_type, light_sampler_type)?;
     Ok(scene)
 }
 
-fn load_from_object<F: Fn(&mut Scene, &mut InputParams) -> anyhow::Result<()>>(
-    scene: &mut Scene,
+fn load_from_object<F: Fn(&mut SceneResources, &mut InputParams) -> anyhow::Result<()>>(
+    rsc: &mut SceneResources,
     path: &PathBuf,
     value: &serde_json::Value,
     load_func: &F,
 ) -> anyhow::Result<()> {
     let mut params: InputParams = value.try_into()?;
     params.set_base_path(path.clone());
-    load_func(scene, &mut params)
+    load_func(rsc, &mut params)
 }
 
-fn load_from_value_or_external<F: Fn(&mut Scene, &mut InputParams) -> anyhow::Result<()>>(
-    scene: &mut Scene,
+fn load_from_value_or_external<
+    F: Fn(&mut SceneResources, &mut InputParams) -> anyhow::Result<()>,
+>(
+    rsc: &mut SceneResources,
     path: &PathBuf,
     value: &serde_json::Value,
     env: &str,
@@ -216,17 +215,17 @@ fn load_from_value_or_external<F: Fn(&mut Scene, &mut InputParams) -> anyhow::Re
             .context(format!("{} - External json file not found", env))?;
         let json_reader = std::io::BufReader::new(json_file);
         let json_value: serde_json::Value = serde_json::from_reader(json_reader)?;
-        load_from_value_or_external(scene, path, &json_value, env, load_func, allow_array)?;
+        load_from_value_or_external(rsc, path, &json_value, env, load_func, allow_array)?;
     } else if let Some(array) = value.as_array() {
         if allow_array {
             for ele in array {
-                load_from_object(scene, path, ele, load_func)?;
+                load_from_object(rsc, path, ele, load_func)?;
             }
         } else {
             anyhow::bail!("{} - Field should not be an array");
         }
     } else {
-        load_from_object(scene, path, value, load_func)?;
+        load_from_object(rsc, path, value, load_func)?;
     }
 
     Ok(())

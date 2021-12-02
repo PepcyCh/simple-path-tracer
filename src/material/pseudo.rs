@@ -1,5 +1,8 @@
 use crate::{
-    core::{color::Color, intersection::Intersection, loader::InputParams, scene::Scene},
+    core::{
+        color::Color, intersection::Intersection, loader::InputParams,
+        scene_resources::SceneResources,
+    },
     scatter::{Scatter, SpecularTransmit},
 };
 
@@ -12,8 +15,8 @@ impl PseudoMaterial {
         Self {}
     }
 
-    pub fn load(_scene: &Scene, _params: &mut InputParams) -> anyhow::Result<Self> {
-        Ok(PseudoMaterial::new())
+    pub fn load(_rsc: &SceneResources, _params: &mut InputParams) -> anyhow::Result<Self> {
+        Ok(Self::new())
     }
 }
 

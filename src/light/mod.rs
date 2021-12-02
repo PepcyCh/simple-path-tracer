@@ -8,7 +8,7 @@ pub use environment::*;
 pub use point::*;
 pub use shape_light::*;
 
-use crate::core::{color::Color, loader::InputParams, rng::Rng, scene::Scene};
+use crate::core::{color::Color, loader::InputParams, rng::Rng, scene_resources::SceneResources};
 
 #[enum_dispatch::enum_dispatch(Light)]
 pub trait LightT: Send + Sync {
@@ -31,19 +31,22 @@ pub enum Light {
     ShapeLight,
 }
 
-pub fn create_light_from_params(scene: &mut Scene, params: &mut InputParams) -> anyhow::Result<()> {
+pub fn create_light_from_params(
+    rsc: &mut SceneResources,
+    params: &mut InputParams,
+) -> anyhow::Result<()> {
     params.set_name("light".into());
     let ty = params.get_str("type")?;
     let name = params.get_str("name")?;
     params.set_name(format!("light-{}-{}", ty, name).into());
 
     let res = match ty.as_str() {
-        "directional" => DirLight::load(scene, params)?.into(),
-        "point" => PointLight::load(scene, params)?.into(),
+        "directional" => DirLight::load(rsc, params)?.into(),
+        "point" => PointLight::load(rsc, params)?.into(),
         _ => anyhow::bail!(format!("{}: unknown type '{}'", params.name(), ty)),
     };
 
-    scene.add_light(name, res)?;
+    rsc.add_light(name, res)?;
 
     params.check_unused_keys();
 

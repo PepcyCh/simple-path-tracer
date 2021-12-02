@@ -1,4 +1,4 @@
-use crate::core::{loader::InputParams, ray::Ray, scene::Scene};
+use crate::core::{loader::InputParams, ray::Ray, scene_resources::SceneResources};
 
 use super::CameraT;
 
@@ -27,13 +27,13 @@ impl PerspectiveCamera {
         }
     }
 
-    pub fn load(_scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+    pub fn load(_rsc: &SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
         let eye = params.get_float3("eye")?.into();
         let forward = params.get_float3("forward")?.into();
         let up = params.get_float3("up")?.into();
         let fov_deg = params.get_float("fov")?;
 
-        Ok(PerspectiveCamera::new(eye, forward, up, fov_deg))
+        Ok(Self::new(eye, forward, up, fov_deg))
     }
 }
 

@@ -8,5 +8,6 @@ pub mod loader;
 pub mod ray;
 pub mod rng;
 pub mod scene;
+pub mod scene_resources;
 pub mod surface;
 pub mod transform;

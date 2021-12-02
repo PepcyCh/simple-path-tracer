@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use crate::{
-    core::{color::Color, intersection::Intersection, loader::InputParams, scene::Scene},
+    core::{
+        color::Color, intersection::Intersection, loader::InputParams,
+        scene_resources::SceneResources,
+    },
     scatter::{FresnelConductor, MicrofacetReflect, Scatter, SpecularReflect},
     texture::{Texture, TextureChannel, TextureT},
 };
@@ -30,20 +33,20 @@ impl Metal {
         }
     }
 
-    pub fn load(scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
-        let ior = scene.clone_texture(params.get_str("ior")?)?;
-        let ior_k = scene.clone_texture(params.get_str("ior_k")?)?;
+    pub fn load(rsc: &SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
+        let ior = rsc.clone_texture(params.get_str("ior")?)?;
+        let ior_k = rsc.clone_texture(params.get_str("ior_k")?)?;
 
         let (roughness_x, roughness_y) = if params.contains_key("roughness") {
-            let roughness = scene.clone_texture(params.get_str("roughness")?)?;
+            let roughness = rsc.clone_texture(params.get_str("roughness")?)?;
             (roughness.clone(), roughness)
         } else {
-            let roughness_x = scene.clone_texture(params.get_str("roughness_x")?)?;
-            let roughness_y = scene.clone_texture(params.get_str("roughness_y")?)?;
+            let roughness_x = rsc.clone_texture(params.get_str("roughness_x")?)?;
+            let roughness_y = rsc.clone_texture(params.get_str("roughness_y")?)?;
             (roughness_x, roughness_y)
         };
 
-        Ok(Metal::new(ior, ior_k, roughness_x, roughness_y))
+        Ok(Self::new(ior, ior_k, roughness_x, roughness_y))
     }
 }
 

@@ -1,4 +1,6 @@
-use crate::core::{color::Color, intersection::Intersection, loader::InputParams, scene::Scene};
+use crate::core::{
+    color::Color, intersection::Intersection, loader::InputParams, scene_resources::SceneResources,
+};
 
 use super::{TextureChannel, TextureT};
 
@@ -11,10 +13,10 @@ impl ScalarTex {
         Self { value }
     }
 
-    pub fn load(_scene: &Scene, params: &mut InputParams) -> anyhow::Result<Self> {
+    pub fn load(_rsc: &SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
         let value = params.get_float3("value")?.into();
 
-        Ok(ScalarTex::new(value))
+        Ok(Self::new(value))
     }
 }
 
