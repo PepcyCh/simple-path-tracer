@@ -11,6 +11,12 @@ use crate::{
 };
 
 pub fn load_scene<P: AsRef<Path>>(path: P) -> anyhow::Result<Scene> {
+    let rsc = load_scene_resources(path)?;
+    let scene = rsc.to_scene(None, None)?;
+    Ok(scene)
+}
+
+pub fn load_scene_resources<P: AsRef<Path>>(path: P) -> anyhow::Result<SceneResources> {
     let (gltf_doc, buffers, images) = gltf::import(path)?;
 
     let mut rsc = SceneResources::default();
@@ -32,8 +38,7 @@ pub fn load_scene<P: AsRef<Path>>(path: P) -> anyhow::Result<Scene> {
         }
     }
 
-    let scene = rsc.to_scene(None, None)?;
-    Ok(scene)
+    Ok(rsc)
 }
 
 struct NameMaps {
@@ -121,7 +126,10 @@ fn load_materials(
                 let image_index = diffuse_tex.texture().index();
                 texture::MulTex::new(
                     Arc::new(diffuse_fact_tex),
-                    rsc.clone_texture(format!("image_{}", image_index))?,
+                    Arc::new(
+                        texture::SrgbTex::new(rsc.clone_texture(format!("image_{}", image_index))?)
+                            .into(),
+                    ),
                 )
                 .into()
             } else {
@@ -137,7 +145,11 @@ fn load_materials(
                 let image_index = sg_tex.texture().index();
                 let sg = rsc.clone_texture(format!("image_{}", image_index))?;
                 (
-                    texture::MulTex::new(Arc::new(specular_fact_tex), sg.clone()).into(),
+                    texture::MulTex::new(
+                        Arc::new(specular_fact_tex),
+                        Arc::new(texture::SrgbTex::new(sg.clone()).into()),
+                    )
+                    .into(),
                     texture::SubTex::new(
                         rsc.clone_texture("scalar_one".to_owned())?,
                         Arc::new(
@@ -186,7 +198,10 @@ fn load_materials(
                 let image_index = base_color_tex.texture().index();
                 texture::MulTex::new(
                     Arc::new(base_color_fact_tex),
-                    rsc.clone_texture(format!("image_{}", image_index))?,
+                    Arc::new(
+                        texture::SrgbTex::new(rsc.clone_texture(format!("image_{}", image_index))?)
+                            .into(),
+                    ),
                 )
                 .into()
             } else {
@@ -363,10 +378,10 @@ fn parse_nodes(
         }
     }
     if let Some(cam) = node.camera() {
-        let cam_name = if let Some(name) = cam.name() {
+        let cam_name = if let Some(name) = node.name() {
             name.to_owned()
         } else {
-            format!("camera_{}", cam.index())
+            format!("camera_{}", node.index())
         };
 
         match cam.projection() {
@@ -387,12 +402,11 @@ fn parse_nodes(
         }
     }
     if let Some(light) = node.light() {
-        let light_name = if let Some(name) = light.name() {
+        let light_name = if let Some(name) = node.name() {
             name.to_owned()
         } else {
-            format!("light_{}", light.index())
+            format!("light_{}", node.index())
         };
-        let light_name = format!("{}_node_{}", light_name, node.index());
 
         let intensity = light.intensity();
         let color: Color = light.color().into();

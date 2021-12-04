@@ -4,7 +4,7 @@ use crate::{
     camera::Camera,
     core::{scene::Scene, surface::Surface},
     light::{EnvLight, Light, ShapeLight},
-    light_sampler::{LightSampler, LightSamplerT, PowerIsLightSampler, UniformLightSampler},
+    light_sampler::{LightSampler, PowerIsLightSampler, UniformLightSampler},
     material::Material,
     medium::Medium,
     primitive::{BvhAccel, Group, Instance, Primitive},
@@ -33,12 +33,7 @@ impl SceneResources {
         let aggregate = self.build_aggregate(aggregate_type)?;
         let light_sampler = self.build_light_sampler(light_sampler_type)?;
 
-        log::info!(
-            "{} instances, {} lights",
-            self.instances.len(),
-            light_sampler.num_lights()
-        );
-
+        self.log_list();
         if self.cameras.is_empty() {
             anyhow::bail!("At least one camera is needed");
         }
@@ -49,6 +44,41 @@ impl SceneResources {
             light_sampler,
             self.environment,
         ))
+    }
+
+    pub fn log_list(&self) {
+        log::info!("{} primitives", self.primitives.len());
+        for (i, name) in self.primitives.keys().enumerate() {
+            log::info!("- primtive {} - {}", i, name)
+        }
+        log::info!("{} textures", self.textures.len());
+        for (i, name) in self.textures.keys().enumerate() {
+            log::info!("- texture {} - {}", i, name)
+        }
+        log::info!("{} mediums", self.mediums.len());
+        for (i, name) in self.mediums.keys().enumerate() {
+            log::info!("- medium {} - {}", i, name)
+        }
+        log::info!("{} materials", self.materials.len());
+        for (i, name) in self.materials.keys().enumerate() {
+            log::info!("- material {} - {}", i, name)
+        }
+        log::info!("{} surfaces", self.surfaces.len());
+        for (i, name) in self.surfaces.keys().enumerate() {
+            log::info!("- surface {} - {}", i, name)
+        }
+        log::info!("{} lights (without emissive mesh)", self.lights.len());
+        for (i, name) in self.lights.keys().enumerate() {
+            log::info!("- light {} - {}", i, name)
+        }
+        log::info!("{} instances", self.instances.len());
+        for (i, name) in self.instances.keys().enumerate() {
+            log::info!("- instance {} - {}", i, name)
+        }
+        log::info!("{} cameras", self.cameras.len());
+        for (i, name) in self.cameras.keys().enumerate() {
+            log::info!("- camera {} - {}", i, name)
+        }
     }
 
     fn build_aggregate(&self, ty: Option<&str>) -> anyhow::Result<Primitive> {
@@ -218,6 +248,54 @@ impl SceneResources {
             Ok(texture.clone())
         } else {
             anyhow::bail!(format!("There is no texture named '{}'", name))
+        }
+    }
+
+    pub fn merge(&mut self, another: SceneResources) {
+        for (name, cam) in another.cameras {
+            if !self.cameras.contains_key(&name) {
+                self.cameras.insert(name, cam);
+            }
+        }
+        for (name, inst) in another.instances {
+            if !self.instances.contains_key(&name) {
+                self.instances.insert(name, inst);
+            }
+        }
+        for (name, prim) in another.primitives {
+            if !self.primitives.contains_key(&name) {
+                self.primitives.insert(name, prim);
+            }
+        }
+        for (name, surf) in another.surfaces {
+            if !self.surfaces.contains_key(&name) {
+                self.surfaces.insert(name, surf);
+            }
+        }
+        for (name, mat) in another.materials {
+            if !self.materials.contains_key(&name) {
+                self.materials.insert(name, mat);
+            }
+        }
+        for (name, med) in another.mediums {
+            if !self.mediums.contains_key(&name) {
+                self.mediums.insert(name, med);
+            }
+        }
+        for (name, tex) in another.textures {
+            if !self.textures.contains_key(&name) {
+                self.textures.insert(name, tex);
+            }
+        }
+        for (name, light) in another.lights {
+            if !self.lights.contains_key(&name) {
+                self.lights.insert(name, light);
+            }
+        }
+        if let Some(env) = another.environment {
+            if self.environment.is_none() {
+                self.environment = Some(env);
+            }
         }
     }
 }

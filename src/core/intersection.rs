@@ -6,9 +6,7 @@ use crate::{
 pub struct Intersection<'a> {
     pub t: f32,
     pub position: glam::Vec3A,
-    /// tangent - dpdu
     pub tangent: glam::Vec3A,
-    /// bitangent - dpdv
     pub bitangent: glam::Vec3A,
     pub normal: glam::Vec3A,
     pub texcoords: glam::Vec2,

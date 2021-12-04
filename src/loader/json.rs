@@ -165,6 +165,15 @@ pub fn load_scene<P: AsRef<Path>>(path: P) -> anyhow::Result<Scene> {
         )?;
     }
 
+    if let Some(gltf_value) = json_value.get("gltf") {
+        let gltf_file = gltf_value
+            .as_str()
+            .context("json - 'gltf' should be string")?;
+        let gltf_path = path.with_file_name(gltf_file);
+        let gltf_rsc = super::gltf::load_scene_resources(gltf_path)?;
+        rsc.merge(gltf_rsc);
+    }
+
     let aggregate_type = if let Some(aggr_value) = json_value.get("aggregate") {
         Some(
             aggr_value

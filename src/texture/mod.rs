@@ -1,24 +1,24 @@
 mod binary_op;
 mod image_tex;
 mod scalar;
+mod srgb_tex;
+
+use std::sync::Arc;
 
 pub use binary_op::*;
 pub use image_tex::*;
 pub use scalar::*;
+pub use srgb_tex::*;
 
 use crate::core::{
     color::Color, intersection::Intersection, loader::InputParams, scene_resources::SceneResources,
 };
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum TextureChannel {
-    #[allow(dead_code)]
     R,
-    #[allow(dead_code)]
     G,
-    #[allow(dead_code)]
     B,
-    #[allow(dead_code)]
     A,
 }
 
@@ -43,6 +43,7 @@ pub enum Texture {
     SubTex,
     MulTex,
     DivTex,
+    SrgbTex,
 }
 
 pub fn create_texture_from_params(
@@ -64,7 +65,13 @@ pub fn create_texture_from_params(
         _ => anyhow::bail!(format!("{}: unknown type '{}'", params.name(), ty)),
     };
 
-    rsc.add_texture(name, res)?;
+    let is_srgb = params.get_bool_or("is_srgb", false);
+    if is_srgb {
+        let res = SrgbTex::new(Arc::new(res)).into();
+        rsc.add_texture(name, res)?;
+    } else {
+        rsc.add_texture(name, res)?;
+    }
 
     params.check_unused_keys();
 
