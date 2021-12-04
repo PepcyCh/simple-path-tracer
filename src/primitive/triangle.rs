@@ -39,60 +39,7 @@ impl Default for MeshVertex {
 }
 
 impl TriMesh {
-    pub fn new(mut vertices: Vec<MeshVertex>, indices: Vec<u32>) -> Self {
-        let vertex_count = vertices.len();
-        let mut tangents_sum = vec![glam::Vec3A::ZERO; vertex_count];
-        let mut tangents_cnt = vec![0; vertex_count];
-        let mut bitangents_sum = vec![glam::Vec3A::ZERO; vertex_count];
-        let mut bitangents_cnt = vec![0; vertex_count];
-
-        let triangle_count = indices.len() / 3;
-        for i in 0..triangle_count {
-            let i0 = indices[3 * i] as usize;
-            let i1 = indices[3 * i + 1] as usize;
-            let i2 = indices[3 * i + 2] as usize;
-
-            let p0 = vertices[i0].position;
-            let p1 = vertices[i1].position;
-            let p2 = vertices[i2].position;
-            let e1 = p1 - p0;
-            let e2 = p2 - p0;
-
-            let uv0 = vertices[i0].texcoords;
-            let uv1 = vertices[i1].texcoords;
-            let uv2 = vertices[i2].texcoords;
-            let u1 = uv1 - uv0;
-            let u2 = uv2 - uv0;
-
-            let det = u1.x * u2.y - u1.y * u2.x;
-            if det != 0.0 {
-                let det = 1.0 / det;
-                let t = ((e1 * u2.y - e2 * u1.y) * det).normalize();
-                tangents_sum[i0] += t;
-                tangents_cnt[i0] += 1;
-                tangents_sum[i1] += t;
-                tangents_cnt[i1] += 1;
-                tangents_sum[i2] += t;
-                tangents_cnt[i2] += 1;
-                let b = ((e2 * u1.x - e1 * u2.x) * det).normalize();
-                bitangents_sum[i0] += b;
-                bitangents_cnt[i0] += 1;
-                bitangents_sum[i1] += b;
-                bitangents_cnt[i1] += 1;
-                bitangents_sum[i2] += b;
-                bitangents_cnt[i2] += 1;
-            }
-        }
-
-        for i in 0..vertex_count {
-            if tangents_cnt[i] != 0 {
-                vertices[i].tangent = (tangents_sum[i] / tangents_cnt[i] as f32).normalize();
-            }
-            if bitangents_cnt[i] != 0 {
-                vertices[i].bitangent = (bitangents_sum[i] / bitangents_cnt[i] as f32).normalize();
-            }
-        }
-
+    pub fn new(vertices: Vec<MeshVertex>, indices: Vec<u32>) -> Self {
         let vertices = Arc::new(vertices);
         let triangle_count = indices.len() / 3;
         let mut triangles = Vec::with_capacity(triangle_count);
@@ -154,6 +101,8 @@ impl TriMesh {
                 .collect::<Vec<_>>();
             indices.append(&mut model_indices);
         }
+
+        Self::calc_tangents(&mut vertices, &indices);
 
         Ok(Self::new(vertices, indices))
     }
@@ -350,4 +299,91 @@ fn lerp_point2(
     let x = p0.x * u + p1.x * v + p2.x * w;
     let y = p0.y * u + p1.y * v + p2.y * w;
     glam::Vec2::new(x, y)
+}
+
+impl TriMesh {
+    pub fn calc_normals(vertices: &mut [MeshVertex], indices: &[u32]) {
+        let vertex_count = vertices.len();
+        let mut normal_sum = vec![glam::Vec3A::ZERO; vertex_count];
+        let mut degree = vec![0; vertex_count];
+
+        let triangle_count = indices.len() / 3;
+        for i in 0..triangle_count {
+            let i0 = indices[3 * i] as usize;
+            let i1 = indices[3 * i + 1] as usize;
+            let i2 = indices[3 * i + 2] as usize;
+
+            let p0 = vertices[i0].position;
+            let p1 = vertices[i1].position;
+            let p2 = vertices[i2].position;
+            let e1 = p1 - p0;
+            let e2 = p2 - p0;
+
+            let n = e1.cross(e2).normalize();
+            normal_sum[i0] += n;
+            normal_sum[i1] += n;
+            normal_sum[i2] += n;
+
+            degree[i0] += 1;
+            degree[i1] += 1;
+            degree[i2] += 1;
+        }
+
+        for i in 0..vertex_count {
+            if degree[i] != 0 {
+                vertices[i].normal = (normal_sum[i] / degree[i] as f32).normalize();
+            }
+        }
+    }
+
+    pub fn calc_tangents(vertices: &mut [MeshVertex], indices: &[u32]) {
+        let vertex_count = vertices.len();
+        let mut tangents_sum = vec![glam::Vec3A::ZERO; vertex_count];
+        let mut bitangents_sum = vec![glam::Vec3A::ZERO; vertex_count];
+        let mut degree = vec![0; vertex_count];
+
+        let triangle_count = indices.len() / 3;
+        for i in 0..triangle_count {
+            let i0 = indices[3 * i] as usize;
+            let i1 = indices[3 * i + 1] as usize;
+            let i2 = indices[3 * i + 2] as usize;
+
+            let p0 = vertices[i0].position;
+            let p1 = vertices[i1].position;
+            let p2 = vertices[i2].position;
+            let e1 = p1 - p0;
+            let e2 = p2 - p0;
+
+            let uv0 = vertices[i0].texcoords;
+            let uv1 = vertices[i1].texcoords;
+            let uv2 = vertices[i2].texcoords;
+            let u1 = uv1 - uv0;
+            let u2 = uv2 - uv0;
+
+            let det = u1.x * u2.y - u1.y * u2.x;
+            if det != 0.0 {
+                let det = 1.0 / det;
+                let t = ((e1 * u2.y - e2 * u1.y) * det).normalize();
+                tangents_sum[i0] += t;
+                tangents_sum[i1] += t;
+                tangents_sum[i2] += t;
+                let b = ((e2 * u1.x - e1 * u2.x) * det).normalize();
+                bitangents_sum[i0] += b;
+                bitangents_sum[i1] += b;
+                bitangents_sum[i2] += b;
+
+                degree[i0] += 1;
+                degree[i1] += 1;
+                degree[i2] += 1;
+            }
+        }
+
+        for i in 0..vertex_count {
+            if degree[i] != 0 {
+                let inv = 1.0 / degree[i] as f32;
+                vertices[i].tangent = (tangents_sum[i] * inv).normalize();
+                vertices[i].bitangent = (bitangents_sum[i] * inv).normalize();
+            }
+        }
+    }
 }

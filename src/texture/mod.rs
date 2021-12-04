@@ -1,6 +1,8 @@
+mod binary_op;
 mod image_tex;
 mod scalar;
 
+pub use binary_op::*;
 pub use image_tex::*;
 pub use scalar::*;
 
@@ -37,6 +39,10 @@ pub trait TextureT: Send + Sync {
 pub enum Texture {
     ScalarTex,
     ImageTex,
+    AddTex,
+    SubTex,
+    MulTex,
+    DivTex,
 }
 
 pub fn create_texture_from_params(
@@ -51,6 +57,10 @@ pub fn create_texture_from_params(
     let res = match ty.as_str() {
         "scalar" => ScalarTex::load(rsc, params)?.into(),
         "image" => ImageTex::load(rsc, params)?.into(),
+        "add" => AddTex::load(rsc, params)?.into(),
+        "sub" => SubTex::load(rsc, params)?.into(),
+        "mul" => MulTex::load(rsc, params)?.into(),
+        "div" => DivTex::load(rsc, params)?.into(),
         _ => anyhow::bail!(format!("{}: unknown type '{}'", params.name(), ty)),
     };
 

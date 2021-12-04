@@ -4,7 +4,7 @@ use crate::{
     camera::Camera,
     core::{scene::Scene, surface::Surface},
     light::{EnvLight, Light, ShapeLight},
-    light_sampler::{LightSampler, PowerIsLightSampler, UniformLightSampler},
+    light_sampler::{LightSampler, LightSamplerT, PowerIsLightSampler, UniformLightSampler},
     material::Material,
     medium::Medium,
     primitive::{BvhAccel, Group, Instance, Primitive},
@@ -32,6 +32,17 @@ impl SceneResources {
     ) -> anyhow::Result<Scene> {
         let aggregate = self.build_aggregate(aggregate_type)?;
         let light_sampler = self.build_light_sampler(light_sampler_type)?;
+
+        log::info!(
+            "{} instances, {} lights",
+            self.instances.len(),
+            light_sampler.num_lights()
+        );
+
+        if self.cameras.is_empty() {
+            anyhow::bail!("At least one camera is needed");
+        }
+
         Ok(Scene::new(
             self.cameras,
             aggregate,

@@ -12,11 +12,10 @@ pub struct PerspectiveCamera {
 }
 
 impl PerspectiveCamera {
-    pub fn new(eye: glam::Vec3A, forward: glam::Vec3A, up: glam::Vec3A, fov_deg: f32) -> Self {
+    pub fn new(eye: glam::Vec3A, forward: glam::Vec3A, up: glam::Vec3A, fov: f32) -> Self {
         let forward = forward.normalize();
         let right = forward.cross(up).normalize();
         let up = right.cross(forward);
-        let fov = fov_deg * std::f32::consts::PI / 180.0;
         Self {
             eye,
             forward,
@@ -32,8 +31,9 @@ impl PerspectiveCamera {
         let forward = params.get_float3("forward")?.into();
         let up = params.get_float3("up")?.into();
         let fov_deg = params.get_float("fov")?;
+        let fov = fov_deg * std::f32::consts::PI / 180.0;
 
-        Ok(Self::new(eye, forward, up, fov_deg))
+        Ok(Self::new(eye, forward, up, fov))
     }
 }
 

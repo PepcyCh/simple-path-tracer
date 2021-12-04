@@ -2,11 +2,13 @@ mod directional;
 mod environment;
 mod point;
 mod shape_light;
+mod spot;
 
 pub use directional::*;
 pub use environment::*;
 pub use point::*;
 pub use shape_light::*;
+pub use spot::*;
 
 use crate::core::{color::Color, loader::InputParams, rng::Rng, scene_resources::SceneResources};
 
@@ -29,6 +31,7 @@ pub enum Light {
     EnvLight,
     PointLight,
     ShapeLight,
+    SpotLight,
 }
 
 pub fn create_light_from_params(
@@ -43,6 +46,7 @@ pub fn create_light_from_params(
     let res = match ty.as_str() {
         "directional" => DirLight::load(rsc, params)?.into(),
         "point" => PointLight::load(rsc, params)?.into(),
+        "spot" => SpotLight::load(rsc, params)?.into(),
         _ => anyhow::bail!(format!("{}: unknown type '{}'", params.name(), ty)),
     };
 

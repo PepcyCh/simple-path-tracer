@@ -23,8 +23,13 @@ indicatif = "0.16"
 lazy_static = "1.4"
 tobj = "3.2"
 paste = "1.0"
+byte-slice-cast = "1.2"
 
 pep-mesh = { git = "https://github.com/PepcyCh/pep-mesh/", branch = "master" }
+
+[dependencies.gltf]
+version = "0.16"
+features = ["names", "import", "KHR_materials_pbrSpecularGlossiness", "KHR_lights_punctual"]
 
 [features]
 debug_normal = []

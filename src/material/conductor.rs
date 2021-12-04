@@ -11,14 +11,14 @@ use crate::{
 
 use super::MaterialT;
 
-pub struct Metal {
+pub struct Conductor {
     ior: Arc<Texture>,
     ior_k: Arc<Texture>,
     roughness_x: Arc<Texture>,
     roughness_y: Arc<Texture>,
 }
 
-impl Metal {
+impl Conductor {
     pub fn new(
         ior: Arc<Texture>,
         ior_k: Arc<Texture>,
@@ -50,7 +50,7 @@ impl Metal {
     }
 }
 
-impl MaterialT for Metal {
+impl MaterialT for Conductor {
     fn scatter(&self, inter: &Intersection<'_>) -> Scatter {
         let ior = self.ior.color_at(inter);
         let ior_k = self.ior_k.color_at(inter);

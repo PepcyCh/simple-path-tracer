@@ -1,16 +1,16 @@
+mod conductor;
 mod dielectric;
 mod glass;
 mod lambert;
-mod metal;
 mod pbr_metallic;
 mod pbr_specular;
 mod pseudo;
 mod subsurface;
 
+pub use conductor::*;
 pub use dielectric::*;
 pub use glass::*;
 pub use lambert::*;
-pub use metal::*;
 pub use pbr_metallic::*;
 pub use pbr_specular::*;
 pub use pseudo::*;
@@ -28,10 +28,10 @@ pub trait MaterialT: Send + Sync {
 
 #[enum_dispatch::enum_dispatch]
 pub enum Material {
+    Conductor,
     Dielectric,
     Glass,
     Lambert,
-    Metal,
     PbrMetallic,
     PbrSpecular,
     PseudoMaterial,
@@ -48,10 +48,10 @@ pub fn create_material_from_params(
     params.set_name(format!("material-{}-{}", ty, name).into());
 
     let res = match ty.as_str() {
+        "conductor" => Conductor::load(rsc, params)?.into(),
         "dielectric" => Dielectric::load(rsc, params)?.into(),
         "glass" => Glass::load(rsc, params)?.into(),
         "lambert" => Lambert::load(rsc, params)?.into(),
-        "metal" => Metal::load(rsc, params)?.into(),
         "pbr_metallic" => PbrMetallic::load(rsc, params)?.into(),
         "pbr_specular" => PbrSpecular::load(rsc, params)?.into(),
         "pseudo" => PseudoMaterial::load(rsc, params)?.into(),

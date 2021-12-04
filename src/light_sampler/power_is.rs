@@ -38,4 +38,8 @@ impl LightSamplerT for PowerIsLightSampler {
         let (index, pdf) = self.alias_table.sample(rng.uniform_1d());
         (self.lights[index].as_ref(), pdf)
     }
+
+    fn num_lights(&self) -> usize {
+        self.lights.len()
+    }
 }

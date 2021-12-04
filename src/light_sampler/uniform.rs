@@ -25,4 +25,8 @@ impl LightSamplerT for UniformLightSampler {
         let index = (index as usize).min(self.lights.len() - 1);
         (self.lights[index].as_ref(), self.num_light_inv)
     }
+
+    fn num_lights(&self) -> usize {
+        self.lights.len()
+    }
 }

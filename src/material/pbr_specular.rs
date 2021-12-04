@@ -18,6 +18,7 @@ pub struct PbrSpecular {
     specular: Arc<Texture>,
     roughness_x: Arc<Texture>,
     roughness_y: Arc<Texture>,
+    roughness_chan: TextureChannel,
 }
 
 impl PbrSpecular {
@@ -26,12 +27,14 @@ impl PbrSpecular {
         specular: Arc<Texture>,
         roughness_x: Arc<Texture>,
         roughness_y: Arc<Texture>,
+        roughness_chan: TextureChannel,
     ) -> Self {
         Self {
             diffuse,
             specular,
             roughness_x,
             roughness_y,
+            roughness_chan,
         }
     }
 
@@ -49,7 +52,13 @@ impl PbrSpecular {
             (roughness_x, roughness_y)
         };
 
-        Ok(Self::new(diffuse, specular, roughness_x, roughness_y))
+        Ok(Self::new(
+            diffuse,
+            specular,
+            roughness_x,
+            roughness_y,
+            TextureChannel::R,
+        ))
     }
 }
 
@@ -57,8 +66,14 @@ impl MaterialT for PbrSpecular {
     fn scatter(&self, inter: &Intersection<'_>) -> Scatter {
         let diffuse = self.diffuse.color_at(inter);
         let specular = self.specular.color_at(inter);
-        let roughness_x = self.roughness_x.float_at(inter, TextureChannel::R).powi(2);
-        let roughness_y = self.roughness_y.float_at(inter, TextureChannel::R).powi(2);
+        let roughness_x = self
+            .roughness_x
+            .float_at(inter, self.roughness_chan)
+            .powi(2);
+        let roughness_y = self
+            .roughness_y
+            .float_at(inter, self.roughness_chan)
+            .powi(2);
 
         if roughness_x < 0.001 || roughness_y < 0.001 {
             SchlickFresnelDielectric::new(

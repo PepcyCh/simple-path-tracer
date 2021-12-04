@@ -18,7 +18,9 @@ pub struct PbrMetallic {
     base_color: Arc<Texture>,
     roughness_x: Arc<Texture>,
     roughness_y: Arc<Texture>,
+    roughness_chan: TextureChannel,
     metallic: Arc<Texture>,
+    metallic_chan: TextureChannel,
 }
 
 impl PbrMetallic {
@@ -26,13 +28,17 @@ impl PbrMetallic {
         base_color: Arc<Texture>,
         roughness_x: Arc<Texture>,
         roughness_y: Arc<Texture>,
+        roughness_chan: TextureChannel,
         metallic: Arc<Texture>,
+        metallic_chan: TextureChannel,
     ) -> Self {
         Self {
             base_color,
             roughness_x,
             roughness_y,
+            roughness_chan,
             metallic,
+            metallic_chan,
         }
     }
 
@@ -50,16 +56,29 @@ impl PbrMetallic {
 
         let metallic = rsc.clone_texture(params.get_str("metallic")?)?;
 
-        Ok(Self::new(base_color, roughness_x, roughness_y, metallic))
+        Ok(Self::new(
+            base_color,
+            roughness_x,
+            roughness_y,
+            TextureChannel::R,
+            metallic,
+            TextureChannel::R,
+        ))
     }
 }
 
 impl MaterialT for PbrMetallic {
     fn scatter(&self, inter: &Intersection<'_>) -> Scatter {
         let base_color = self.base_color.color_at(inter);
-        let roughness_x = self.roughness_x.float_at(inter, TextureChannel::R).powi(2);
-        let roughness_y = self.roughness_y.float_at(inter, TextureChannel::R).powi(2);
-        let metallic = self.metallic.float_at(inter, TextureChannel::R);
+        let roughness_x = self
+            .roughness_x
+            .float_at(inter, self.roughness_chan)
+            .powi(2);
+        let roughness_y = self
+            .roughness_y
+            .float_at(inter, self.roughness_chan)
+            .powi(2);
+        let metallic = self.metallic.float_at(inter, self.metallic_chan);
 
         if roughness_x < 0.001 || roughness_y < 0.001 {
             MixScatter::new(
