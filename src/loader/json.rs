@@ -228,7 +228,8 @@ fn load_from_value_or_external<
     } else if let Some(array) = value.as_array() {
         if allow_array {
             for ele in array {
-                load_from_object(rsc, path, ele, load_func)?;
+                // load_from_object(rsc, path, ele, load_func)?;
+                load_from_value_or_external(rsc, path, ele, env, load_func, true)?;
             }
         } else {
             anyhow::bail!("{} - Field should not be an array");

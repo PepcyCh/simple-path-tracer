@@ -4,6 +4,8 @@ mod glass;
 mod lambert;
 mod pbr_metallic;
 mod pbr_specular;
+mod pndf_dielectric;
+mod pndf_metal;
 mod pseudo;
 mod subsurface;
 
@@ -13,6 +15,8 @@ pub use glass::*;
 pub use lambert::*;
 pub use pbr_metallic::*;
 pub use pbr_specular::*;
+pub use pndf_dielectric::*;
+pub use pndf_metal::*;
 pub use pseudo::*;
 pub use subsurface::*;
 
@@ -34,6 +38,8 @@ pub enum Material {
     Lambert,
     PbrMetallic,
     PbrSpecular,
+    PndfDielectric,
+    PndfMetal,
     PseudoMaterial,
     Subsurface,
 }
@@ -54,6 +60,8 @@ pub fn create_material_from_params(
         "lambert" => Lambert::load(rsc, params)?.into(),
         "pbr_metallic" => PbrMetallic::load(rsc, params)?.into(),
         "pbr_specular" => PbrSpecular::load(rsc, params)?.into(),
+        "pndf_dielectric" => PndfDielectric::load(rsc, params)?.into(),
+        "pndf_metal" => PndfMetal::load(rsc, params)?.into(),
         "pseudo" => PseudoMaterial::load(rsc, params)?.into(),
         "subsurface" => Subsurface::load(rsc, params)?.into(),
         _ => anyhow::bail!(format!("{}: unknown type '{}'", params.name(), ty)),

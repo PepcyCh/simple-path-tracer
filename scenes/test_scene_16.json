@@ -2,29 +2,66 @@
     "cameras": {
       "type": "perspective",
       "name": "default_camera",
-      "eye": [0.3, 0.0, 0.0],
-      "forward": [-1.0, 0.0, 0.0],
+      "eye": [0.0, 2.5, 4.0],
+      "forward": [0.0, -0.5, -1.0],
       "up": [0.0, 1.0, 0.0],
       "fov": 75.0
     },
-    "textures": [],
-    "materials": [],
-    "mediums": [],
-    "surfaces": [],
-    "primitives": [],
-    "instances": [],
-    "lights": [
+    "textures": "common_textures.json",
+    "materials": [
+      "common_materials.json",
       {
-        "type": "directional",
-        "name": "dir_light",
-        "direction": [-1.0, -1.0, 1.0],
-        "strength": [30.0, 30.0, 30.0]
+        "type": "pndf_metal",
+        "name": "pndf_metal_orange",
+        "albedo": "color_orange",
+        "sigma_r": 0.02,
+        "base_normal": "nm_brushed_16",
+        "h": 1.0,
+        "fallback_roughness": "scalar_0.2"
       }
     ],
-    "environment": {
-      "type": "exr",
-      "exr_file": "textures/exr/doge.exr",
-      "scale": [1.2, 1.2, 1.2]
-    },
-    "gltf": "gltf/WaterBottle/glTF/WaterBottle.gltf"
+    "mediums": [],
+    "surfaces": [
+      {
+        "name": "light",
+        "material": "lambert_black",
+        "emissive": [500.0, 500.0, 500.0]
+      },
+      {
+        "name": "metal_orange_nm",
+        "material": "metal_orange_smooth",
+        "normal_map": "nm_brushed_16"
+      }
+    ],
+    "primitives": "common_primitives.json",
+    "instances": [
+      {
+        "name": "pndf_metal",
+        "primitive": "sphere_1",
+        "material": "pndf_metal_orange",
+        "translate": [-1.2, 0.3, 0.0]
+      },
+      {
+        "name": "metal",
+        "primitive": "sphere_1",
+        "surface": "metal_orange_nm",
+        "translate": [1.2, 0.3, 0.0]
+      },
+      {
+        "name": "floor",
+        "primitive": "plane",
+        "material": "lambert_gray_7",
+        "translate": [0.0, -1.0, 0.0],
+        "scale": [5.0, 1.0, 5.0]
+      },
+      {
+        "name": "light",
+        "primitive": "plane",
+        "surface": "light",
+        "scale": [0.25, 1.0, 0.25],
+        "rotate": [-150.25512, 0.0, 0.0],
+        "translate": [0.0, 7.0, 4.0]
+      }
+    ],
+    "lights": []
   }

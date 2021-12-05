@@ -1,0 +1,30 @@
+{
+    "cameras": {
+      "type": "perspective",
+      "name": "default_camera",
+      "eye": [0.3, 0.0, 0.0],
+      "forward": [-1.0, 0.0, 0.0],
+      "up": [0.0, 1.0, 0.0],
+      "fov": 75.0
+    },
+    "textures": [],
+    "materials": [],
+    "mediums": [],
+    "surfaces": [],
+    "primitives": [],
+    "instances": [],
+    "lights": [
+      {
+        "type": "directional",
+        "name": "dir_light",
+        "direction": [-1.0, -1.0, 1.0],
+        "strength": [30.0, 30.0, 30.0]
+      }
+    ],
+    "environment": {
+      "type": "exr",
+      "exr_file": "textures/exr/doge.exr",
+      "scale": [1.2, 1.2, 1.2]
+    },
+    "gltf": "gltf/WaterBottle/glTF/WaterBottle.gltf"
+  }

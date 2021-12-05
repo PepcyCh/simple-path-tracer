@@ -7,6 +7,8 @@ mod lambert_transmit;
 mod microfacet_reflect;
 mod microfacet_transmit;
 mod mix_scatter;
+mod pndf_bvh;
+mod pndf_reflect;
 mod schlick_fresnel_dielectric;
 mod schlick_fresnel_metal;
 mod specular_reflect;
@@ -20,6 +22,8 @@ pub use lambert_transmit::*;
 pub use microfacet_reflect::*;
 pub use microfacet_transmit::*;
 pub use mix_scatter::*;
+pub use pndf_bvh::*;
+pub use pndf_reflect::*;
 pub use schlick_fresnel_dielectric::*;
 pub use schlick_fresnel_metal::*;
 pub use specular_reflect::*;
@@ -148,11 +152,15 @@ pub enum Scatter {
     LambertTransmit,
     MicrofacetReflect,
     MicrofacetTransmit,
+    PndfLambertDielectric(FresnelDielectricRR<PndfReflect, LambertReflect>),
+    PndfConductor(SchlickFresnelMetal<PndfReflect>),
     SpecularReflect,
     SpecularTransmit,
     SubsurfaceReflect,
     SchlickMicrofacetDielectric(SchlickFresnelDielectric<MicrofacetReflect, LambertReflect>),
     SchlickSpecularDielectric(SchlickFresnelDielectric<SpecularReflect, LambertReflect>),
+    SchlickMicrofacetMetal(SchlickFresnelMetal<MicrofacetReflect>),
+    SchlickSpecularMetal(SchlickFresnelMetal<SpecularReflect>),
     SchlickMicrofacet(
         MixScatter<
             SchlickFresnelMetal<MicrofacetReflect>,

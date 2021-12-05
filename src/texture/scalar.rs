@@ -44,7 +44,7 @@ impl TextureT for ScalarTex {
             TextureChannel::A => 1.0,
         }
     }
-    
+
     fn dimensions(&self) -> Option<(u32, u32, u32)> {
         Some((1, 1, 1))
     }

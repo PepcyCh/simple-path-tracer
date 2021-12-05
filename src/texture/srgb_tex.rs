@@ -39,8 +39,16 @@ impl TextureT for SrgbTex {
         }
     }
 
-    fn dimensions(&self) -> Option<(u32,u32,u32)> {
+    fn dimensions(&self) -> Option<(u32, u32, u32)> {
         self.tex.dimensions()
+    }
+
+    fn tiling(&self) -> glam::Vec3A {
+        self.tex.tiling()
+    }
+
+    fn offset(&self) -> glam::Vec3A {
+        self.tex.offset()
     }
 }
 

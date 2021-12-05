@@ -185,6 +185,14 @@ pub trait TextureT: Send + Sync {
     fn dimensions(&self) -> Option<(u32, u32, u32)> {
         None
     }
+
+    fn tiling(&self) -> glam::Vec3A {
+        glam::Vec3A::ONE
+    }
+
+    fn offset(&self) -> glam::Vec3A {
+        glam::Vec3A::ZERO
+    }
 }
 
 #[enum_dispatch::enum_dispatch]
