@@ -63,10 +63,10 @@ impl Glass {
 
 impl MaterialT for Glass {
     fn scatter(&self, inter: &Intersection<'_>) -> Scatter {
-        let reflectance = self.reflectance.color_at(inter);
-        let transmittance = self.transmittance.color_at(inter);
-        let roughness_x = self.roughness_x.float_at(inter, TextureChannel::R);
-        let roughness_y = self.roughness_y.float_at(inter, TextureChannel::R);
+        let reflectance = self.reflectance.color_at(inter.into());
+        let transmittance = self.transmittance.color_at(inter.into());
+        let roughness_x = self.roughness_x.float_at(inter.into(), TextureChannel::R);
+        let roughness_y = self.roughness_y.float_at(inter.into(), TextureChannel::R);
 
         if roughness_x < 0.001 || roughness_y < 0.001 {
             FresnelDielectricRT::new(

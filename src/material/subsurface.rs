@@ -56,10 +56,16 @@ impl Subsurface {
 
 impl MaterialT for Subsurface {
     fn scatter(&self, inter: &Intersection<'_>) -> Scatter {
-        let albedo = self.albedo.color_at(inter);
-        let ld = self.ld.float_at(inter, TextureChannel::R);
-        let roughness_x = self.roughness_x.float_at(inter, TextureChannel::R).powi(2);
-        let roughness_y = self.roughness_y.float_at(inter, TextureChannel::R).powi(2);
+        let albedo = self.albedo.color_at(inter.into());
+        let ld = self.ld.float_at(inter.into(), TextureChannel::R);
+        let roughness_x = self
+            .roughness_x
+            .float_at(inter.into(), TextureChannel::R)
+            .powi(2);
+        let roughness_y = self
+            .roughness_y
+            .float_at(inter.into(), TextureChannel::R)
+            .powi(2);
 
         if roughness_x < 0.001 || roughness_y < 0.001 {
             FresnelDielectricRSsr::new(

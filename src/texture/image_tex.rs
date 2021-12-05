@@ -1,60 +1,36 @@
 use image::GenericImageView;
 
-use crate::core::{
-    color::Color, intersection::Intersection, loader::InputParams, scene_resources::SceneResources,
-};
+use crate::core::{color::Color, loader::InputParams, scene_resources::SceneResources};
 
-use super::{TextureChannel, TextureT};
+use super::{TextureChannel, TextureInput, TextureT};
 
 pub struct ImageTex {
     images: Vec<image::DynamicImage>,
-    tiling: glam::Vec2,
-    offset: glam::Vec2,
 }
 
 impl ImageTex {
-    pub fn new(image: image::DynamicImage, tiling: glam::Vec2, offset: glam::Vec2) -> Self {
+    pub fn new(image: image::DynamicImage) -> Self {
         let images = generate_mipmap(image);
-        Self {
-            images,
-            tiling,
-            offset,
-        }
+        Self { images }
     }
 
     pub fn load(_rsc: &SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
         let image = params.get_image("image_file")?;
-        let tiling = params.get_float2_or("tiling", [1.0, 1.0]).into();
-        let offset = params.get_float2_or("offset", [0.0, 0.0]).into();
 
-        Ok(Self::new(image, tiling, offset))
+        Ok(Self::new(image))
     }
 }
 
 impl TextureT for ImageTex {
-    fn color_at(&self, inter: &Intersection<'_>) -> Color {
-        let uv = inter.texcoords * self.tiling + self.offset;
-        let (u, v) = wrap_uv(uv.x, uv.y);
-        let value = sample_trilinear(
-            &self.images,
-            u,
-            v,
-            vec2_mul_point2(inter.duvdx, self.tiling),
-            vec2_mul_point2(inter.duvdy, self.tiling),
-        );
+    fn color_at(&self, input: TextureInput) -> Color {
+        let uv = input.value_vec2_wrapped();
+        let value = sample_trilinear(&self.images, uv.x, uv.y, input.duvdx, input.duvdy);
         Color::new(value.x, value.y, value.z)
     }
 
-    fn float_at(&self, inter: &Intersection<'_>, chan: TextureChannel) -> f32 {
-        let uv = inter.texcoords * self.tiling + self.offset;
-        let (u, v) = wrap_uv(uv.x, uv.y);
-        let value = sample_trilinear(
-            &self.images,
-            u,
-            v,
-            vec2_mul_point2(inter.duvdx, self.tiling),
-            vec2_mul_point2(inter.duvdy, self.tiling),
-        );
+    fn float_at(&self, input: TextureInput, chan: TextureChannel) -> f32 {
+        let uv = input.value_vec2_wrapped();
+        let value = sample_trilinear(&self.images, uv.x, uv.y, input.duvdx, input.duvdy);
         match chan {
             TextureChannel::R => value.x,
             TextureChannel::G => value.y,
@@ -76,6 +52,11 @@ impl TextureT for ImageTex {
             TextureChannel::B => value.z,
             TextureChannel::A => value.w,
         }
+    }
+
+    fn dimensions(&self) -> Option<(u32, u32, u32)> {
+        let (w, h) = self.images[0].dimensions();
+        Some((w, h, 1))
     }
 }
 
@@ -169,16 +150,6 @@ fn sample_trilinear(
         let c1 = sample_blinear(&images[l1], u, v);
         c0 * (1.0 - lt) + c1 * lt
     }
-}
-
-fn wrap_uv(u: f32, v: f32) -> (f32, f32) {
-    let u_new = if u >= 0.0 { u.fract() } else { 1.0 + u.fract() };
-    let v_new = if v >= 0.0 { v.fract() } else { 1.0 + v.fract() };
-    (u_new, v_new)
-}
-
-fn vec2_mul_point2(a: glam::Vec2, b: glam::Vec2) -> glam::Vec2 {
-    glam::Vec2::new(a.x * b.x, a.y * b.y)
 }
 
 fn rgba_to_vec4(rgba: image::Rgba<u8>) -> glam::Vec4 {

@@ -390,6 +390,17 @@ impl InputParams {
     }
 
     #[allow(dead_code)]
+    pub fn num_unused_keys(&self) -> usize {
+        let mut num = 0;
+        for k in self.params.keys() {
+            if !k.starts_with("#") && !self.visited_names.contains(k) {
+                num += 1;
+            }
+        }
+        num
+    }
+
+    #[allow(dead_code)]
     pub fn check_unused_keys(&self) {
         for k in self.params.keys() {
             if !k.starts_with("#") && !self.visited_names.contains(k) {

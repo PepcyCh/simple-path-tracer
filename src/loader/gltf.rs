@@ -89,8 +89,7 @@ fn load_images(rsc: &mut SceneResources, images: Vec<gltf::image::Data>) -> anyh
             ),
             _ => anyhow::bail!(format!("Failed to convert image {} to image::DynamicImage, 16-bit image is currently not supported", i))
         };
-        let tex =
-            texture::ImageTex::new(dynamic_image, glam::Vec2::new(1.0, 1.0), glam::Vec2::ZERO);
+        let tex = texture::ImageTex::new(dynamic_image);
         rsc.add_texture(format!("image_{}", i), tex.into())?;
     }
 

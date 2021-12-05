@@ -69,16 +69,16 @@ impl PbrMetallic {
 
 impl MaterialT for PbrMetallic {
     fn scatter(&self, inter: &Intersection<'_>) -> Scatter {
-        let base_color = self.base_color.color_at(inter);
+        let base_color = self.base_color.color_at(inter.into());
         let roughness_x = self
             .roughness_x
-            .float_at(inter, self.roughness_chan)
+            .float_at(inter.into(), self.roughness_chan)
             .powi(2);
         let roughness_y = self
             .roughness_y
-            .float_at(inter, self.roughness_chan)
+            .float_at(inter.into(), self.roughness_chan)
             .powi(2);
-        let metallic = self.metallic.float_at(inter, self.metallic_chan);
+        let metallic = self.metallic.float_at(inter.into(), self.metallic_chan);
 
         if roughness_x < 0.001 || roughness_y < 0.001 {
             MixScatter::new(

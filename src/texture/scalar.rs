@@ -1,8 +1,6 @@
-use crate::core::{
-    color::Color, intersection::Intersection, loader::InputParams, scene_resources::SceneResources,
-};
+use crate::core::{color::Color, loader::InputParams, scene_resources::SceneResources};
 
-use super::{TextureChannel, TextureT};
+use super::{TextureChannel, TextureInput, TextureT};
 
 pub struct ScalarTex {
     value: Color,
@@ -21,11 +19,11 @@ impl ScalarTex {
 }
 
 impl TextureT for ScalarTex {
-    fn color_at(&self, _inter: &Intersection<'_>) -> Color {
+    fn color_at(&self, _input: TextureInput) -> Color {
         self.value
     }
 
-    fn float_at(&self, _inter: &Intersection<'_>, chan: TextureChannel) -> f32 {
+    fn float_at(&self, _input: TextureInput, chan: TextureChannel) -> f32 {
         match chan {
             TextureChannel::R => self.value.r,
             TextureChannel::G => self.value.g,
@@ -45,5 +43,9 @@ impl TextureT for ScalarTex {
             TextureChannel::B => self.value.b,
             TextureChannel::A => 1.0,
         }
+    }
+    
+    fn dimensions(&self) -> Option<(u32, u32, u32)> {
+        Some((1, 1, 1))
     }
 }

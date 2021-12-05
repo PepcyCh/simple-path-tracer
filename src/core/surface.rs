@@ -51,7 +51,7 @@ impl Surface {
             * self
                 .emissive_map
                 .as_ref()
-                .map_or(Color::WHITE, |map| map.color_at(inter))
+                .map_or(Color::WHITE, |map| map.color_at(inter.into()))
     }
 
     pub fn average_emissive(&self) -> Color {
@@ -64,7 +64,7 @@ impl Surface {
 
     pub fn coord(&self, ray: &Ray, inter: &Intersection<'_>) -> Coordinate {
         let shade_normal = if let Some(normal_map) = &self.normal_map {
-            let value = normal_map.color_at(inter);
+            let value = normal_map.color_at(inter.into());
             let normal_color = value * 2.0 - Color::WHITE;
             let normal = glam::Vec3A::new(normal_color.r, normal_color.g, normal_color.b);
             let shade_normal_local = normal.normalize();

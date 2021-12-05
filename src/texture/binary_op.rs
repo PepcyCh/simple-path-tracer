@@ -1,10 +1,8 @@
 use std::sync::Arc;
 
-use crate::core::{
-    color::Color, intersection::Intersection, loader::InputParams, scene_resources::SceneResources,
-};
+use crate::core::{color::Color, loader::InputParams, scene_resources::SceneResources};
 
-use super::{Texture, TextureChannel, TextureT};
+use super::{Texture, TextureChannel, TextureInput, TextureT};
 
 pub struct AddTex {
     t1: Arc<Texture>,
@@ -46,12 +44,12 @@ macro_rules! impl_binary_op_tex {
                 }
 
                 impl TextureT for [<$name Tex>] {
-                    fn color_at(&self, inter: &Intersection<'_>) -> Color {
-                        self.t1.color_at(inter) $op self.t2.color_at(inter)
+                    fn color_at(&self, input: TextureInput) -> Color {
+                        self.t1.color_at(input) $op self.t2.color_at(input)
                     }
 
-                    fn float_at(&self, inter: &Intersection<'_>, chan: TextureChannel) -> f32 {
-                        self.t1.float_at(inter, chan) $op self.t2.float_at(inter, chan)
+                    fn float_at(&self, input: TextureInput, chan: TextureChannel) -> f32 {
+                        self.t1.float_at(input, chan) $op self.t2.float_at(input, chan)
                     }
 
                     fn average_color(&self) -> Color {

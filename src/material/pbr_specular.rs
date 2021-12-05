@@ -64,15 +64,15 @@ impl PbrSpecular {
 
 impl MaterialT for PbrSpecular {
     fn scatter(&self, inter: &Intersection<'_>) -> Scatter {
-        let diffuse = self.diffuse.color_at(inter);
-        let specular = self.specular.color_at(inter);
+        let diffuse = self.diffuse.color_at(inter.into());
+        let specular = self.specular.color_at(inter.into());
         let roughness_x = self
             .roughness_x
-            .float_at(inter, self.roughness_chan)
+            .float_at(inter.into(), self.roughness_chan)
             .powi(2);
         let roughness_y = self
             .roughness_y
-            .float_at(inter, self.roughness_chan)
+            .float_at(inter.into(), self.roughness_chan)
             .powi(2);
 
         if roughness_x < 0.001 || roughness_y < 0.001 {

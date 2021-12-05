@@ -25,7 +25,7 @@ impl Lambert {
 
 impl MaterialT for Lambert {
     fn scatter(&self, inter: &Intersection<'_>) -> Scatter {
-        let albedo = self.albedo.color_at(inter);
+        let albedo = self.albedo.color_at(inter.into());
         LambertReflect::new(albedo).into()
     }
 }

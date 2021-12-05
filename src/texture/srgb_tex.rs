@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use crate::core::{color::Color, intersection::Intersection};
+use crate::core::color::Color;
 
-use super::{Texture, TextureChannel, TextureT};
+use super::{Texture, TextureChannel, TextureInput, TextureT};
 
 pub struct SrgbTex {
     tex: Arc<Texture>,
@@ -15,15 +15,15 @@ impl SrgbTex {
 }
 
 impl TextureT for SrgbTex {
-    fn color_at(&self, inter: &Intersection<'_>) -> Color {
-        srgb_to_linear_color(self.tex.color_at(inter))
+    fn color_at(&self, input: TextureInput) -> Color {
+        srgb_to_linear_color(self.tex.color_at(input))
     }
 
-    fn float_at(&self, inter: &Intersection<'_>, chan: TextureChannel) -> f32 {
+    fn float_at(&self, input: TextureInput, chan: TextureChannel) -> f32 {
         if chan == TextureChannel::A {
-            self.tex.float_at(inter, chan)
+            self.tex.float_at(input, chan)
         } else {
-            srgb_to_linear(self.tex.float_at(inter, chan))
+            srgb_to_linear(self.tex.float_at(input, chan))
         }
     }
 
@@ -37,6 +37,10 @@ impl TextureT for SrgbTex {
         } else {
             srgb_to_linear(self.tex.average_float(chan))
         }
+    }
+
+    fn dimensions(&self) -> Option<(u32,u32,u32)> {
+        self.tex.dimensions()
     }
 }
 
