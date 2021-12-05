@@ -2,9 +2,111 @@
 
 A simple path tracer written in Rust.
 
-It's a playground for me to learn something like BSSRDF and volume rendering, and also to discover the effect of some samplers and filters.
+It's a playground for me to learn something about path tracing.
 
-Project structure is similar to that in pbrt.
+## Structure
+
+![](./doc/struct.jpg)
+
+### Aggregate
+
+Collection of `Primitive`s. They are created in top of `Instance`s, and may also be used in some `Primitive`s such as triangle mesh.
+
+* Array
+* BVH (SAH)
+
+They are also `Primitive`.
+
+### Primitive
+
+Basic primitive (primitive that doesn't contain other primitives in their structure).
+
+* Sphere
+* Triangle
+* Cubic Bézier surface
+
+Other primitives
+
+* Triangle mesh
+* Catmull-Clark subdivision surface
+
+### Instance
+
+A special `Primitive` consist of a `Primitive`, a transform matrix and a `Surface`. `Instance`s are things that will be rendered.
+
+### Surface
+
+`Surface` describes the material of a surface, the medium inside this surface, and some other things like emissive color and map, normal map.
+
+### Material
+
+* Lambert
+* Pseudo material
+* Subsurface
+* Dielectric
+* Glass
+* Conductor
+* PbrMetallic (Schlick Fresnel is used)
+* PbrSpecular (Schlick Fresnel is used)
+
+### Scatter
+
+`Scatter` describe the BxDF at a certain point of a surface `Material`.
+
+Simple reflect `Scatter`
+
+* Lambert reflect
+* Specular reflect
+* Microfacet reflect
+* Subsurface reflect
+
+Simple transmit `Scatter`
+
+* Lambert transmit
+* Specular transmit
+* Microfacet transmit
+
+Combiner/Wrapper of `Scatter`s
+
+* Fresnel conductor/dielectric
+* Schlick Fresnel metal/dielectric
+* Mix
+
+### Medium
+
+* Homogeneous medium
+
+### Texture
+
+Basic `Texture`
+
+* Scalar texture
+* Image texture
+
+Combiner/Wrapper of `Texture`s
+
+* sRGB to linear
+* Binary operator (addition, subtraction, multiply, division)
+
+### Light Sampler
+
+`LightSampler` is a collection of `Light`s and sample one light with a certain strategy.
+
+* Uniform
+* Importance sampling according to estimated light power (using alias table)
+
+### Light
+
+* Directional light
+* Point light
+* Spot light
+* Environment light
+* Shape light
+  * We never create shape light in scene file explicitly. Shape light will be created from each `Instance` with an emissive `Surface`.
+
+### Camera
+
+* Simple perspective camera
 
 ## Implemented Features
 

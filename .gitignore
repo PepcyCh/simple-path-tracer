@@ -5,4 +5,5 @@ target
 images*
 scenes/textures
 scenes/gltf
+doc/hidden
 Cargo.lock
