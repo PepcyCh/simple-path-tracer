@@ -56,15 +56,38 @@ impl PndfMetal {
                 let u = (j as f32 + 0.5) * hx;
                 let v = (i as f32 + 0.5) * hy;
 
-                let inv_trans_u = (u - base_normal_offset.x) / base_normal_tiling.x;
-                let inv_trans_v = (v - base_normal_offset.y) / base_normal_tiling.y;
-                let s = get_normal_bilinear(&base_normal, inv_trans_u, inv_trans_v);
+                let s =
+                    get_normal_bilinear(&base_normal, u, v, base_normal_tiling, base_normal_offset);
 
-                let s_up = get_normal_bilinear(&base_normal, u + 0.5 * hx, v);
-                let s_un = get_normal_bilinear(&base_normal, u - 0.5 * hx, v);
+                let s_up = get_normal_bilinear(
+                    &base_normal,
+                    u + 0.5 * hx,
+                    v,
+                    base_normal_tiling,
+                    base_normal_offset,
+                );
+                let s_un = get_normal_bilinear(
+                    &base_normal,
+                    u - 0.5 * hx,
+                    v,
+                    base_normal_tiling,
+                    base_normal_offset,
+                );
                 let dsdu = (s_up - s_un) * hx_inv;
-                let s_vp = get_normal_bilinear(&base_normal, u, v + 0.5 * hy);
-                let s_vn = get_normal_bilinear(&base_normal, u, v - 0.5 * hy);
+                let s_vp = get_normal_bilinear(
+                    &base_normal,
+                    u,
+                    v + 0.5 * hy,
+                    base_normal_tiling,
+                    base_normal_offset,
+                );
+                let s_vn = get_normal_bilinear(
+                    &base_normal,
+                    u,
+                    v - 0.5 * hy,
+                    base_normal_tiling,
+                    base_normal_offset,
+                );
                 let dsdv = (s_vp - s_vn) * hy_inv;
                 let jacobian = glam::Mat2::from_cols(dsdu, dsdv);
 
@@ -149,7 +172,8 @@ impl MaterialT for PndfMetal {
         } else {
             let roughness = self
                 .fallback_roughness
-                .float_at(inter.into(), TextureChannel::R);
+                .float_at(inter.into(), TextureChannel::R)
+                .powi(2);
             if roughness < 0.001 {
                 SchlickFresnelMetal::new(albedo, SpecularReflect::new(Color::WHITE)).into()
             } else {
@@ -163,8 +187,17 @@ impl MaterialT for PndfMetal {
     }
 }
 
-fn get_normal_bilinear(tex: &Texture, u: f32, v: f32) -> glam::Vec2 {
+fn get_normal_bilinear(
+    tex: &Texture,
+    u: f32,
+    v: f32,
+    tiling: glam::Vec2,
+    offset: glam::Vec2,
+) -> glam::Vec2 {
+    let u = (u - offset.x) / tiling.x;
+    let v = (v - offset.y) / tiling.y;
     let normal_color = tex.color_at(TextureInput::specified(glam::Vec3A::new(u, v, 0.0)));
+    let normal_color = normal_color * 2.0 - Color::WHITE;
     let normal = glam::Vec3A::new(normal_color.r, normal_color.g, normal_color.b).normalize();
     glam::Vec2::new(normal.x, normal.y)
 }

@@ -43,6 +43,9 @@ impl PndfDielectric {
         let terms_count = terms_count_x * terms_count_y;
         let mut terms = Vec::with_capacity(terms_count);
 
+        let base_normal_tiling = base_normal.tiling().truncate();
+        let base_normal_offset = base_normal.offset().truncate();
+
         let hx = 1.0 / terms_count_x as f32;
         let sigma_hx = hx / (8.0 * 2.0_f32.ln()).sqrt();
         let hx_inv = 1.0 / hx;
@@ -54,13 +57,43 @@ impl PndfDielectric {
             for j in 0..terms_count_x {
                 let u = (j as f32 + 0.5) * hx;
                 let v = (i as f32 + 0.5) * hy;
-                let s = get_normal_bilinear(base_normal.as_ref(), u, v);
+                let s = get_normal_bilinear(
+                    base_normal.as_ref(),
+                    u,
+                    v,
+                    base_normal_tiling,
+                    base_normal_offset,
+                );
 
-                let s_up = get_normal_bilinear(base_normal.as_ref(), u + 0.5 * hx, v);
-                let s_un = get_normal_bilinear(base_normal.as_ref(), u - 0.5 * hx, v);
+                let s_up = get_normal_bilinear(
+                    base_normal.as_ref(),
+                    u + 0.5 * hx,
+                    v,
+                    base_normal_tiling,
+                    base_normal_offset,
+                );
+                let s_un = get_normal_bilinear(
+                    base_normal.as_ref(),
+                    u - 0.5 * hx,
+                    v,
+                    base_normal_tiling,
+                    base_normal_offset,
+                );
                 let dsdu = (s_up - s_un) * hx_inv;
-                let s_vp = get_normal_bilinear(base_normal.as_ref(), u, v + 0.5 * hy);
-                let s_vn = get_normal_bilinear(base_normal.as_ref(), u, v - 0.5 * hy);
+                let s_vp = get_normal_bilinear(
+                    base_normal.as_ref(),
+                    u,
+                    v + 0.5 * hy,
+                    base_normal_tiling,
+                    base_normal_offset,
+                );
+                let s_vn = get_normal_bilinear(
+                    base_normal.as_ref(),
+                    u,
+                    v - 0.5 * hy,
+                    base_normal_tiling,
+                    base_normal_offset,
+                );
                 let dsdv = (s_vp - s_vn) * hy_inv;
                 let jacobian = glam::Mat2::from_cols(dsdu, dsdv);
 
@@ -79,9 +112,6 @@ impl PndfDielectric {
         let terms_ref: Vec<_> = terms.iter_mut().collect();
         let s_block_count = ((2.0 / (sigma_r * 16.0)) as usize).clamp(1, 20);
         let bvh = PndfAccel::new(terms_ref, 5, s_block_count);
-
-        let base_normal_tiling = base_normal.tiling().truncate();
-        let base_normal_offset = base_normal.offset().truncate();
 
         Self {
             ior,
@@ -153,7 +183,8 @@ impl MaterialT for PndfDielectric {
         } else {
             let roughness = self
                 .fallback_roughness
-                .float_at(inter.into(), TextureChannel::R);
+                .float_at(inter.into(), TextureChannel::R)
+                .powi(2);
             if roughness < 0.001 {
                 FresnelDielectricRR::new(
                     self.ior,
@@ -173,8 +204,17 @@ impl MaterialT for PndfDielectric {
     }
 }
 
-fn get_normal_bilinear(tex: &Texture, u: f32, v: f32) -> glam::Vec2 {
+fn get_normal_bilinear(
+    tex: &Texture,
+    u: f32,
+    v: f32,
+    tiling: glam::Vec2,
+    offset: glam::Vec2,
+) -> glam::Vec2 {
+    let u = (u - offset.x) / tiling.x;
+    let v = (v - offset.y) / tiling.y;
     let normal_color = tex.color_at(TextureInput::specified(glam::Vec3A::new(u, v, 0.0)));
+    let normal_color = normal_color * 2.0 - Color::WHITE;
     let normal = glam::Vec3A::new(normal_color.r, normal_color.g, normal_color.b).normalize();
     glam::Vec2::new(normal.x, normal.y)
 }

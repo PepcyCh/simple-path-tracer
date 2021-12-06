@@ -1,3 +1,5 @@
+use std::cell::UnsafeCell;
+
 use image::{Rgb, RgbImage};
 
 use crate::{
@@ -95,3 +97,20 @@ fn color_to_rgb(color: Color) -> Rgb<u8> {
     let b = (color.b * 255.0).clamp(0.0, 255.0) as u8;
     Rgb([r, g, b])
 }
+
+pub struct UnsafeFilm<'a> {
+    film: &'a UnsafeCell<Film>,
+}
+
+impl<'a> UnsafeFilm<'a> {
+    pub fn new(film: &'a UnsafeCell<Film>) -> Self {
+        Self { film }
+    }
+
+    pub unsafe fn add_sample(&self, x: u32, y: u32, offset: (f32, f32), color: Color) {
+        let pfilm = self.film.get().as_mut().unwrap();
+        pfilm.add_sample(x, y, offset, color)
+    }
+}
+
+unsafe impl<'a> Send for UnsafeFilm<'a> {}

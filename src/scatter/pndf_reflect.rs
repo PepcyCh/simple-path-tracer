@@ -3,6 +3,8 @@ use crate::{
     scatter::{PndfAccel, PndfGaussTerm, Reflect, ScatterT, ScatterType},
 };
 
+use super::util;
+
 pub struct PndfReflect {
     albedo: Color,
     u: glam::Vec2,
@@ -84,7 +86,7 @@ impl ScatterT for PndfReflect {
         let half = glam::Vec3A::new(s.x, s.y, (1.0 - s.length_squared()).clamp(0.0, 1.0).sqrt())
             .normalize();
 
-        let wi = crate::scatter::util::reflect_n(wo, half);
+        let wi = util::reflect_n(wo, half);
         if wo.z * wi.z >= 0.0 {
             let pndf = bvh.calc(
                 self.sigma_p,
@@ -108,7 +110,7 @@ impl ScatterT for PndfReflect {
     fn pdf(&self, _po: glam::Vec3A, wo: glam::Vec3A, _pi: glam::Vec3A, wi: glam::Vec3A) -> f32 {
         if wo.z * wi.z >= 0.0 {
             let bvh = unsafe { self.bvh.as_ref().unwrap() };
-            let half = crate::scatter::util::half_from_reflect(wo, wi);
+            let half = util::half_from_reflect(wo, wi);
             let s = glam::Vec2::new(half.x, half.y);
             let pndf = bvh.calc(
                 self.sigma_p,
@@ -128,7 +130,7 @@ impl ScatterT for PndfReflect {
     fn bxdf(&self, _po: glam::Vec3A, wo: glam::Vec3A, _pi: glam::Vec3A, wi: glam::Vec3A) -> Color {
         if wo.z * wi.z >= 0.0 {
             let bvh = unsafe { self.bvh.as_ref().unwrap() };
-            let half = crate::scatter::util::half_from_reflect(wo, wi);
+            let half = util::half_from_reflect(wo, wi);
             let s = glam::Vec2::new(half.x, half.y);
             let pndf = bvh.calc(
                 self.sigma_p,

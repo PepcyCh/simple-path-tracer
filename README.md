@@ -48,6 +48,7 @@ A special `Primitive` consist of a `Primitive`, a transform matrix and a `Surfac
 * Conductor
 * PbrMetallic (Schlick Fresnel is used)
 * PbrSpecular (Schlick Fresnel is used)
+* P-NDF dielectric/metal ([Position-Normal Distributions for Efficient Rendering of Specular Microstructure, Yan et al. 2016](https://sites.cs.ucsb.edu/~lingqi/publications/paper_glints2.pdf))
 
 ### Scatter
 
@@ -118,6 +119,7 @@ Combiner/Wrapper of `Texture`s
 * Microfacet glass material
 * Homogeneous medium with Henyey-Greenstein phase function
 * BSSRDF with normalized diffusion profile
+* Glinty surface material ([Position-Normal Distributions for Efficient Rendering of Specular Microstructure, Yan et al. 2016](https://sites.cs.ucsb.edu/~lingqi/publications/paper_glints2.pdf)), last supported commit: [6611661f](https://github.com/PepcyCh/simple-path-tracer/tree/6611661fed3bca4424ca88d8a998dd6c98b68313).
 * Cubic Bézier surface
   * Bézier clipping (default)
   * Newton's iteration (feature `bezier_ni`)
@@ -125,6 +127,3 @@ Combiner/Wrapper of `Texture`s
   * Use feature adaptive subdivision
   * Boundary, creases are partially supported
   * Texture mapping are not supported
-
-These features are removed to make future maintainance eaiser.
-* Glinty surface material ([Position-Normal Distributions for Efficient Rendering of Specular Microstructure, Yan et al. 2016](https://sites.cs.ucsb.edu/~lingqi/publications/paper_glints2.pdf)), last supported commit: [6611661f](https://github.com/PepcyCh/simple-path-tracer/tree/6611661fed3bca4424ca88d8a998dd6c98b68313).

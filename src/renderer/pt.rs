@@ -1,9 +1,14 @@
-use std::sync::{Arc, Mutex};
+use std::cell::UnsafeCell;
 
 use crate::{
     camera::CameraT,
     core::{
-        color::Color, film::Film, intersection::Intersection, ray::Ray, rng::Rng, scene::Scene,
+        color::Color,
+        film::{Film, UnsafeFilm},
+        intersection::Intersection,
+        ray::Ray,
+        rng::Rng,
+        scene::Scene,
     },
     filter::Filter,
     light::LightT,
@@ -162,20 +167,20 @@ impl PathTracer {
                 if !light.is_delta() {
                     let (wi, pdf, bxdf, ty) = scatter.sample_wi(po, wo, pi, rng);
                     let light_dir = coord_pi.to_world(wi);
-                    if !coord_pi.in_expected_hemisphere(light_dir, ty.dir) {
-                        continue;
-                    }
-                    let (light_strength, dist, light_pdf) = light.strength_dist_pdf(pi, light_dir);
-                    let shadow_ray = Ray::new(pi, light_dir);
-                    if pdf != 0.0
-                        && pdf.is_finite()
-                        && !scene.aggregate().intersect_test(&shadow_ray, dist - 0.001)
-                    {
-                        if scatter.is_delta() {
-                            li += light_strength * bxdf * wi.z / pdf.max(0.00001);
-                        } else {
-                            let weight = power_heuristic(1, pdf, 1, light_pdf);
-                            li += light_strength * bxdf * wi.z * weight / pdf.max(0.00001);
+                    if coord_pi.in_expected_hemisphere(light_dir, ty.dir) {
+                        let (light_strength, dist, light_pdf) =
+                            light.strength_dist_pdf(pi, light_dir);
+                        let shadow_ray = Ray::new(pi, light_dir);
+                        if pdf != 0.0
+                            && pdf.is_finite()
+                            && !scene.aggregate().intersect_test(&shadow_ray, dist - 0.001)
+                        {
+                            if scatter.is_delta() {
+                                li += light_strength * bxdf * wi.z / pdf.max(0.00001);
+                            } else {
+                                let weight = power_heuristic(1, pdf, 1, light_pdf);
+                                li += light_strength * bxdf * wi.z * weight / pdf.max(0.00001);
+                            }
                         }
                     }
                 }
@@ -237,7 +242,7 @@ impl PathTracer {
 
 impl RendererT for PathTracer {
     fn render(&self, scene: &Scene, config: &OutputConfig) {
-        let film = Arc::new(Mutex::new(Film::new(config.width, config.height)));
+        let film = UnsafeCell::new(Film::new(config.width, config.height));
         let aspect = config.width as f32 / config.height as f32;
 
         let progress_bar = indicatif::ProgressBar::new(config.width as u64 * config.height as u64);
@@ -274,7 +279,7 @@ impl RendererT for PathTracer {
                 let mut pixel_sampler = self.pixel_sampler;
                 let spp = pixel_sampler.spp();
                 let spp_sqrt_inv = 1.0 / (spp as f32).sqrt();
-                let film = film.clone();
+                let film = UnsafeFilm::new(&film);
                 let camera = used_camera.clone();
                 let progress_bar = progress_bar.clone();
                 let path_tracer = &self;
@@ -296,8 +301,9 @@ impl RendererT for PathTracer {
                                     (aspect * width_inv * spp_sqrt_inv, height_inv * spp_sqrt_inv),
                                 );
                                 let color = path_tracer.trace_ray(scene, ray, &mut rng);
-                                let mut film = film.lock().unwrap();
-                                film.add_sample(i, j, (offset_x - 0.5, offset_y - 0.5), color);
+                                unsafe {
+                                    film.add_sample(i, j, (offset_x - 0.5, offset_y - 0.5), color);
+                                }
                             }
                             progress_bar.inc(1);
                         }
@@ -307,8 +313,8 @@ impl RendererT for PathTracer {
         })
         .unwrap();
 
-        let film = film.lock().unwrap();
         // TODO - filter_to_image can also be multi-threaded
+        let film = film.into_inner();
         let image = film.filter_to_image(&self.filter);
         if let Err(err) = image.save(&config.output_filename) {
             println!("Failed to save image, err: {}", err);
