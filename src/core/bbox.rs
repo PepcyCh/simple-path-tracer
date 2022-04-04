@@ -104,4 +104,9 @@ impl Bbox {
     pub fn centroid(&self) -> glam::Vec3A {
         (self.p_min + self.p_max) * 0.5
     }
+
+    pub fn radius_sqr(&self) -> f32 {
+        let diff = (self.p_max - self.p_min) * 0.5;
+        diff.x * diff.x + diff.y * diff.y + diff.z * diff.z
+    }
 }

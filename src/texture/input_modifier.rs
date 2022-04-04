@@ -117,7 +117,7 @@ fn load_mode(params: &mut InputParams) -> anyhow::Result<Option<TextureInputMode
 }
 
 fn load_wrap(params: &mut InputParams) -> anyhow::Result<Option<TextureInputWrapMode>> {
-    if params.contains_key("mode") {
+    if params.contains_key("wrap") {
         let mode_str = params.get_str("wrap")?;
         Ok(Some(match mode_str.as_str() {
             "repeat" => TextureInputWrapMode::Repeat,

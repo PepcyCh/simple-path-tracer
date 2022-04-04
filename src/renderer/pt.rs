@@ -19,7 +19,7 @@ use crate::{
     scatter::ScatterT,
 };
 
-use super::{OutputConfig, RendererT};
+use super::{util, OutputConfig, RendererT};
 
 pub struct PathTracer {
     max_depth: u32,
@@ -245,30 +245,10 @@ impl RendererT for PathTracer {
         let film = UnsafeCell::new(Film::new(config.width, config.height));
         let aspect = config.width as f32 / config.height as f32;
 
-        let progress_bar = indicatif::ProgressBar::new(config.width as u64 * config.height as u64);
-        progress_bar.set_style(
-            indicatif::ProgressStyle::default_bar()
-                .template("[{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} (eta: {eta})")
-                .progress_chars("#>-"),
-        );
+        let progress_bar = util::render_prograss_bar(config.width, config.height);
 
-        #[derive(Copy, Clone)]
-        struct ImageRange {
-            from: u32,
-            to: u32,
-        }
         let num_cpus = num_cpus::get() as u32 * 2;
-        let height_per_cpu = config.height / num_cpus;
-        let mut ranges = Vec::with_capacity(num_cpus as usize);
-        for t in 0..num_cpus {
-            let from = t * height_per_cpu;
-            let to = if t + 1 == num_cpus {
-                config.height
-            } else {
-                (t + 1) * height_per_cpu
-            };
-            ranges.push(ImageRange { from, to });
-        }
+        let ranges = util::create_image_ranges(num_cpus, config.height);
 
         let used_camera = scene.get_camera(&config.used_camera_name);
 
@@ -283,7 +263,7 @@ impl RendererT for PathTracer {
                 let camera = used_camera.clone();
                 let progress_bar = progress_bar.clone();
                 let path_tracer = &self;
-                let ImageRange { from, to } = ranges[t];
+                let util::ImageRange { from, to } = ranges[t];
 
                 scope.spawn(move |_| {
                     let mut rng = Rng::new();
