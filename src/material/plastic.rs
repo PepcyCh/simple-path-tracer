@@ -1,46 +1,42 @@
 use std::sync::Arc;
 
 use crate::{
+    bxdf::{Bxdf, DielectricFresnel, Diffuse, GgxMicrofacet, MicrofacetPlastic, SpecularPlastic},
     core::{intersection::Intersection, loader::InputParams, scene_resources::SceneResources},
-    scatter::{
-        FresnelDielectricRT, MicrofacetReflect, MicrofacetTransmit, Scatter, SpecularReflect,
-        SpecularTransmit,
-    },
     texture::{Texture, TextureChannel, TextureT},
 };
 
 use super::MaterialT;
 
-pub struct Glass {
+pub struct Plastic {
     ior: f32,
-    reflectance: Arc<Texture>,
-    transmittance: Arc<Texture>,
+    albedo: Arc<Texture>,
     roughness_x: Arc<Texture>,
     roughness_y: Arc<Texture>,
 }
 
-impl Glass {
+impl Plastic {
     pub fn new(
-        ior: f32,
-        reflectance: Arc<Texture>,
-        transmittance: Arc<Texture>,
+        int_ior: f32,
+        ext_ior: f32,
+        albedo: Arc<Texture>,
         roughness_x: Arc<Texture>,
         roughness_y: Arc<Texture>,
     ) -> Self {
+        let ior = int_ior / ext_ior;
         Self {
             ior,
-            reflectance,
-            transmittance,
+            albedo,
             roughness_x,
             roughness_y,
         }
     }
 
     pub fn load(rsc: &SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
-        let ior = params.get_float("ior")?;
+        let int_ior = params.get_float("int_ior")?;
+        let ext_ior = params.get_float_or("ext_ior", 1.0);
 
-        let reflectance = rsc.clone_texture(params.get_str("reflectance")?)?;
-        let transmittance = rsc.clone_texture(params.get_str("transmittance")?)?;
+        let albedo = rsc.clone_texture(params.get_str("albedo")?)?;
 
         let (roughness_x, roughness_y) = if params.contains_key("roughness") {
             let roughness = rsc.clone_texture(params.get_str("roughness")?)?;
@@ -52,34 +48,33 @@ impl Glass {
         };
 
         Ok(Self::new(
-            ior,
-            reflectance,
-            transmittance,
+            int_ior,
+            ext_ior,
+            albedo,
             roughness_x,
             roughness_y,
         ))
     }
 }
 
-impl MaterialT for Glass {
-    fn scatter(&self, inter: &Intersection<'_>) -> Scatter {
-        let reflectance = self.reflectance.color_at(inter.into());
-        let transmittance = self.transmittance.color_at(inter.into());
+impl MaterialT for Plastic {
+    fn bxdf_context(&self, inter: &Intersection<'_>) -> Bxdf {
+        let albedo = self.albedo.color_at(inter.into());
+
         let roughness_x = self.roughness_x.float_at(inter.into(), TextureChannel::R);
         let roughness_y = self.roughness_y.float_at(inter.into(), TextureChannel::R);
 
-        if roughness_x < 0.001 || roughness_y < 0.001 {
-            FresnelDielectricRT::new(
-                self.ior,
-                SpecularReflect::new(reflectance),
-                SpecularTransmit::new(transmittance, self.ior),
+        if roughness_x < 0.0001 || roughness_y < 0.0001 {
+            SpecularPlastic::new(
+                DielectricFresnel::new(self.ior).into(),
+                Diffuse::new(albedo, self.ior).into(),
             )
             .into()
         } else {
-            FresnelDielectricRT::new(
-                self.ior,
-                MicrofacetReflect::new(reflectance, roughness_x, roughness_y),
-                MicrofacetTransmit::new(transmittance, self.ior, roughness_x, roughness_y),
+            MicrofacetPlastic::new(
+                GgxMicrofacet::new(roughness_x, roughness_y).into(),
+                DielectricFresnel::new(self.ior).into(),
+                Diffuse::new(albedo, self.ior).into(),
             )
             .into()
         }

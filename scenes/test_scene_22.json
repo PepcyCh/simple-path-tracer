@@ -14,9 +14,9 @@
     "primitives": "common_primitives.json",
     "instances": [
       {
-        "name": "glass",
+        "name": "dielectric",
         "primitive": "sphere_1",
-        "material": "glass_earth",
+        "material": "dielectric_earth",
         "translate": [-1.2, 0.3, 0.0],
         "rotate": [0.0, -90.0, 0.0]
       },

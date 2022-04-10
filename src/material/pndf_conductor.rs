@@ -1,20 +1,19 @@
 use std::sync::Arc;
 
 use crate::{
+    bxdf::{
+        Bxdf, GgxMicrofacet, MicrofacetConductor, PndfAccel, PndfGaussTerm, PndfMicrofacet,
+        SchlickFresnel, SpecularConductor,
+    },
     core::{
         color::Color, intersection::Intersection, loader::InputParams,
         scene_resources::SceneResources,
     },
     material::MaterialT,
-    scatter::{
-        FresnelDielectricRR, LambertReflect, MicrofacetReflect, PndfAccel, PndfGaussTerm,
-        PndfReflect, Scatter, SpecularReflect,
-    },
     texture::{Texture, TextureChannel, TextureInput, TextureT},
 };
 
-pub struct PndfDielectric {
-    ior: f32,
+pub struct PndfConductor {
     albedo: Arc<Texture>,
     sigma_r: f32,
     sigma_hx: f32,
@@ -27,9 +26,8 @@ pub struct PndfDielectric {
     bvh: PndfAccel,
 }
 
-impl PndfDielectric {
+impl PndfConductor {
     pub fn new(
-        ior: f32,
         albedo: Arc<Texture>,
         sigma_r: f32,
         base_normal: Arc<Texture>,
@@ -46,34 +44,30 @@ impl PndfDielectric {
         let base_normal_tiling = base_normal.tiling().truncate();
         let base_normal_offset = base_normal.offset().truncate();
 
-        let hx = 1.0 / terms_count_x as f32;
+        let hx_inv = terms_count_x as f32;
+        let hx = 1.0 / hx_inv;
         let sigma_hx = hx / (8.0 * 2.0_f32.ln()).sqrt();
-        let hx_inv = 1.0 / hx;
-        let hy = 1.0 / terms_count_y as f32;
+        let hy_inv = terms_count_y as f32;
+        let hy = 1.0 / hy_inv;
         let sigma_hy = hy / (8.0 * 2.0_f32.ln()).sqrt();
-        let hy_inv = 1.0 / hy;
 
         for i in 0..terms_count_y {
             for j in 0..terms_count_x {
                 let u = (j as f32 + 0.5) * hx;
                 let v = (i as f32 + 0.5) * hy;
-                let s = get_normal_bilinear(
-                    base_normal.as_ref(),
-                    u,
-                    v,
-                    base_normal_tiling,
-                    base_normal_offset,
-                );
+
+                let s =
+                    get_normal_bilinear(&base_normal, u, v, base_normal_tiling, base_normal_offset);
 
                 let s_up = get_normal_bilinear(
-                    base_normal.as_ref(),
+                    &base_normal,
                     u + 0.5 * hx,
                     v,
                     base_normal_tiling,
                     base_normal_offset,
                 );
                 let s_un = get_normal_bilinear(
-                    base_normal.as_ref(),
+                    &base_normal,
                     u - 0.5 * hx,
                     v,
                     base_normal_tiling,
@@ -81,14 +75,14 @@ impl PndfDielectric {
                 );
                 let dsdu = (s_up - s_un) * hx_inv;
                 let s_vp = get_normal_bilinear(
-                    base_normal.as_ref(),
+                    &base_normal,
                     u,
                     v + 0.5 * hy,
                     base_normal_tiling,
                     base_normal_offset,
                 );
                 let s_vn = get_normal_bilinear(
-                    base_normal.as_ref(),
+                    &base_normal,
                     u,
                     v - 0.5 * hy,
                     base_normal_tiling,
@@ -114,7 +108,6 @@ impl PndfDielectric {
         let bvh = PndfAccel::new(terms_ref, 5, s_block_count);
 
         Self {
-            ior,
             albedo,
             sigma_r,
             sigma_hx,
@@ -128,8 +121,6 @@ impl PndfDielectric {
     }
 
     pub fn load(rsc: &mut SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
-        let ior = params.get_float("ior")?;
-
         let albedo = rsc.clone_texture(params.get_str("albedo")?)?;
         let base_normal = rsc.clone_texture(params.get_str("base_normal")?)?;
         let fallback_roughness = rsc.clone_texture(params.get_str("fallback_roughness")?)?;
@@ -145,7 +136,6 @@ impl PndfDielectric {
         }
 
         Ok(Self::new(
-            ior,
             albedo,
             sigma_r,
             base_normal,
@@ -155,8 +145,8 @@ impl PndfDielectric {
     }
 }
 
-impl MaterialT for PndfDielectric {
-    fn scatter(&self, inter: &Intersection<'_>) -> Scatter {
+impl MaterialT for PndfConductor {
+    fn bxdf_context(&self, inter: &Intersection<'_>) -> Bxdf {
         let albedo = self.albedo.color_at(inter.into());
         let u = inter.texcoords * self.base_normal_tiling + self.base_normal_offset;
         let u_new = wrap_uv(u);
@@ -166,18 +156,17 @@ impl MaterialT for PndfDielectric {
         let bvh: *const PndfAccel = &self.bvh;
 
         if sigma_p > 0.0 {
-            FresnelDielectricRR::new(
-                self.ior,
-                PndfReflect::new(
-                    Color::WHITE,
+            MicrofacetConductor::new(
+                PndfMicrofacet::new(
                     u_new,
                     sigma_p,
                     self.sigma_hx,
                     self.sigma_hy,
                     self.sigma_r,
                     bvh,
-                ),
-                LambertReflect::new(albedo),
+                )
+                .into(),
+                SchlickFresnel::new(albedo).into(),
             )
             .into()
         } else {
@@ -185,18 +174,12 @@ impl MaterialT for PndfDielectric {
                 .fallback_roughness
                 .float_at(inter.into(), TextureChannel::R)
                 .powi(2);
-            if roughness < 0.001 {
-                FresnelDielectricRR::new(
-                    self.ior,
-                    SpecularReflect::new(Color::WHITE),
-                    LambertReflect::new(albedo),
-                )
-                .into()
+            if roughness < 0.0001 {
+                SpecularConductor::new(SchlickFresnel::new(albedo).into()).into()
             } else {
-                FresnelDielectricRR::new(
-                    self.ior,
-                    MicrofacetReflect::new(Color::WHITE, roughness, roughness),
-                    LambertReflect::new(albedo),
+                MicrofacetConductor::new(
+                    GgxMicrofacet::new(roughness, roughness).into(),
+                    SchlickFresnel::new(albedo).into(),
                 )
                 .into()
             }

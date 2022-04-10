@@ -54,33 +54,33 @@
     "albedo": "color_green_light2"
   },
   {
-    "type": "glass",
-    "name": "glass_red",
-    "ior": 1.5,
+    "type": "dielectric",
+    "name": "dielectric_red",
+    "int_ior": 1.5,
     "reflectance": "color_gray_9",
     "transmittance": "color_red",
     "roughness": "scalar_0"
   },
   {
-    "type": "glass",
-    "name": "glass_white",
-    "ior": 1.3,
+    "type": "dielectric",
+    "name": "dielectric_white",
+    "int_ior": 1.3,
     "reflectance": "color_white",
     "transmittance": "color_white",
     "roughness": "scalar_0.2"
   },
   {
-    "type": "glass",
-    "name": "glass_gray_9",
-    "ior": 1.5,
+    "type": "dielectric",
+    "name": "dielectric_gray_9",
+    "int_ior": 1.5,
     "reflectance": "color_gray_9",
     "transmittance": "color_gray_9",
     "roughness": "scalar_0.2"
   },
   {
-    "type": "glass",
-    "name": "glass_earth",
-    "ior": 1.5,
+    "type": "dielectric",
+    "name": "dielectric_earth",
+    "int_ior": 1.5,
     "reflectance": "color_white",
     "transmittance": "color_white",
     "roughness": "fimage_earth"
@@ -136,30 +136,30 @@
     "roughness": "scalar_0.2"
   },
   {
-    "type": "dielectric",
-    "name": "dielectric_gray_smooth",
-    "ior": 1.5,
+    "type": "plastic",
+    "name": "plastic_gray_smooth",
+    "int_ior": 1.5,
     "albedo": "color_gray_3",
     "roughness": "scalar_0.2"
   },
   {
-    "type": "dielectric",
-    "name": "dielectric_red_smooth",
-    "ior": 1.5,
+    "type": "plastic",
+    "name": "plastic_red_smooth",
+    "int_ior": 1.5,
     "albedo": "color_red",
     "roughness": "scalar_0.3"
   },
   {
-    "type": "dielectric",
-    "name": "dielectric_uv_test_rev_rough",
-    "ior": 1.5,
+    "type": "plastic",
+    "name": "plastic_uv_test_rev_rough",
+    "int_ior": 1.5,
     "albedo": "image_uv_test_rev",
     "roughness": "scalar_0.6"
   },
   {
-    "type": "glass",
-    "name": "glass_red_large_ior",
-    "ior": 12.0,
+    "type": "dielectric",
+    "name": "dielectric_red_large_ior",
+    "int_ior": 12.0,
     "reflectance": "color_red2",
     "transmittance": "color_red",
     "roughness": "scalar_0"
@@ -182,7 +182,7 @@
   {
     "type": "subsurface",
     "name": "ss_white",
-    "ior": 1.3,
+    "int_ior": 1.3,
     "albedo": "color_white",
     "ld": "scalar_3",
     "roughness": "scalar_0.3"
@@ -190,7 +190,7 @@
   {
     "type": "subsurface",
     "name": "ss_white_r0",
-    "ior": 1.3,
+    "int_ior": 1.3,
     "albedo": "color_white",
     "ld": "scalar_3",
     "roughness": "scalar_0"
@@ -198,7 +198,7 @@
   {
     "type": "subsurface",
     "name": "ss_white_r2",
-    "ior": 1.3,
+    "int_ior": 1.3,
     "albedo": "color_white",
     "ld": "scalar_3",
     "roughness": "scalar_0.2"
@@ -206,7 +206,7 @@
   {
     "type": "subsurface",
     "name": "ss_white_r4",
-    "ior": 1.3,
+    "int_ior": 1.3,
     "albedo": "color_white",
     "ld": "scalar_3",
     "roughness": "scalar_0.4"
@@ -214,7 +214,7 @@
   {
     "type": "subsurface",
     "name": "ss_white_r6",
-    "ior": 1.3,
+    "int_ior": 1.3,
     "albedo": "color_white",
     "ld": "scalar_3",
     "roughness": "scalar_0.6"
@@ -222,7 +222,7 @@
   {
     "type": "subsurface",
     "name": "ss_white_r8",
-    "ior": 1.3,
+    "int_ior": 1.3,
     "albedo": "color_white",
     "ld": "scalar_3",
     "roughness": "scalar_0.8"
@@ -230,7 +230,7 @@
   {
     "type": "subsurface",
     "name": "ss_white_rx",
-    "ior": 1.3,
+    "int_ior": 1.3,
     "albedo": "color_white",
     "ld": "scalar_3",
     "roughness": "scalar_1"

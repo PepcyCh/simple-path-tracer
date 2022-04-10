@@ -1,19 +1,20 @@
 use std::sync::Arc;
 
 use crate::{
+    bxdf::{
+        Bxdf, DielectricFresnel, Diffuse, GgxMicrofacet, MicrofacetPlastic, PndfAccel,
+        PndfGaussTerm, PndfMicrofacet, SpecularPlastic,
+    },
     core::{
         color::Color, intersection::Intersection, loader::InputParams,
         scene_resources::SceneResources,
     },
     material::MaterialT,
-    scatter::{
-        MicrofacetReflect, PndfAccel, PndfGaussTerm, PndfReflect, Scatter, SchlickFresnelMetal,
-        SpecularReflect,
-    },
     texture::{Texture, TextureChannel, TextureInput, TextureT},
 };
 
-pub struct PndfMetal {
+pub struct PndfPlastic {
+    ior: f32,
     albedo: Arc<Texture>,
     sigma_r: f32,
     sigma_hx: f32,
@@ -26,14 +27,18 @@ pub struct PndfMetal {
     bvh: PndfAccel,
 }
 
-impl PndfMetal {
+impl PndfPlastic {
     pub fn new(
+        int_ior: f32,
+        ext_ior: f32,
         albedo: Arc<Texture>,
         sigma_r: f32,
         base_normal: Arc<Texture>,
         fallback_roughness: Arc<Texture>,
         h: f32,
     ) -> Self {
+        let ior = int_ior / ext_ior;
+
         let h_inv = 1.0 / h;
         let (normal_width, normal_height, _) = base_normal.dimensions().unwrap();
         let terms_count_y = (normal_height as f32 * h_inv) as usize;
@@ -44,30 +49,34 @@ impl PndfMetal {
         let base_normal_tiling = base_normal.tiling().truncate();
         let base_normal_offset = base_normal.offset().truncate();
 
-        let hx_inv = terms_count_x as f32;
-        let hx = 1.0 / hx_inv;
+        let hx = 1.0 / terms_count_x as f32;
         let sigma_hx = hx / (8.0 * 2.0_f32.ln()).sqrt();
-        let hy_inv = terms_count_y as f32;
-        let hy = 1.0 / hy_inv;
+        let hx_inv = 1.0 / hx;
+        let hy = 1.0 / terms_count_y as f32;
         let sigma_hy = hy / (8.0 * 2.0_f32.ln()).sqrt();
+        let hy_inv = 1.0 / hy;
 
         for i in 0..terms_count_y {
             for j in 0..terms_count_x {
                 let u = (j as f32 + 0.5) * hx;
                 let v = (i as f32 + 0.5) * hy;
-
-                let s =
-                    get_normal_bilinear(&base_normal, u, v, base_normal_tiling, base_normal_offset);
+                let s = get_normal_bilinear(
+                    base_normal.as_ref(),
+                    u,
+                    v,
+                    base_normal_tiling,
+                    base_normal_offset,
+                );
 
                 let s_up = get_normal_bilinear(
-                    &base_normal,
+                    base_normal.as_ref(),
                     u + 0.5 * hx,
                     v,
                     base_normal_tiling,
                     base_normal_offset,
                 );
                 let s_un = get_normal_bilinear(
-                    &base_normal,
+                    base_normal.as_ref(),
                     u - 0.5 * hx,
                     v,
                     base_normal_tiling,
@@ -75,14 +84,14 @@ impl PndfMetal {
                 );
                 let dsdu = (s_up - s_un) * hx_inv;
                 let s_vp = get_normal_bilinear(
-                    &base_normal,
+                    base_normal.as_ref(),
                     u,
                     v + 0.5 * hy,
                     base_normal_tiling,
                     base_normal_offset,
                 );
                 let s_vn = get_normal_bilinear(
-                    &base_normal,
+                    base_normal.as_ref(),
                     u,
                     v - 0.5 * hy,
                     base_normal_tiling,
@@ -108,6 +117,7 @@ impl PndfMetal {
         let bvh = PndfAccel::new(terms_ref, 5, s_block_count);
 
         Self {
+            ior,
             albedo,
             sigma_r,
             sigma_hx,
@@ -121,6 +131,9 @@ impl PndfMetal {
     }
 
     pub fn load(rsc: &mut SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
+        let int_ior = params.get_float("int_ior")?;
+        let ext_ior = params.get_float_or("ext_ior", 1.0);
+
         let albedo = rsc.clone_texture(params.get_str("albedo")?)?;
         let base_normal = rsc.clone_texture(params.get_str("base_normal")?)?;
         let fallback_roughness = rsc.clone_texture(params.get_str("fallback_roughness")?)?;
@@ -136,6 +149,8 @@ impl PndfMetal {
         }
 
         Ok(Self::new(
+            int_ior,
+            ext_ior,
             albedo,
             sigma_r,
             base_normal,
@@ -145,8 +160,8 @@ impl PndfMetal {
     }
 }
 
-impl MaterialT for PndfMetal {
-    fn scatter(&self, inter: &Intersection<'_>) -> Scatter {
+impl MaterialT for PndfPlastic {
+    fn bxdf_context(&self, inter: &Intersection<'_>) -> Bxdf {
         let albedo = self.albedo.color_at(inter.into());
         let u = inter.texcoords * self.base_normal_tiling + self.base_normal_offset;
         let u_new = wrap_uv(u);
@@ -156,17 +171,18 @@ impl MaterialT for PndfMetal {
         let bvh: *const PndfAccel = &self.bvh;
 
         if sigma_p > 0.0 {
-            SchlickFresnelMetal::new(
-                albedo,
-                PndfReflect::new(
-                    Color::WHITE,
+            MicrofacetPlastic::new(
+                PndfMicrofacet::new(
                     u_new,
                     sigma_p,
                     self.sigma_hx,
                     self.sigma_hy,
                     self.sigma_r,
                     bvh,
-                ),
+                )
+                .into(),
+                DielectricFresnel::new(self.ior).into(),
+                Diffuse::new(albedo, self.ior).into(),
             )
             .into()
         } else {
@@ -174,12 +190,17 @@ impl MaterialT for PndfMetal {
                 .fallback_roughness
                 .float_at(inter.into(), TextureChannel::R)
                 .powi(2);
-            if roughness < 0.001 {
-                SchlickFresnelMetal::new(albedo, SpecularReflect::new(Color::WHITE)).into()
+            if roughness < 0.0001 {
+                SpecularPlastic::new(
+                    DielectricFresnel::new(self.ior).into(),
+                    Diffuse::new(albedo, self.ior).into(),
+                )
+                .into()
             } else {
-                SchlickFresnelMetal::new(
-                    albedo,
-                    MicrofacetReflect::new(Color::WHITE, roughness, roughness),
+                MicrofacetPlastic::new(
+                    GgxMicrofacet::new(roughness, roughness).into(),
+                    DielectricFresnel::new(self.ior).into(),
+                    Diffuse::new(albedo, self.ior).into(),
                 )
                 .into()
             }

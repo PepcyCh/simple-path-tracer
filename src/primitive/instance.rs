@@ -94,6 +94,8 @@ impl PrimitiveT for Instance {
     fn intersect<'a>(&'a self, ray: &Ray, inter: &mut Intersection<'a>) -> bool {
         let transformed_ray = ray.transformed_by(self.trans_inv);
         if self.primitive.intersect(&transformed_ray, inter) {
+            inter.instance = Some(self);
+
             inter.surface = Some(self.surface.as_ref());
             inter.position = ray.point_at(inter.t);
 
@@ -143,3 +145,20 @@ impl PrimitiveT for Instance {
         self.primitive.surface_area(trans)
     }
 }
+
+pub struct InstancePtr(pub *const Instance);
+
+impl std::hash::Hash for InstancePtr {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::ptr::hash(self.0, state);
+    }
+}
+impl PartialEq for InstancePtr {
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(self.0, other.0)
+    }
+}
+impl Eq for InstancePtr {}
+
+unsafe impl Send for InstancePtr {}
+unsafe impl Sync for InstancePtr {}

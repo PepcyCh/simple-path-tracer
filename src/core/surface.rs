@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use crate::{
+    bxdf::Bxdf,
     core::{
         color::Color, coord::Coordinate, intersection::Intersection, loader::InputParams, ray::Ray,
         scene_resources::SceneResources,
     },
     material::{Material, MaterialT},
     medium::Medium,
-    scatter::Scatter,
     texture::{Texture, TextureT},
 };
 
@@ -94,8 +94,8 @@ impl Surface {
         coord
     }
 
-    pub fn scatter_and_coord(&self, ray: &Ray, inter: &Intersection<'_>) -> (Scatter, Coordinate) {
-        let scatter = self.material.scatter(inter);
+    pub fn scatter_and_coord(&self, ray: &Ray, inter: &Intersection<'_>) -> (Bxdf, Coordinate) {
+        let scatter = self.material.bxdf_context(inter);
 
         let coord = self.coord(ray, inter);
 

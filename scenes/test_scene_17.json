@@ -22,7 +22,7 @@
     {
       "name": "bezier",
       "primitive": "bezier1",
-      "material": "dielectric_uv_test_rev_rough"
+      "material": "plastic_uv_test_rev_rough"
     },
     {
       "name": "floor",

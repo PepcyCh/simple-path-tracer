@@ -1,6 +1,6 @@
 use crate::{
     core::{ray::Ray, surface::Surface},
-    primitive::BasicPrimitiveRef,
+    primitive::{BasicPrimitiveRef, Instance},
 };
 
 pub struct Intersection<'a> {
@@ -10,6 +10,7 @@ pub struct Intersection<'a> {
     pub bitangent: glam::Vec3A,
     pub normal: glam::Vec3A,
     pub texcoords: glam::Vec2,
+    pub instance: Option<&'a Instance>,
     pub primitive: Option<BasicPrimitiveRef<'a>>,
     pub surface: Option<&'a Surface>,
     pub duvdx: glam::Vec2,
@@ -91,6 +92,7 @@ impl Default for Intersection<'_> {
             bitangent: glam::Vec3A::Y,
             normal: glam::Vec3A::Z,
             texcoords: glam::Vec2::ZERO,
+            instance: None,
             primitive: None,
             surface: None,
             duvdx: glam::Vec2::ZERO,

@@ -117,9 +117,20 @@ pub fn schlick_fresnel(ior: f32, cos: f32) -> f32 {
     r0 + (1.0 - r0) * pow5(1.0 - cos)
 }
 
-#[allow(dead_code)]
 pub fn schlick_fresnel_with_r0(r0: Color, cos: f32) -> Color {
     r0 + (Color::WHITE - r0) * pow5(1.0 - cos)
+}
+
+pub fn fresnel_moment1(eta: f32) -> f32 {
+    let eta2 = eta * eta;
+    let eta3 = eta2 * eta;
+    let eta4 = eta3 * eta;
+    let eta5 = eta4 * eta;
+    if eta < 1.0 {
+        0.45966 - 1.73965 * eta + 3.37668 * eta2 - 3.904945 * eta3 + 2.49277 * eta4 - 0.68441 * eta5
+    } else {
+        -4.61686 + 11.1136 * eta - 10.4646 * eta2 + 5.11455 * eta3 - 1.27198 * eta4 + 0.12746 * eta5
+    }
 }
 
 pub fn half_from_reflect(i: glam::Vec3A, o: glam::Vec3A) -> glam::Vec3A {

@@ -1,13 +1,10 @@
 use std::sync::Arc;
 
 use crate::{
+    bxdf::{Bxdf, GgxMicrofacet, Lambert, MicrofacetPlastic, SchlickFresnel, SpecularPlastic},
     core::{
         color::Color, intersection::Intersection, loader::InputParams,
         scene_resources::SceneResources,
-    },
-    scatter::{
-        LambertReflect, MicrofacetReflect, MixScatter, Scatter, SchlickFresnelDielectric,
-        SchlickFresnelMetal, SpecularReflect,
     },
     texture::{Texture, TextureChannel, TextureT},
 };
@@ -68,7 +65,7 @@ impl PbrMetallic {
 }
 
 impl MaterialT for PbrMetallic {
-    fn scatter(&self, inter: &Intersection<'_>) -> Scatter {
+    fn bxdf_context(&self, inter: &Intersection<'_>) -> Bxdf {
         let base_color = self.base_color.color_at(inter.into());
         let roughness_x = self
             .roughness_x
@@ -80,31 +77,20 @@ impl MaterialT for PbrMetallic {
             .powi(2);
         let metallic = self.metallic.float_at(inter.into(), self.metallic_chan);
 
-        if roughness_x < 0.001 || roughness_y < 0.001 {
-            MixScatter::new(
-                metallic,
-                SchlickFresnelMetal::new(base_color, SpecularReflect::new(Color::WHITE)),
-                1.0 - metallic,
-                SchlickFresnelDielectric::new(
-                    Color::gray(0.04),
-                    SpecularReflect::new(Color::WHITE),
-                    LambertReflect::new(base_color),
-                ),
+        let specular = metallic * base_color + (1.0 - metallic) * Color::gray(0.04);
+        let diffuse = base_color * (1.0 - metallic);
+
+        if roughness_x < 0.0001 || roughness_y < 0.0001 {
+            SpecularPlastic::new(
+                SchlickFresnel::new(specular).into(),
+                Lambert::new(diffuse).into(),
             )
             .into()
         } else {
-            MixScatter::new(
-                metallic,
-                SchlickFresnelMetal::new(
-                    base_color,
-                    MicrofacetReflect::new(Color::WHITE, roughness_x, roughness_y),
-                ),
-                1.0 - metallic,
-                SchlickFresnelDielectric::new(
-                    Color::gray(0.04),
-                    MicrofacetReflect::new(Color::WHITE, roughness_x, roughness_y),
-                    LambertReflect::new(base_color),
-                ),
+            MicrofacetPlastic::new(
+                GgxMicrofacet::new(roughness_x, roughness_y).into(),
+                SchlickFresnel::new(specular).into(),
+                Lambert::new(diffuse).into(),
             )
             .into()
         }

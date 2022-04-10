@@ -20,9 +20,9 @@
       "translate": [1.2, 0.0, 0.0]
     },
     {
-      "name": "glass_cube",
+      "name": "dielectric_cube",
       "primitive": "cube",
-      "material": "glass_red",
+      "material": "dielectric_red",
       "translate": [-1.0, 0.0, 0.0],
       "rotate": [0.0, -15.0, 0.0]
     },

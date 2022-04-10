@@ -11,8 +11,8 @@
     "materials": [
       "common_materials.json",
       {
-        "type": "pndf_metal",
-        "name": "pndf_metal_orange",
+        "type": "pndf_conductor",
+        "name": "pndf_conductor_orange",
         "albedo": "color_orange",
         "sigma_r": 0.02,
         "base_normal": "nm_brushed_16",
@@ -36,9 +36,9 @@
     "primitives": "common_primitives.json",
     "instances": [
       {
-        "name": "pndf_metal",
+        "name": "pndf_conductor",
         "primitive": "sphere_1",
-        "material": "pndf_metal_orange",
+        "material": "pndf_conductor_orange",
         "translate": [-1.2, 0.3, 0.0]
       },
       {

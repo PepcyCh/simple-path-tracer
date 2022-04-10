@@ -26,7 +26,7 @@
     },
     {
       "name": "medium",
-      "material": "glass_white",
+      "material": "dieletric_white",
       "inside_medium": "med_homo"
     }
   ],

@@ -1,4 +1,4 @@
-use crate::scatter::ScatterDirType;
+use crate::bxdf::BxdfDirType;
 
 #[derive(Copy, Clone)]
 pub struct Coordinate {
@@ -50,8 +50,8 @@ impl Coordinate {
         self.local_to_world * local
     }
 
-    pub fn in_expected_hemisphere(&self, dir: glam::Vec3A, ty: ScatterDirType) -> bool {
-        if ty == ScatterDirType::Reflect {
+    pub fn in_expected_hemisphere(&self, dir: glam::Vec3A, ty: BxdfDirType) -> bool {
+        if ty == BxdfDirType::Reflect {
             dir.dot(self.hemisphere) >= 0.0
         } else {
             dir.dot(self.hemisphere) <= 0.0

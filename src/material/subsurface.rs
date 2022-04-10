@@ -1,10 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
+    bxdf::{self, Bxdf, DielectricFresnel, GgxMicrofacet, MicrofacetPlastic, SpecularPlastic},
     core::{intersection::Intersection, loader::InputParams, scene_resources::SceneResources},
-    scatter::{
-        FresnelDielectricRSsr, MicrofacetReflect, Scatter, SpecularReflect, SubsurfaceReflect,
-    },
     texture::{Texture, TextureChannel, TextureT},
 };
 
@@ -20,12 +18,14 @@ pub struct Subsurface {
 
 impl Subsurface {
     pub fn new(
-        ior: f32,
+        int_ior: f32,
+        ext_ior: f32,
         albedo: Arc<Texture>,
         ld: Arc<Texture>,
         roughness_x: Arc<Texture>,
         roughness_y: Arc<Texture>,
     ) -> Self {
+        let ior = int_ior / ext_ior;
         Self {
             ior,
             albedo,
@@ -36,7 +36,8 @@ impl Subsurface {
     }
 
     pub fn load(rsc: &SceneResources, params: &mut InputParams) -> anyhow::Result<Self> {
-        let ior = params.get_float("ior")?;
+        let int_ior = params.get_float("int_ior")?;
+        let ext_ior = params.get_float_or("ext_ior", 1.0);
 
         let albedo = rsc.clone_texture(params.get_str("albedo")?)?;
         let ld = rsc.clone_texture(params.get_str("ld")?)?;
@@ -50,14 +51,22 @@ impl Subsurface {
             (roughness_x, roughness_y)
         };
 
-        Ok(Subsurface::new(ior, albedo, ld, roughness_x, roughness_y))
+        Ok(Subsurface::new(
+            int_ior,
+            ext_ior,
+            albedo,
+            ld,
+            roughness_x,
+            roughness_y,
+        ))
     }
 }
 
 impl MaterialT for Subsurface {
-    fn scatter(&self, inter: &Intersection<'_>) -> Scatter {
+    fn bxdf_context(&self, inter: &Intersection<'_>) -> Bxdf {
         let albedo = self.albedo.color_at(inter.into());
         let ld = self.ld.float_at(inter.into(), TextureChannel::R);
+
         let roughness_x = self
             .roughness_x
             .float_at(inter.into(), TextureChannel::R)
@@ -67,18 +76,17 @@ impl MaterialT for Subsurface {
             .float_at(inter.into(), TextureChannel::R)
             .powi(2);
 
-        if roughness_x < 0.001 || roughness_y < 0.001 {
-            FresnelDielectricRSsr::new(
-                self.ior,
-                SpecularReflect::new(albedo),
-                SubsurfaceReflect::new(albedo, ld, self.ior),
+        if roughness_x < 0.0001 || roughness_y < 0.0001 {
+            SpecularPlastic::new(
+                DielectricFresnel::new(self.ior).into(),
+                bxdf::Subsurface::new(albedo, self.ior, ld).into(),
             )
             .into()
         } else {
-            FresnelDielectricRSsr::new(
-                self.ior,
-                MicrofacetReflect::new(albedo, roughness_x, roughness_y),
-                SubsurfaceReflect::new(albedo, ld, self.ior),
+            MicrofacetPlastic::new(
+                GgxMicrofacet::new(roughness_x, roughness_y).into(),
+                DielectricFresnel::new(self.ior).into(),
+                bxdf::Subsurface::new(albedo, self.ior, ld).into(),
             )
             .into()
         }

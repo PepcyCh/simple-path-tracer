@@ -1,13 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
-    core::{
-        color::Color, intersection::Intersection, loader::InputParams,
-        scene_resources::SceneResources,
-    },
-    scatter::{
-        LambertReflect, MicrofacetReflect, Scatter, SchlickFresnelDielectric, SpecularReflect,
-    },
+    bxdf::{Bxdf, GgxMicrofacet, Lambert, MicrofacetPlastic, SchlickFresnel, SpecularPlastic},
+    core::{intersection::Intersection, loader::InputParams, scene_resources::SceneResources},
     texture::{Texture, TextureChannel, TextureT},
 };
 
@@ -63,7 +58,7 @@ impl PbrSpecular {
 }
 
 impl MaterialT for PbrSpecular {
-    fn scatter(&self, inter: &Intersection<'_>) -> Scatter {
+    fn bxdf_context(&self, inter: &Intersection<'_>) -> Bxdf {
         let diffuse = self.diffuse.color_at(inter.into());
         let specular = self.specular.color_at(inter.into());
         let roughness_x = self
@@ -75,18 +70,17 @@ impl MaterialT for PbrSpecular {
             .float_at(inter.into(), self.roughness_chan)
             .powi(2);
 
-        if roughness_x < 0.001 || roughness_y < 0.001 {
-            SchlickFresnelDielectric::new(
-                specular,
-                SpecularReflect::new(Color::WHITE),
-                LambertReflect::new(diffuse),
+        if roughness_x < 0.0001 || roughness_y < 0.0001 {
+            SpecularPlastic::new(
+                SchlickFresnel::new(specular).into(),
+                Lambert::new(diffuse).into(),
             )
             .into()
         } else {
-            SchlickFresnelDielectric::new(
-                specular,
-                MicrofacetReflect::new(Color::WHITE, roughness_x, roughness_y),
-                LambertReflect::new(diffuse),
+            MicrofacetPlastic::new(
+                GgxMicrofacet::new(roughness_x, roughness_y).into(),
+                SchlickFresnel::new(specular).into(),
+                Lambert::new(diffuse).into(),
             )
             .into()
         }

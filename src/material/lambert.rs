@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
+    bxdf::{self, Bxdf},
     core::{intersection::Intersection, loader::InputParams, scene_resources::SceneResources},
-    scatter::{LambertReflect, Scatter},
     texture::{Texture, TextureT},
 };
 
@@ -24,8 +24,8 @@ impl Lambert {
 }
 
 impl MaterialT for Lambert {
-    fn scatter(&self, inter: &Intersection<'_>) -> Scatter {
+    fn bxdf_context(&self, inter: &Intersection<'_>) -> Bxdf {
         let albedo = self.albedo.color_at(inter.into());
-        LambertReflect::new(albedo).into()
+        bxdf::Lambert::new(albedo).into()
     }
 }

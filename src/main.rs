@@ -5,6 +5,7 @@ use structopt::StructOpt;
 
 use crate::renderer::{OutputConfig, RendererT};
 
+mod bxdf;
 mod camera;
 mod core;
 mod filter;
@@ -16,7 +17,7 @@ mod medium;
 mod pixel_sampler;
 mod primitive;
 mod renderer;
-mod scatter;
+// mod scatter;
 mod texture;
 
 #[macro_use]

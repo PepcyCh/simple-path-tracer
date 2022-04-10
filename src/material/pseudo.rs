@@ -1,9 +1,6 @@
 use crate::{
-    core::{
-        color::Color, intersection::Intersection, loader::InputParams,
-        scene_resources::SceneResources,
-    },
-    scatter::{Scatter, SpecularTransmit},
+    bxdf::{Bxdf, Pseudo},
+    core::{intersection::Intersection, loader::InputParams, scene_resources::SceneResources},
 };
 
 use super::MaterialT;
@@ -21,7 +18,7 @@ impl PseudoMaterial {
 }
 
 impl MaterialT for PseudoMaterial {
-    fn scatter(&self, _inter: &Intersection<'_>) -> Scatter {
-        SpecularTransmit::new(Color::WHITE, 1.0).into()
+    fn bxdf_context(&self, _inter: &Intersection<'_>) -> Bxdf {
+        Pseudo::new().into()
     }
 }

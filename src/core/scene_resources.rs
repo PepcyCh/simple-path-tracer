@@ -7,7 +7,7 @@ use crate::{
     light_sampler::{LightSampler, PowerIsLightSampler, UniformLightSampler},
     material::Material,
     medium::Medium,
-    primitive::{BvhAccel, Group, Instance, Primitive},
+    primitive::{BvhAccel, Group, Instance, InstancePtr, Primitive},
     texture::Texture,
 };
 
@@ -22,6 +22,7 @@ pub struct SceneResources {
     textures: HashMap<String, Arc<Texture>>,
     lights: HashMap<String, Arc<Light>>,
     environment: Option<Arc<Light>>,
+    environment_light_index: Option<usize>,
 }
 
 impl SceneResources {
@@ -108,21 +109,29 @@ impl SceneResources {
             .map(|(_, inst)| inst.clone())
             .collect::<Vec<_>>();
 
+        let mut instance_light_map = HashMap::new();
         for instance in self.instances.values() {
             if instance.surface().is_emissive() {
                 let light = ShapeLight::new(instance.clone());
-                lights.push(Arc::new(light.into()));
+                let light: Arc<Light> = Arc::new(light.into());
+                lights.push(light.clone());
+                instance_light_map.insert(InstancePtr(Arc::as_ptr(instance)), lights.len() - 1);
             }
         }
 
         let light_sampler = if let Some(ty) = ty {
             match ty {
-                "uniform" => UniformLightSampler::new(lights).into(),
-                "power_is" => PowerIsLightSampler::new(lights).into(),
+                "uniform" => UniformLightSampler::new(lights, self.environment_light_index).into(),
+                "power_is" => PowerIsLightSampler::new(
+                    lights,
+                    self.environment_light_index,
+                    instance_light_map,
+                )
+                .into(),
                 _ => anyhow::bail!(format!("Unknown light sampler type '{}'", ty)),
             }
         } else {
-            UniformLightSampler::new(lights).into()
+            UniformLightSampler::new(lights, self.environment_light_index).into()
         };
 
         Ok(light_sampler)
@@ -153,6 +162,7 @@ impl SceneResources {
             let env: Arc<Light> = Arc::new(env.into());
             self.lights.insert("$env".to_owned(), env.clone());
             self.environment = Some(env);
+            self.environment_light_index = Some(self.lights.len() - 1);
             Ok(())
         }
     }

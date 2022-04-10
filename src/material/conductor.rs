@@ -1,11 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
-    core::{
-        color::Color, intersection::Intersection, loader::InputParams,
-        scene_resources::SceneResources,
-    },
-    scatter::{FresnelConductor, MicrofacetReflect, Scatter, SpecularReflect},
+    bxdf::{Bxdf, ConductorFresnel, GgxMicrofacet, MicrofacetConductor, SpecularConductor},
+    core::{intersection::Intersection, loader::InputParams, scene_resources::SceneResources},
     texture::{Texture, TextureChannel, TextureT},
 };
 
@@ -51,7 +48,7 @@ impl Conductor {
 }
 
 impl MaterialT for Conductor {
-    fn scatter(&self, inter: &Intersection<'_>) -> Scatter {
+    fn bxdf_context(&self, inter: &Intersection<'_>) -> Bxdf {
         let ior = self.ior.color_at(inter.into());
         let ior_k = self.ior_k.color_at(inter.into());
         let roughness_x = self
@@ -63,13 +60,12 @@ impl MaterialT for Conductor {
             .float_at(inter.into(), TextureChannel::R)
             .powi(2);
 
-        if roughness_x < 0.001 || roughness_y < 0.001 {
-            FresnelConductor::new(ior, ior_k, SpecularReflect::new(Color::WHITE)).into()
+        if roughness_x < 0.0001 || roughness_y < 0.0001 {
+            SpecularConductor::new(ConductorFresnel::new(ior, ior_k).into()).into()
         } else {
-            FresnelConductor::new(
-                ior,
-                ior_k,
-                MicrofacetReflect::new(Color::WHITE, roughness_x, roughness_y),
+            MicrofacetConductor::new(
+                GgxMicrofacet::new(roughness_x, roughness_y).into(),
+                ConductorFresnel::new(ior, ior_k).into(),
             )
             .into()
         }

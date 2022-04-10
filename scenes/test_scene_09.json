@@ -20,16 +20,16 @@
   "primitives": "common_primitives.json",
   "instances": [
     {
-      "name": "glass",
+      "name": "dielectric",
       "primitive": "cube",
-      "material": "glass_gray_9",
+      "material": "dielectric_gray_9",
       "scale": [1.0, 1.0, 0.2],
       "translate": [0.0, 0.3, 1.5]
     },
     {
       "name": "cube",
       "primitive": "cube",
-      "material": "dielectric_red_smooth",
+      "material": "plastic_red_smooth",
       "scale": [3.0, 0.5, 0.5],
       "rotate": [30.0, 0.0, 0.0],
       "translate": [0.0, 0.3, -1.5]

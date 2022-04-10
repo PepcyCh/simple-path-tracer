@@ -1,6 +1,7 @@
-use std::cell::UnsafeCell;
+use std::{cell::UnsafeCell, mem::MaybeUninit};
 
 use crate::{
+    bxdf::{BxdfInputs, BxdfT},
     camera::CameraT,
     core::{
         color::Color,
@@ -12,11 +13,10 @@ use crate::{
     },
     filter::Filter,
     light::LightT,
-    light_sampler::LightSamplerT,
+    light_sampler::{LightSamplerInputs, LightSamplerT},
     medium::{Medium, MediumT},
     pixel_sampler::{PixelSampler, PixelSamplerT},
     primitive::{BasicPrimitiveRef, PrimitiveT},
-    scatter::ScatterT,
 };
 
 use super::{util, OutputConfig, RendererT};
@@ -28,8 +28,6 @@ pub struct PathTracer {
 }
 
 impl PathTracer {
-    const CUTOFF_LUMINANCE: f32 = 0.001;
-
     pub fn new(max_depth: u32, pixel_sampler: PixelSampler, filter: Filter) -> Self {
         Self {
             max_depth,
@@ -40,10 +38,12 @@ impl PathTracer {
 
     fn trace_ray(&self, scene: &Scene, mut ray: Ray, rng: &mut Rng) -> Color {
         let mut final_color = Color::BLACK;
-        let mut color_coe = Color::WHITE;
+        let mut throuput = Color::WHITE;
         let mut curr_depth = 0;
         let mut curr_medium: Option<&Medium> = None;
         let mut curr_primitive: Option<BasicPrimitiveRef<'_>>;
+        let mut light_sampler_inputs = MaybeUninit::<LightSamplerInputs>::uninit();
+        let mut last_sample_pdf = 0.0;
 
         while curr_depth < self.max_depth {
             let mut inter = Intersection::default();
@@ -57,15 +57,20 @@ impl PathTracer {
                 let wo = -ray.direction;
                 let (pi, still_in_medium, attenuation) =
                     medium.sample_pi(ray.origin, wo, inter.t, rng);
-                color_coe *= attenuation;
+                throuput *= attenuation;
 
                 if !still_in_medium {
                     curr_medium = None;
                     continue;
                 } else {
                     let mut li = Color::BLACK;
-                    let (light, light_sample_pdf) = scene.light_sampler().sample_light(rng);
-                    let (light_dir, pdf, light_strength, dist) = light.sample(pi, rng);
+                    light_sampler_inputs.write(LightSamplerInputs {
+                        position: pi,
+                        normal: glam::Vec3A::ZERO,
+                    });
+                    let (light_dir, pdf, light_strength, dist, light_is_delta) = scene
+                        .light_sampler()
+                        .sample_light(unsafe { light_sampler_inputs.assume_init_ref() }, rng);
                     let phase = medium.phase(wo, light_dir);
 
                     let (shadow_ray, transported_dist) =
@@ -75,49 +80,36 @@ impl PathTracer {
                         && pdf.is_finite()
                         && !scene.aggregate().intersect_test(&shadow_ray, dist - 0.001)
                     {
-                        if light.is_delta() {
-                            li += atten * phase * light_strength / pdf;
+                        if light_is_delta {
+                            li = atten * phase * light_strength / pdf;
                         } else {
                             let weight = power_heuristic(1, pdf, 1, phase);
-                            li += atten * phase * light_strength * weight / pdf;
+                            li = atten * phase * light_strength * weight / pdf;
                         }
                     }
 
-                    if !light.is_delta() {
-                        let (wi, phase) = medium.sample_wi(wo, rng);
-                        let (light_strength, dist, light_pdf) = light.strength_dist_pdf(pi, wi);
-
-                        let (shadow_ray, transported_dist) = self.shadow_ray_from_medium(
-                            pi,
-                            light_dir,
-                            dist,
-                            curr_primitive.unwrap(),
-                        );
-                        let atten = medium.transport_attenuation(transported_dist);
-                        if phase != 0.0
-                            && phase.is_finite()
-                            && !scene.aggregate().intersect_test(&shadow_ray, dist - 0.001)
-                        {
-                            let weight = power_heuristic(1, phase, 1, light_pdf);
-                            li += atten * phase * light_strength * weight / phase;
-                        }
-                    }
-                    final_color += color_coe * li / light_sample_pdf.max(0.00001);
+                    final_color += throuput * li;
                 }
 
-                let (wi, _) = medium.sample_wi(wo, rng);
+                let (wi, pdf) = medium.sample_wi(wo, rng);
+                last_sample_pdf = pdf;
                 ray = Ray::new(pi, wi);
-            } else {
-                if !does_hit {
-                    if let Some(env) = scene.environment() {
-                        if curr_depth == 0 {
-                            let (env, _, _) = env.strength_dist_pdf(ray.origin, ray.direction);
-                            final_color += color_coe * env;
-                        }
-                    }
-                    break;
+            } else if !does_hit {
+                if let Some(env) = scene.environment() {
+                    let (env, _, env_pdf) = env.strength_dist_pdf(ray.origin, ray.direction);
+                    let weight = if curr_depth == 0 {
+                        1.0
+                    } else {
+                        let pdf = scene
+                            .light_sampler()
+                            .pdf_env_light(unsafe { light_sampler_inputs.assume_init_ref() })
+                            * env_pdf;
+                        power_heuristic(1, last_sample_pdf, 1, pdf)
+                    };
+                    final_color += throuput * env * weight;
                 }
-
+                break;
+            } else {
                 if cfg!(feature = "debug_normal") {
                     let normal_color = Color::new(inter.normal.x, inter.normal.y, inter.normal.z);
                     let normal_color = normal_color * 0.5 + Color::gray(0.5);
@@ -125,76 +117,73 @@ impl PathTracer {
                     break;
                 }
 
-                let po = ray.point_at(inter.t);
+                let mut po = ray.point_at(inter.t);
                 let surf = inter.surface.unwrap();
-                let (scatter, coord_po) = surf.scatter_and_coord(&ray, &inter);
+                let (bxdf_context, mut coord_po) = surf.scatter_and_coord(&ray, &inter);
+
+                let li_emissive = surf.emissive(&inter);
+                if li_emissive.luminance() > 0.0 {
+                    let weight = if curr_depth == 0 {
+                        1.0
+                    } else {
+                        let pdf = scene.light_sampler().pdf_shape_light(
+                            unsafe { light_sampler_inputs.assume_init_ref() },
+                            inter.instance.unwrap(),
+                            &inter,
+                        );
+                        power_heuristic(1, last_sample_pdf, 1, pdf)
+                    };
+                    final_color += throuput * li_emissive * weight;
+                }
 
                 let wo = coord_po.to_local(-ray.direction);
-
-                let (pi, coord_pi, sp_pdf, sp) =
-                    scatter.sample_pi(po, wo, coord_po, rng, &*scene.aggregate());
-                color_coe *= sp / sp_pdf;
-                if !color_coe.is_finite() || color_coe.luminance() < Self::CUTOFF_LUMINANCE {
-                    break;
-                }
-
-                let li_emissive = if curr_depth == 0 {
-                    surf.emissive(&inter)
-                } else {
-                    Color::BLACK
+                let bxdf_inputs = BxdfInputs {
+                    po,
+                    coord_po,
+                    wo,
+                    scene: scene.aggregate(),
                 };
+                let samp = bxdf_context.sample(&bxdf_inputs, rng);
+                if let Some(subsurface) = samp.subsurface {
+                    po = subsurface.pi;
+                    coord_po = subsurface.coord_pi;
+                    throuput *= subsurface.sp / subsurface.pdf_pi;
+                }
 
                 let mut li = Color::BLACK;
-                let (light, light_sample_pdf) = scene.light_sampler().sample_light(rng);
-                let (light_dir, pdf, light_strength, dist) = light.sample(pi, rng);
-                let wi = coord_pi.to_local(light_dir);
-                let bxdf = scatter.bxdf(po, wo, pi, wi);
-                let mat_pdf = scatter.pdf(po, wo, pi, wi);
-                let mut shadow_ray = Ray::new(pi, light_dir);
-                shadow_ray.t_min = Ray::T_MIN_EPS / wi.z.abs().max(0.00001);
-                if pdf != 0.0
-                    && pdf.is_finite()
-                    && !scene.aggregate().intersect_test(&shadow_ray, dist - 0.001)
-                {
-                    if light.is_delta() {
-                        li += light_strength * bxdf * wi.z / pdf.max(0.00001);
-                    } else {
-                        let weight = power_heuristic(1, pdf, 1, mat_pdf);
-                        li += light_strength * bxdf * wi.z * weight / pdf.max(0.00001);
-                    }
-                }
-
-                if !light.is_delta() {
-                    let (wi, pdf, bxdf, ty) = scatter.sample_wi(po, wo, pi, rng);
-                    let light_dir = coord_pi.to_world(wi);
-                    if coord_pi.in_expected_hemisphere(light_dir, ty.dir) {
-                        let (light_strength, dist, light_pdf) =
-                            light.strength_dist_pdf(pi, light_dir);
-                        let shadow_ray = Ray::new(pi, light_dir);
-                        if pdf != 0.0
-                            && pdf.is_finite()
-                            && !scene.aggregate().intersect_test(&shadow_ray, dist - 0.001)
-                        {
-                            if scatter.is_delta() {
-                                li += light_strength * bxdf * wi.z / pdf.max(0.00001);
-                            } else {
-                                let weight = power_heuristic(1, pdf, 1, light_pdf);
-                                li += light_strength * bxdf * wi.z * weight / pdf.max(0.00001);
-                            }
+                light_sampler_inputs.write(LightSamplerInputs {
+                    position: po,
+                    normal: inter.normal,
+                });
+                if !bxdf_context.is_delta() {
+                    let (light_dir, pdf, light_strength, dist, light_is_delta) = scene
+                        .light_sampler()
+                        .sample_light(unsafe { light_sampler_inputs.assume_init_ref() }, rng);
+                    let wi = coord_po.to_local(light_dir);
+                    let bxdf = bxdf_context.bxdf(wo, wi);
+                    let mat_pdf = bxdf_context.pdf(wo, wi);
+                    let mut shadow_ray = Ray::new(po, light_dir);
+                    shadow_ray.t_min = Ray::T_MIN_EPS / wi.z.abs().max(0.00001);
+                    if pdf != 0.0
+                        && pdf.is_finite()
+                        && !scene.aggregate().intersect_test(&shadow_ray, dist - 0.001)
+                    {
+                        if light_is_delta {
+                            li = light_strength * bxdf * wi.z.abs() / pdf.max(0.00001);
+                        } else {
+                            let weight = power_heuristic(1, pdf, 1, mat_pdf);
+                            li = light_strength * bxdf * wi.z.abs() * weight / pdf.max(0.00001);
                         }
                     }
+                    final_color += throuput * li;
                 }
-                final_color += color_coe * (li / light_sample_pdf.max(0.00001) + li_emissive);
 
-                let (wi, pdf, bxdf, ty) = scatter.sample_wi(po, wo, pi, rng);
-                let wi_world = coord_pi.to_world(wi);
-                ray = Ray::new(pi, wi_world);
-                ray.t_min = Ray::T_MIN_EPS / wi.z.abs().max(0.00001);
-                color_coe *= bxdf * wi.z.abs() / pdf.max(0.00001);
-                if !color_coe.is_finite() || color_coe.luminance() < Self::CUTOFF_LUMINANCE {
-                    break;
-                }
-                if !coord_pi.in_expected_hemisphere(wi_world, ty.dir) {
+                last_sample_pdf = samp.pdf;
+                let wi_world = coord_po.to_world(samp.wi);
+                ray = Ray::new(po, wi_world);
+                ray.t_min = Ray::T_MIN_EPS / samp.wi.z.abs().max(0.00001);
+                throuput *= samp.bxdf * samp.wi.z.abs() / samp.pdf.max(0.00001);
+                if !coord_po.in_expected_hemisphere(wi_world, samp.ty.dir) {
                     break;
                 }
 
@@ -203,12 +192,16 @@ impl PathTracer {
                 }
             }
 
+            if !throuput.is_finite() {
+                break;
+            }
+
             let rr_rand = rng.uniform_1d();
-            let rr_prop = color_coe.luminance().clamp(Self::CUTOFF_LUMINANCE, 1.0);
+            let rr_prop = throuput.luminance().clamp(0.001, 0.95);
             if rr_rand > rr_prop {
                 break;
             }
-            color_coe /= rr_prop;
+            throuput /= rr_prop;
 
             curr_depth += 1;
         }
