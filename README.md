@@ -4,7 +4,7 @@ A simple path tracer written in Rust.
 
 It's a playground for me to learn something about path tracing.
 
-## Structure
+## Architecture
 
 ![](./doc/struct.jpg)
 
@@ -115,11 +115,11 @@ Combiner/Wrapper of `Texture`s
 * Importance sampling to HDR(`.exr`) environment map using alias method
 * Surface area hierarchy
 * Multiple importance sampling
-* Simple microfacet material (GGX NDF and Smith separable visible term, importance sampling w.r.t GGX NDF)
+* Simple microfacet material (GGX NDF and Smith separable visible term, importance sampling w.r.t VNDF)
 * Microfacet glass material
 * Homogeneous medium with Henyey-Greenstein phase function
 * BSSRDF with normalized diffusion profile
-* Glinty surface material ([Position-Normal Distributions for Efficient Rendering of Specular Microstructure, Yan et al. 2016](https://sites.cs.ucsb.edu/~lingqi/publications/paper_glints2.pdf)), last supported commit: [6611661f](https://github.com/PepcyCh/simple-path-tracer/tree/6611661fed3bca4424ca88d8a998dd6c98b68313).
+* Glinty surface material ([Position-Normal Distributions for Efficient Rendering of Specular Microstructure, Yan et al. 2016](https://sites.cs.ucsb.edu/~lingqi/publications/paper_glints2.pdf))
 * Cubic Bézier surface
   * Bézier clipping (default)
   * Newton's iteration (feature `bezier_ni`)
